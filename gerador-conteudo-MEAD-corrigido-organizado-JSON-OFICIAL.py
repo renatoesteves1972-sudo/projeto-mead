@@ -9962,6 +9962,100 @@ def selecionar_informacoes_relevantes(
         if valor
 
     ]
+    
+    # ============================================================
+    # CATEGORIAS — ORIENTAÇÃO ADICIONAL PARA SELEÇÃO
+    # As categorias apenas ajudam a pontuar os candidatos.
+    # Não alteram a quantidade nem a lógica de seleção dos 15
+    # fragmentos.
+    # ============================================================
+
+    categorias_editoriais_ativas = []
+
+    try:
+        if isinstance(estrutura_editorial, dict):
+            for bloco_editorial, ativo in estrutura_editorial.items():
+
+                if not ativo:
+                    continue
+
+                categorias_do_bloco = MAPEAMENTO_EDITORIAL.get(
+                    bloco_editorial,
+                    []
+                )
+
+                for categoria in categorias_do_bloco:
+                    if categoria not in categorias_editoriais_ativas:
+                        categorias_editoriais_ativas.append(categoria)
+
+    except Exception:
+        categorias_editoriais_ativas = []
+
+    print(
+        "CATEGORIAS EDITORIAIS ATIVAS:",
+        categorias_editoriais_ativas
+    )
+
+    # Termos associados às categorias.
+    # Servem exclusivamente como sinal adicional de relevância.
+    termos_categorias = {
+
+        "definicao": [
+            "definição", "definicao", "conceito",
+            "descrição", "descricao", "característica",
+            "caracteristicas"
+        ],
+
+        "beneficios": [
+            "benefício", "beneficio", "benefícios",
+            "beneficios", "desempenho", "confiabilidade",
+            "durabilidade", "eficiência", "eficiencia",
+            "economia", "produtividade"
+        ],
+
+        "vantagens": [
+            "vantagem", "vantagens", "diferencial",
+            "diferenciais", "eficiência", "eficiencia",
+            "desempenho", "confiabilidade"
+        ],
+
+        "materia_prima": [
+            "material", "materiais", "matéria-prima",
+            "materia-prima", "composição", "composicao",
+            "aço", "aco", "ferro", "alumínio", "aluminio"
+        ],
+
+        "aplicacoes": [
+            "aplicação", "aplicacao", "aplicações",
+            "aplicacoes", "utilização", "utilizacao",
+            "uso", "empregado", "empregada"
+        ],
+
+        "fabricacao": [
+            "fabricação", "fabricacao", "produção",
+            "producao", "processo", "montagem",
+            "construção", "construcao"
+        ],
+
+        "manutencao": [
+            "manutenção", "manutencao", "inspeção",
+            "inspecao", "reparo", "ajuste",
+            "lubrificação", "lubrificacao"
+        ],
+
+        "ativos_narrativos": [
+            "empresa", "fabricante", "fornecedor",
+            "produto", "solução", "solucao",
+            "serviço", "servico", "suporte",
+            "atendimento"
+        ],
+
+        "duvidas_frequentes": [
+            "dúvida", "duvida", "dúvidas", "duvidas",
+            "pergunta", "perguntas", "problema",
+            "problemas", "como", "quando", "por que"
+        ]
+    }
 
     # --------------------------------------------------------
     # NORMALIZAÇÃO
@@ -10454,6 +10548,81 @@ def selecionar_informacoes_relevantes(
                     pontuacao += 1
 
         return pontuacao
+        
+    # ========================================================
+    # 06.2.1 PONTUAÇÃO DOS CHECKBOXES
+    # ========================================================   
+
+    def calcular_pontuacao_categorias(texto_normalizado):
+        """
+        Usa as categorias editoriais ativas apenas como
+        sinal adicional de relevância para os fragmentos.
+
+        Não realiza seleção própria.
+        Não altera quantidade.
+        Não altera distribuição.
+        """
+
+        pontuacao = 0
+
+        for categoria in categorias_editoriais_ativas:
+
+            termos = termos_categorias.get(
+                categoria,
+                []
+            )
+
+            termos_vistos = set()
+
+            for termo in termos:
+
+                termo_normalizado = (
+                    normalizar_assunto_texto(
+                        termo
+                    )
+                )
+
+                if (
+                    not termo_normalizado
+                    or
+                    termo_normalizado
+                    in termos_vistos
+                ):
+                    continue
+
+                termos_vistos.add(
+                    termo_normalizado
+                )
+
+                if (
+                    termo_normalizado
+                    in texto_normalizado
+                ):
+                    pontuacao += 1
+
+        return pontuacao    
+
+
+    def calcular_pontuacao_categorias(texto_normalizado):
+        """
+        As categorias funcionam somente como reforço semântico
+        para a seleção dos melhores fragmentos.
+        """
+
+        pontuacao = 0
+
+        for categoria in categorias_editoriais_ativas:
+
+            termos = termos_categorias.get(categoria, [])
+
+            for termo in termos:
+
+                termo_normalizado = normalizar_assunto_texto(termo)
+
+                if termo_normalizado and termo_normalizado in texto_normalizado:
+                    pontuacao += 1
+
+        return pontuacao        
 
     # ========================================================
     # 06.3 PONTUAÇÃO ESPECÍFICA DE CADA BLOCO
@@ -10521,6 +10690,27 @@ def selecionar_informacoes_relevantes(
 
         pontuacao += (
             pontuacao_checkbox
+        )
+        
+        # ----------------------------------------------------
+        # B.1 COMPATIBILIDADE COM AS CATEGORIAS
+        #
+        # As categorias servem somente como reforço na
+        # pontuação do candidato.
+        #
+        # NÃO fazem uma nova seleção.
+        # NÃO alteram a quantidade de fragmentos.
+        # NÃO alteram a distribuição dos blocos.
+        # ----------------------------------------------------
+
+        pontuacao_categorias = (
+            calcular_pontuacao_categorias(
+                texto_normalizado
+            )
+        )
+
+        pontuacao += (
+            pontuacao_categorias
         )
 
         # ----------------------------------------------------
