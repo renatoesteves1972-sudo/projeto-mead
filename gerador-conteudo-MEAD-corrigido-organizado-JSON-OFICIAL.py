@@ -9025,7 +9025,72 @@ def gerar_hash_trecho(
         )
     ).hexdigest()
 
+# ============================================================
+# SELECIONAR CONTEÚDO EDITORIAL
+# ============================================================
 
+def selecionar_conteudo_editorial(
+    categorias,
+    estrutura_editorial
+):
+    """
+    Cruza as categorias encontradas pelo Python com a estrutura
+    editorial selecionada pelo usuário.
+
+    categorias:
+        Dicionário com as informações classificadas pelo Python.
+
+    estrutura_editorial:
+        Dicionário com os checkboxes selecionados em
+        ESTRUTURA_EDITORIAL.
+
+    Retorna:
+        Dicionário contendo somente as categorias autorizadas
+        pela estrutura editorial.
+    """
+
+    resultado = {}
+
+    if not isinstance(categorias, dict):
+        return resultado
+
+    if not isinstance(estrutura_editorial, dict):
+        return resultado
+
+    for bloco_editorial, ativo in estrutura_editorial.items():
+
+        # Checkbox desmarcado: não participa da seleção
+        if not ativo:
+            continue
+
+        # Descobre quais categorias alimentam este bloco
+        categorias_permitidas = MAPEAMENTO_EDITORIAL.get(
+            bloco_editorial,
+            []
+        )
+
+        if not categorias_permitidas:
+            continue
+
+        informacoes_bloco = {}
+
+        for categoria in categorias_permitidas:
+
+            dados_categoria = categorias.get(categoria)
+
+            if not dados_categoria:
+                continue
+
+            # Mantém exatamente o conteúdo produzido
+            # pela classificação das categorias.
+            informacoes_bloco[categoria] = dados_categoria
+
+        if informacoes_bloco:
+            resultado[bloco_editorial] = informacoes_bloco
+
+    return resultado
+    
+    
 # ============================================================
 # SELECIONAR INFORMAÇÕES RELEVANTES
 # ============================================================
