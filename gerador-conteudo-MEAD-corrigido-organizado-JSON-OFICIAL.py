@@ -13684,7 +13684,7 @@ marcadores obrigatórios.
         tema,
         "informacoes_relevantes",
         contexto,
-        blocos=blocos,
+        blocos=blocos_informacoes,
         tags=lista_tags,
         segmentos=lista_segmentos
     )
