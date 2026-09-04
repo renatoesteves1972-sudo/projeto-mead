@@ -10603,26 +10603,7 @@ def selecionar_informacoes_relevantes(
         return pontuacao    
 
 
-    def calcular_pontuacao_categorias(texto_normalizado):
-        """
-        As categorias funcionam somente como reforço semântico
-        para a seleção dos melhores fragmentos.
-        """
-
-        pontuacao = 0
-
-        for categoria in categorias_editoriais_ativas:
-
-            termos = termos_categorias.get(categoria, [])
-
-            for termo in termos:
-
-                termo_normalizado = normalizar_assunto_texto(termo)
-
-                if termo_normalizado and termo_normalizado in texto_normalizado:
-                    pontuacao += 1
-
-        return pontuacao        
+    
 
     # ========================================================
     # 06.3 PONTUAÇÃO ESPECÍFICA DE CADA BLOCO
