@@ -14215,32 +14215,6 @@ marcadores obrigatórios.
             "conteudo":
                 conteudo_bloco
         })
-
-
-            # ================================================
-            # ANTES — PYTHON
-            # ================================================
-
-            "paragrafos_python":
-                paragrafos_python_bloco,
-
-            # ================================================
-            # DEPOIS — OLLAMA
-            # ================================================
-
-            "paragrafos_ollama":
-                paragrafos_ollama_bloco,
-
-            # ================================================
-            # CAMPO OFICIAL / COMPATIBILIDADE
-            # ================================================
-
-            "paragrafos":
-                paragrafos_ollama_bloco,
-
-            "conteudo":
-                conteudo_bloco
-        })
     
 
 
