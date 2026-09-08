@@ -12281,6 +12281,7 @@ def obter_formas_gramaticais_tema(tema):
         "adequado": "adequado"
     }
 
+
 # ============================================================
 # GERAR CONTEÚDO COMPLETO
 # ============================================================
@@ -12955,35 +12956,57 @@ def gerar_conteudo_completo(
     
     
     # ------------------------------------------------------------
-    # MONTAR SOMENTE OS 5 BLOCOS JÁ PREPARADOS PELO PYTHON
+    # MONTAR OS 15 PARÁGRAFOS-BASE JÁ PREPARADOS PELO PYTHON
     # ------------------------------------------------------------
     
-    fragmentos_para_ia = []
+    paragrafos_python_para_ia = []
     
     for numero_bloco in range(1, 6):
     
-        chave_bloco = (
-            f"bloco_{numero_bloco}"
+        chave_bloco = f"bloco_{numero_bloco}"
+    
+        dados_bloco = blocos_informacoes.get(
+            chave_bloco,
+            {}
         )
     
-        contexto_bloco = str(
-            contexto_geracao.get(
-                chave_bloco,
-                ""
+        paragrafos_python = []
+    
+        if isinstance(dados_bloco, dict):
+    
+            paragrafos_python = dados_bloco.get(
+                "paragrafos_python",
+                []
             )
-            or ""
-        ).strip()
     
-        fragmentos_para_ia.append(
-            f"BLOCO {numero_bloco}\n"
-            f"{contexto_bloco}"
-        )
+        if not isinstance(
+            paragrafos_python,
+            list
+        ):
+    
+            paragrafos_python = []
+    
+        for indice, paragrafo in enumerate(
+            paragrafos_python,
+            start=1
+        ):
+    
+            texto_paragrafo = str(
+                paragrafo or ""
+            ).strip()
+    
+            if texto_paragrafo:
+    
+                paragrafos_python_para_ia.append(
+                    f"BLOCO {numero_bloco} - "
+                    f"PARÁGRAFO-BASE {indice}\n"
+                    f"{texto_paragrafo}"
+                )
     
     
     contexto_fragmentos = "\n\n".join(
-        fragmentos_para_ia
+        paragrafos_python_para_ia
     ).strip()
-    
     
     # ------------------------------------------------------------
     # CONTROLE
@@ -12995,8 +13018,8 @@ def gerar_conteudo_completo(
     print("=" * 60)
     
     print(
-        "FRAGMENTOS ENVIADOS:",
-        15
+        "PARÁGRAFOS-BASE PYTHON ENVIADOS:",
+        len(paragrafos_python_para_ia)
     )
     
     print(
@@ -13005,7 +13028,7 @@ def gerar_conteudo_completo(
     )
     
     print(
-        "CARACTERES DOS FRAGMENTOS:",
+        "CARACTERES DOS PARÁGRAFOS-BASE:",
         len(contexto_fragmentos)
     )
     
