@@ -11461,30 +11461,196 @@ def selecionar_informacoes_relevantes(
     # ========================================================
     # 09.1 COMPATIBILIDADE COM BLOCOS_INFORMACOES
     # ========================================================
-
+    #
+    # PRESERVAR A ESTRUTURA COMPLETA DOS BLOCOS.
+    #
+    # IMPORTANTE:
+    # "paragrafos_python" foi criado acima e contém
+    # os 15 parágrafos-base selecionados pelo Python.
+    #
+    # Ele precisa ser transportado para
+    # "blocos_informacoes", pois essa é a estrutura
+    # posteriormente utilizada por
+    # gerar_conteudo_completo().
+    #
+    # NÃO FAZER NOVA SELEÇÃO.
+    # NÃO ALTERAR OS FRAGMENTOS.
+    # NÃO ALTERAR OS PARÁGRAFOS.
+    #
+    # ========================================================
+    
     blocos_informacoes = {}
-
+    
     for numero_bloco in range(
         1,
         6
     ):
-
+    
         chave_bloco = (
             f"bloco_{numero_bloco}"
         )
-
+    
+        dados_bloco = (
+            blocos.get(
+                chave_bloco,
+                {}
+            )
+        )
+    
+        if not isinstance(
+            dados_bloco,
+            dict
+        ):
+    
+            dados_bloco = {}
+    
+        # ----------------------------------------------------
+        # PRESERVAR INFORMAÇÕES RELEVANTES
+        # ----------------------------------------------------
+    
+        informacoes_relevantes_bloco = (
+            dados_bloco.get(
+                "informacoes_relevantes",
+                []
+            )
+        )
+    
+        if not isinstance(
+            informacoes_relevantes_bloco,
+            list
+        ):
+    
+            informacoes_relevantes_bloco = []
+    
+        # ----------------------------------------------------
+        # PRESERVAR OS PARÁGRAFOS-BASE DO PYTHON
+        # ----------------------------------------------------
+    
+        paragrafos_python = (
+            dados_bloco.get(
+                "paragrafos_python",
+                []
+            )
+        )
+    
+        if not isinstance(
+            paragrafos_python,
+            list
+        ):
+    
+            paragrafos_python = []
+    
+        paragrafos_python = [
+    
+            str(paragrafo or "").strip()
+    
+            for paragrafo
+            in paragrafos_python
+    
+            if str(paragrafo or "").strip()
+    
+        ]
+    
+        # ----------------------------------------------------
+        # PRESERVAR ESTRUTURA COMPLETA
+        # ----------------------------------------------------
+    
         blocos_informacoes[
             chave_bloco
         ] = {
-
-            "informacoes_relevantes":
-                blocos[
+    
+            "id":
+                dados_bloco.get(
+                    "id",
                     chave_bloco
-                ][
-                    "informacoes_relevantes"
-                ]
-
+                ),
+    
+            "hash":
+                dados_bloco.get(
+                    "hash",
+                    ""
+                ),
+    
+            "informacoes_relevantes":
+                informacoes_relevantes_bloco,
+    
+            "titulo":
+                dados_bloco.get(
+                    "titulo",
+                    ""
+                ),
+    
+            "paragrafos_python":
+                paragrafos_python,
+    
+            "paragrafos_ollama":
+                dados_bloco.get(
+                    "paragrafos_ollama",
+                    ["", "", ""]
+                ),
+    
+            "paragrafos":
+                dados_bloco.get(
+                    "paragrafos",
+                    ["", "", ""]
+                )
+    
         }
+    
+    
+    # --------------------------------------------------------
+    # DEBUG — CONFIRMAR TRANSPORTE DOS 15 PARÁGRAFOS
+    # --------------------------------------------------------
+    
+    print()
+    print("==============================")
+    print("TRANSFERÊNCIA DOS PARÁGRAFOS-BASE")
+    print("==============================")
+    
+    total_paragrafos_python_transferidos = 0
+    
+    for numero_bloco in range(
+        1,
+        6
+    ):
+    
+        chave_bloco = (
+            f"bloco_{numero_bloco}"
+        )
+    
+        paragrafos_python = (
+            blocos_informacoes[
+                chave_bloco
+            ].get(
+                "paragrafos_python",
+                []
+            )
+        )
+    
+        quantidade = len(
+            [
+                p
+                for p in paragrafos_python
+                if str(p).strip()
+            ]
+        )
+    
+        total_paragrafos_python_transferidos += (
+            quantidade
+        )
+    
+        print(
+            chave_bloco,
+            ":",
+            quantidade,
+            "parágrafos-base Python"
+        )
+    
+    print()
+    print(
+        "TOTAL PARÁGRAFOS-BASE PYTHON TRANSFERIDOS:",
+        total_paragrafos_python_transferidos
+    )
 
 
 
