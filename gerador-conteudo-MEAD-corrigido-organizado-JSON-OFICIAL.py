@@ -12499,219 +12499,378 @@ def gerar_conteudo_completo(
     # ========================================================
     # 05. PREPARAR INFORMAÇÕES
     # ========================================================
-    
+
     print()
     print("======================================")
     print("PREPARANDO INFORMAÇÕES SELECIONADAS")
     print("======================================")
-    
+
     if not isinstance(
         textos_relevantes,
         dict
     ):
-    
+
         print()
         print("======================================")
         print("NENHUMA INFORMAÇÃO RELEVANTE")
         print("======================================")
-    
+
         return None
-    
+
     contexto = str(
         textos_relevantes.get(
             "texto",
             ""
         ) or ""
     ).strip()
-    
+
     blocos_informacoes = (
         textos_relevantes.get(
             "blocos_informacoes",
             {}
         )
     )
-    
+
     if not isinstance(
         blocos_informacoes,
         dict
     ):
-    
+
         blocos_informacoes = {}
-    
+
+    # ========================================================
+    # PRESERVAR OS BLOCOS COMPLETOS
+    #
+    # IMPORTANTE:
+    # Não transformar os blocos em strings aqui.
+    #
+    # Cada bloco pode conter:
+    #
+    # informacoes_relevantes
+    # paragrafos_python
+    #
+    # Os paragrafos_python precisam continuar disponíveis
+    # para serem enviados posteriormente ao Ollama.
+    # ========================================================
+
     informacoes_blocos = {}
-    
+
     for numero_bloco in range(
         1,
         6
     ):
-    
+
         chave_bloco = (
             f"bloco_{numero_bloco}"
         )
-    
-        informacoes = (
+
+        dados_bloco = (
             blocos_informacoes.get(
                 chave_bloco,
-                ""
+                {}
             )
         )
-    
+
         if isinstance(
-            informacoes,
+            dados_bloco,
+            dict
+        ):
+
+            # ------------------------------------------------
+            # PRESERVA O DICIONÁRIO INTEIRO
+            # ------------------------------------------------
+
+            informacoes_blocos[
+                chave_bloco
+            ] = dados_bloco
+
+        elif isinstance(
+            dados_bloco,
             list
         ):
-    
-            partes = []
-    
-            for item in informacoes:
-    
+
+            # ------------------------------------------------
+            # COMPATIBILIDADE COM FORMATO ANTIGO
+            # ------------------------------------------------
+
+            informacoes_blocos[
+                chave_bloco
+            ] = {
+                "informacoes_relevantes": dados_bloco,
+                "paragrafos_python": []
+            }
+
+        else:
+
+            texto_informacoes = str(
+                dados_bloco or ""
+            ).strip()
+
+            informacoes_blocos[
+                chave_bloco
+            ] = {
+                "informacoes_relevantes": [
+                    texto_informacoes
+                ] if texto_informacoes else [],
+                "paragrafos_python": []
+            }
+
+    # ========================================================
+    # CARACTERES DO TEXTO GERAL
+    # ========================================================
+
+    caracteres_selecionados = len(
+        contexto
+    )
+
+    # ========================================================
+    # CALCULAR CARACTERES DAS INFORMAÇÕES DOS BLOCOS
+    # SEM DESTRUIR A ESTRUTURA DOS BLOCOS
+    # ========================================================
+
+    caracteres_blocos = 0
+
+    for numero in range(
+        1,
+        6
+    ):
+
+        dados_bloco = (
+            informacoes_blocos.get(
+                f"bloco_{numero}",
+                {}
+            )
+        )
+
+        if not isinstance(
+            dados_bloco,
+            dict
+        ):
+
+            continue
+
+        lista_informacoes = (
+            dados_bloco.get(
+                "informacoes_relevantes",
+                []
+            )
+        )
+
+        if isinstance(
+            lista_informacoes,
+            list
+        ):
+
+            for item in lista_informacoes:
+
                 if isinstance(
                     item,
                     dict
                 ):
-    
+
                     texto_item = str(
                         item.get(
                             "texto",
                             ""
                         ) or ""
                     ).strip()
-    
+
                 else:
-    
+
                     texto_item = str(
                         item or ""
                     ).strip()
-    
-                if texto_item:
-    
-                    partes.append(
-                        texto_item
-                    )
-    
-            informacoes = "\n\n".join(
-                partes
+
+                caracteres_blocos += len(
+                    texto_item
+                )
+
+        else:
+
+            caracteres_blocos += len(
+                str(
+                    lista_informacoes or ""
+                ).strip()
             )
-    
-        elif isinstance(
-            informacoes,
+
+    # ========================================================
+    # CONTAGEM DOS 15 PARÁGRAFOS-BASE PYTHON
+    # ========================================================
+
+    total_paragrafos_python = 0
+
+    print()
+    print("======================================")
+    print("PARÁGRAFOS-BASE PYTHON")
+    print("======================================")
+
+    for numero_bloco in range(
+        1,
+        6
+    ):
+
+        dados_bloco = (
+            informacoes_blocos.get(
+                f"bloco_{numero_bloco}",
+                {}
+            )
+        )
+
+        if not isinstance(
+            dados_bloco,
             dict
         ):
-    
-            lista_informacoes = (
-                informacoes.get(
-                    "informacoes_relevantes",
+
+            paragrafos_python = []
+
+        else:
+
+            paragrafos_python = (
+                dados_bloco.get(
+                    "paragrafos_python",
                     []
                 )
             )
-    
-            if isinstance(
-                lista_informacoes,
+
+            if not isinstance(
+                paragrafos_python,
                 list
             ):
-    
-                partes = []
-    
-                for item in lista_informacoes:
-    
-                    if isinstance(
-                        item,
-                        dict
-                    ):
-    
-                        texto_item = str(
-                            item.get(
-                                "texto",
-                                ""
-                            ) or ""
-                        ).strip()
-    
-                    else:
-    
-                        texto_item = str(
-                            item or ""
-                        ).strip()
-    
-                    if texto_item:
-    
-                        partes.append(
-                            texto_item
-                        )
-    
-                informacoes = "\n\n".join(
-                    partes
-                )
-    
-            else:
-    
-                informacoes = str(
-                    lista_informacoes or ""
-                ).strip()
-    
-        else:
-    
-            informacoes = str(
-                informacoes or ""
-            ).strip()
-    
-        informacoes_blocos[
-            chave_bloco
-        ] = informacoes
-    
-    caracteres_selecionados = len(
-        contexto
-    )
-    
-    caracteres_blocos = sum(
-        len(
-            informacoes_blocos.get(
-                f"bloco_{numero}",
-                ""
-            )
+
+                paragrafos_python = []
+
+        quantidade = len(
+            paragrafos_python
         )
-        for numero in range(
-            1,
-            6
+
+        total_paragrafos_python += (
+            quantidade
         )
+
+        print(
+            f"BLOCO {numero_bloco} "
+            f"- PARÁGRAFOS PYTHON:",
+            quantidade
+        )
+
+    print()
+    print(
+        "TOTAL PARÁGRAFOS-BASE PYTHON:",
+        total_paragrafos_python
     )
-    
+
+    # ========================================================
+    # DADOS APÓS SELEÇÃO
+    # ========================================================
+
     print()
     print("======================================")
     print("DADOS APÓS SELEÇÃO")
     print("======================================")
-    
+
     print(
         "SELEÇÃO RECEBIDA:",
-        "SIM" if contexto or fragmentos_iniciais else "NÃO"
+        "SIM"
+        if contexto or fragmentos_iniciais
+        else "NÃO"
     )
-    
+
     print(
         "TIPO RECEBIDO:",
         type(
             textos_relevantes
         )
     )
-    
+
     print(
         "CARACTERES TEXTO:",
         caracteres_selecionados
     )
-    
+
     print(
         "CARACTERES BLOCOS:",
         caracteres_blocos
     )
-    
+
+    # ========================================================
+    # EXIBIR INFORMAÇÕES DE CADA BLOCO
+    # ========================================================
+
     for numero_bloco in range(
         1,
         6
     ):
-    
-        texto_bloco = informacoes_blocos.get(
-            f"bloco_{numero_bloco}",
-            ""
+
+        dados_bloco = (
+            informacoes_blocos.get(
+                f"bloco_{numero_bloco}",
+                {}
+            )
         )
-    
+
+        if isinstance(
+            dados_bloco,
+            dict
+        ):
+
+            lista_informacoes = (
+                dados_bloco.get(
+                    "informacoes_relevantes",
+                    []
+                )
+            )
+
+            if isinstance(
+                lista_informacoes,
+                list
+            ):
+
+                partes = []
+
+                for item in lista_informacoes:
+
+                    if isinstance(
+                        item,
+                        dict
+                    ):
+
+                        texto_item = str(
+                            item.get(
+                                "texto",
+                                ""
+                            ) or ""
+                        ).strip()
+
+                    else:
+
+                        texto_item = str(
+                            item or ""
+                        ).strip()
+
+                    if texto_item:
+
+                        partes.append(
+                            texto_item
+                        )
+
+                texto_bloco = (
+                    "\n\n".join(
+                        partes
+                    )
+                )
+
+            else:
+
+                texto_bloco = str(
+                    lista_informacoes or ""
+                ).strip()
+
+        else:
+
+            texto_bloco = str(
+                dados_bloco or ""
+            ).strip()
+
         print(
             f"BLOCO {numero_bloco}:",
             len(
@@ -12719,41 +12878,169 @@ def gerar_conteudo_completo(
             ),
             "caracteres"
         )
-    
+
+    # ========================================================
+    # INFORMAÇÕES POR BLOCO PREPARADAS
+    # ========================================================
+
     print()
     print("======================================")
     print("INFORMAÇÕES POR BLOCO PREPARADAS")
     print("======================================")
-    
+
     for numero_bloco in range(
         1,
         6
     ):
-    
-        texto_bloco = informacoes_blocos.get(
-            f"bloco_{numero_bloco}",
-            ""
+
+        dados_bloco = (
+            informacoes_blocos.get(
+                f"bloco_{numero_bloco}",
+                {}
+            )
         )
-    
+
         print()
         print(
             f"--- BLOCO {numero_bloco} ---"
         )
-    
+
+        if isinstance(
+            dados_bloco,
+            dict
+        ):
+
+            lista_informacoes = (
+                dados_bloco.get(
+                    "informacoes_relevantes",
+                    []
+                )
+            )
+
+            if isinstance(
+                lista_informacoes,
+                list
+            ):
+
+                partes = []
+
+                for item in lista_informacoes:
+
+                    if isinstance(
+                        item,
+                        dict
+                    ):
+
+                        texto_item = str(
+                            item.get(
+                                "texto",
+                                ""
+                            ) or ""
+                        ).strip()
+
+                    else:
+
+                        texto_item = str(
+                            item or ""
+                        ).strip()
+
+                    if texto_item:
+
+                        partes.append(
+                            texto_item
+                        )
+
+                texto_bloco = (
+                    "\n\n".join(
+                        partes
+                    )
+                )
+
+            else:
+
+                texto_bloco = str(
+                    lista_informacoes or ""
+                ).strip()
+
+        else:
+
+            texto_bloco = str(
+                dados_bloco or ""
+            ).strip()
+
         print(
             texto_bloco[:500]
         )
-    
+
+    # ========================================================
+    # CONFERÊNCIA FINAL DOS 15 PARÁGRAFOS-BASE
+    # ========================================================
+
+    print()
+    print("======================================")
+    print("CONFERÊNCIA DOS PARÁGRAFOS PYTHON")
+    print("======================================")
+
+    for numero_bloco in range(
+        1,
+        6
+    ):
+
+        dados_bloco = (
+            informacoes_blocos.get(
+                f"bloco_{numero_bloco}",
+                {}
+            )
+        )
+
+        if not isinstance(
+            dados_bloco,
+            dict
+        ):
+
+            continue
+
+        paragrafos_python = (
+            dados_bloco.get(
+                "paragrafos_python",
+                []
+            )
+        )
+
+        if not isinstance(
+            paragrafos_python,
+            list
+        ):
+
+            continue
+
+        for indice, paragrafo in enumerate(
+            paragrafos_python,
+            start=1
+        ):
+
+            texto_paragrafo = str(
+                paragrafo or ""
+            ).strip()
+
+            print(
+                f"BLOCO {numero_bloco} - "
+                f"PARÁGRAFO {indice}: "
+                f"{len(texto_paragrafo.split())} palavras"
+            )
+
     print()
     print("======================================")
     print("DADOS APÓS SELEÇÃO")
     print("======================================")
-    
+
     print(
         "SELEÇÃO RECEBIDA:",
-        "SIM" if contexto or fragmentos_iniciais else "NÃO"
+        "SIM"
+        if contexto or fragmentos_iniciais
+        else "NÃO"
     )
-    
+
     print(
         "CARACTERES SELECIONADOS:",
         caracteres_selecionados
