@@ -14101,119 +14101,146 @@ marcadores obrigatórios.
             paragrafos
         )
     
-    # ========================================================
-    # PRESERVAR OS DADOS DO PYTHON NO BLOCO FINAL
-    # ========================================================
 
-    chave_bloco = f"bloco_{numero_bloco}"
+        # ========================================================
+        # PRESERVAR OS DADOS DO PYTHON NO BLOCO FINAL
+        # ========================================================
 
-    dados_base_bloco = (
-        blocos_informacoes.get(
-            chave_bloco,
-            {}
+        chave_bloco = f"bloco_{numero_bloco}"
+
+        dados_base_bloco = (
+            blocos_informacoes.get(
+                chave_bloco,
+                {}
+            )
         )
-    )
 
-    if not isinstance(
-        dados_base_bloco,
-        dict
-    ):
-        dados_base_bloco = {}
+        if not isinstance(
+            dados_base_bloco,
+            dict
+        ):
+            dados_base_bloco = {}
 
-    paragrafos_python_bloco = (
-        dados_base_bloco.get(
-            "paragrafos_python",
-            []
-        )
-    )
-
-    if not isinstance(
-        paragrafos_python_bloco,
-        list
-    ):
-        paragrafos_python_bloco = []
-
-    paragrafos_python_bloco = [
-        str(paragrafo or "").strip()
-        for paragrafo in paragrafos_python_bloco[:3]
-        if str(paragrafo or "").strip()
-    ]
-
-    # --------------------------------------------------------
-    # OLLAMA = PARÁGRAFOS FINAIS
-    # --------------------------------------------------------
-
-    paragrafos_ollama_bloco = [
-        str(paragrafo or "").strip()
-        for paragrafo in paragrafos[:3]
-        if str(paragrafo or "").strip()
-    ]
-
-    # --------------------------------------------------------
-    # INFORMAÇÕES RELEVANTES DO PYTHON
-    # --------------------------------------------------------
-
-    informacoes_relevantes_bloco = (
-        dados_base_bloco.get(
-            "informacoes_relevantes",
-            []
-        )
-    )
-
-    if not isinstance(
-        informacoes_relevantes_bloco,
-        list
-    ):
-        informacoes_relevantes_bloco = []
-
-    # --------------------------------------------------------
-    # BLOCO FINAL
-    # --------------------------------------------------------
-
-    blocos.append({
-
-        "numero":
-            numero_bloco,
-
-        "id":
-            chave_bloco,
-
-        "titulo":
-            titulo_bloco,
-
-        "hash":
+        paragrafos_python_bloco = (
             dados_base_bloco.get(
-                "hash",
-                ""
-            ),
+                "paragrafos_python",
+                []
+            )
+        )
 
-        "informacoes_relevantes":
-            informacoes_relevantes_bloco,
-
-        # ================================================
-        # ANTES — PYTHON
-        # ================================================
-
-        "paragrafos_python":
+        if not isinstance(
             paragrafos_python_bloco,
+            list
+        ):
+            paragrafos_python_bloco = []
 
-        # ================================================
-        # DEPOIS — OLLAMA
-        # ================================================
+        paragrafos_python_bloco = [
+            str(paragrafo or "").strip()
+            for paragrafo in paragrafos_python_bloco[:3]
+            if str(paragrafo or "").strip()
+        ]
 
-        "paragrafos_ollama":
-            paragrafos_ollama_bloco,
+        # --------------------------------------------------------
+        # OLLAMA = PARÁGRAFOS FINAIS
+        # --------------------------------------------------------
 
-        # ================================================
-        # CAMPO OFICIAL / COMPATIBILIDADE
-        # ================================================
+        paragrafos_ollama_bloco = [
+            str(paragrafo or "").strip()
+            for paragrafo in paragrafos[:3]
+            if str(paragrafo or "").strip()
+        ]
 
-        "paragrafos":
-            paragrafos_ollama_bloco,
+        # --------------------------------------------------------
+        # INFORMAÇÕES RELEVANTES DO PYTHON
+        # --------------------------------------------------------
 
-        "conteudo":
-            conteudo_bloco
-    })
+        informacoes_relevantes_bloco = (
+            dados_base_bloco.get(
+                "informacoes_relevantes",
+                []
+            )
+        )
+
+        if not isinstance(
+            informacoes_relevantes_bloco,
+            list
+        ):
+            informacoes_relevantes_bloco = []
+
+        # --------------------------------------------------------
+        # BLOCO FINAL
+        # --------------------------------------------------------
+
+        blocos.append({
+
+            "numero":
+                numero_bloco,
+
+            "id":
+                chave_bloco,
+
+            "titulo":
+                titulo_bloco,
+
+            "hash":
+                dados_base_bloco.get(
+                    "hash",
+                    ""
+                ),
+
+            "informacoes_relevantes":
+                informacoes_relevantes_bloco,
+
+            # ================================================
+            # ANTES — PYTHON
+            # ================================================
+
+            "paragrafos_python":
+                paragrafos_python_bloco,
+
+            # ================================================
+            # DEPOIS — OLLAMA
+            # ================================================
+
+            "paragrafos_ollama":
+                paragrafos_ollama_bloco,
+
+            # ================================================
+            # CAMPO OFICIAL / COMPATIBILIDADE
+            # ================================================
+
+            "paragrafos":
+                paragrafos_ollama_bloco,
+
+            "conteudo":
+                conteudo_bloco
+        })
+
+
+            # ================================================
+            # ANTES — PYTHON
+            # ================================================
+
+            "paragrafos_python":
+                paragrafos_python_bloco,
+
+            # ================================================
+            # DEPOIS — OLLAMA
+            # ================================================
+
+            "paragrafos_ollama":
+                paragrafos_ollama_bloco,
+
+            # ================================================
+            # CAMPO OFICIAL / COMPATIBILIDADE
+            # ================================================
+
+            "paragrafos":
+                paragrafos_ollama_bloco,
+
+            "conteudo":
+                conteudo_bloco
+        })
     
 
 
