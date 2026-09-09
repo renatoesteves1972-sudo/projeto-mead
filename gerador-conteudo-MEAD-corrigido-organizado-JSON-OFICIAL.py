@@ -23393,7 +23393,25 @@ def gerar_material_interface():
             lista_palavras[inicio_lista:],
             start=inicio_lista
         ):
-
+        
+            # ============================================================
+            # CORREÇÃO AUTOMÁTICA DO TEMA
+            # ============================================================
+        
+            tema_original = str(
+                tema or ""
+            ).strip()
+        
+            tema = corrigir_tema(
+                tema_original
+            )
+        
+            print()
+            print("==============================")
+            print("TEMA ORIGINAL:", tema_original)
+            print("TEMA CORRIGIDO:", tema)
+            print("==============================")
+        
             inicio_tema = time.time()
 
             print()
