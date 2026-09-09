@@ -23389,22 +23389,73 @@ def gerar_material_interface():
         # 02. PROCESSAR TEMAS
         # ========================================================
 
+
         for indice_tema, tema in enumerate(
             lista_palavras[inicio_lista:],
             start=inicio_lista
         ):
         
             # ============================================================
-            # CORREÇÃO AUTOMÁTICA DO TEMA
+            # CORRIGIR AUTOMATICAMENTE O TEMA
+            # Mantém o tema correto para todo o processamento.
+            # A remoção de acentos continua exclusiva para nomes de arquivo.
             # ============================================================
         
             tema_original = str(
                 tema or ""
             ).strip()
         
-            tema = corrigir_tema(
-                tema_original
-            )
+            if tema_original:
+        
+                prompt_correcao_tema = f"""
+        Corrija somente a ortografia e a acentuação deste tema técnico.
+        
+        REGRAS:
+        - Não altere as palavras.
+        - Não acrescente palavras.
+        - Não retire palavras.
+        - Não explique.
+        - Retorne somente o tema corrigido.
+        - Preserve maiúsculas/minúsculas quando apropriado.
+        
+        TEMA:
+        {tema_original}
+        """
+        
+                try:
+        
+                    resposta_tema = ollama.chat(
+                        model="qwen3:latest",
+                        messages=[
+                            {
+                                "role": "user",
+                                "content": prompt_correcao_tema
+                            }
+                        ],
+                        options={
+                            "temperature": 0.0,
+                            "num_predict": 50
+                        }
+                    )
+        
+                    tema_corrigido = str(
+                        resposta_tema["message"]["content"]
+                    ).strip()
+        
+                    if tema_corrigido:
+                        tema = tema_corrigido
+                    else:
+                        tema = tema_original
+        
+                except Exception as erro:
+        
+                    print(
+                        "AVISO: não foi possível corrigir "
+                        "a acentuação do tema:",
+                        erro
+                    )
+        
+                    tema = tema_original
         
             print()
             print("==============================")
@@ -23413,6 +23464,8 @@ def gerar_material_interface():
             print("==============================")
         
             inicio_tema = time.time()
+
+
 
             print()
             print("=" * 50)
