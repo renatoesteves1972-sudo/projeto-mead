@@ -10729,6 +10729,340 @@ def selecionar_informacoes_relevantes(
             if palavra in texto_normalizado:
 
                 pontuacao += 2
+                
+                
+                # ----------------------------------------------------
+        # E. QUALIDADE EDITORIAL DO FRAGMENTO
+        #
+        # Mede se o trecho realmente possui conteúdo útil
+        # para desenvolvimento de um parágrafo técnico.
+        #
+        # Não substitui:
+        # - bloco
+        # - checkbox
+        # - categoria
+        # - PDF
+        # - tema
+        #
+        # Apenas melhora a classificação dos candidatos.
+        # ----------------------------------------------------
+
+        qualidade = 0
+
+        texto_original = str(
+            candidato.get(
+                "texto",
+                ""
+            )
+        ).strip()
+
+        quantidade_palavras = len(
+            texto_normalizado.split()
+        )
+
+        # ----------------------------------------------------
+        # E.1 TAMANHO ADEQUADO
+        #
+        # Os fragmentos oficiais trabalham entre 50 e 60
+        # palavras. Um trecho nessa faixa recebe pequeno
+        # reforço por estar adequado ao uso editorial.
+        # ----------------------------------------------------
+
+        if 50 <= quantidade_palavras <= 60:
+
+            qualidade += 2
+
+        elif 40 <= quantidade_palavras <= 70:
+
+            qualidade += 1
+
+        # ----------------------------------------------------
+        # E.2 FRASES COMPLETAS
+        #
+        # Fragmentos com pontuação e várias frases tendem
+        # a possuir conteúdo explicativo real.
+        # ----------------------------------------------------
+
+        quantidade_frases = len(
+            re.findall(
+                r"[.!?]",
+                texto_original
+            )
+        )
+
+        if quantidade_frases >= 2:
+
+            qualidade += 2
+
+        elif quantidade_frases == 1:
+
+            qualidade += 1
+
+        # ----------------------------------------------------
+        # E.3 DENSIDADE TÉCNICA
+        #
+        # Termos que normalmente indicam explicação técnica.
+        # ----------------------------------------------------
+
+        termos_tecnicos = [
+
+            "funcionamento",
+            "operacao",
+            "operação",
+            "aplicacao",
+            "aplicação",
+            "processo",
+            "sistema",
+            "equipamento",
+            "componente",
+            "pressao",
+            "pressão",
+            "vazao",
+            "vazão",
+            "temperatura",
+            "desempenho",
+            "eficiencia",
+            "eficiência",
+            "rendimento",
+            "manutencao",
+            "manutenção",
+            "instalacao",
+            "instalação",
+            "dimensionamento",
+            "especificacao",
+            "especificação",
+            "material",
+            "materiais",
+            "confiabilidade",
+            "durabilidade",
+            "seguranca",
+            "segurança"
+        ]
+
+        termos_tecnicos_encontrados = 0
+
+        for termo in termos_tecnicos:
+
+            if termo in texto_normalizado:
+
+                termos_tecnicos_encontrados += 1
+
+        if termos_tecnicos_encontrados >= 4:
+
+            qualidade += 4
+
+        elif termos_tecnicos_encontrados >= 2:
+
+            qualidade += 2
+
+        elif termos_tecnicos_encontrados == 1:
+
+            qualidade += 1
+
+        # ----------------------------------------------------
+        # E.4 ESTRUTURA EXPLICATIVA
+        #
+        # Reforça trechos que apresentam relação entre
+        # causa, funcionamento, aplicação, resultado etc.
+        # ----------------------------------------------------
+
+        termos_explicativos = [
+
+            "porque",
+            "quando",
+            "como",
+            "permite",
+            "possibilita",
+            "utilizado",
+            "utilizada",
+            "responsavel",
+            "responsável",
+            "garante",
+            "evita",
+            "reduz",
+            "aumenta",
+            "proporciona",
+            "contribui",
+            "depende",
+            "necessario",
+            "necessário",
+            "indicado",
+            "indicada"
+        ]
+
+        explicativos_encontrados = 0
+
+        for termo in termos_explicativos:
+
+            if termo in texto_normalizado:
+
+                explicativos_encontrados += 1
+
+        if explicativos_encontrados >= 3:
+
+            qualidade += 3
+
+        elif explicativos_encontrados >= 1:
+
+            qualidade += 1
+
+        # ----------------------------------------------------
+        # E.5 PENALIZAR ÍNDICE / SUMÁRIO
+        # ----------------------------------------------------
+
+        marcadores_indice = [
+
+            "sumario",
+            "sumário",
+            "indice",
+            "índice",
+            "conteudo",
+            "conteúdo",
+            "capitulo",
+            "capítulo",
+            "secao",
+            "seção",
+            "2.1",
+            "2.2",
+            "2.3",
+            "3.1",
+            "3.2",
+            "3.3"
+        ]
+
+        ocorrencias_indice = 0
+
+        for marcador in marcadores_indice:
+
+            if marcador in texto_normalizado:
+
+                ocorrencias_indice += 1
+
+        if ocorrencias_indice >= 2:
+
+            qualidade -= 8
+
+        elif ocorrencias_indice == 1:
+
+            qualidade -= 4
+
+        # ----------------------------------------------------
+        # E.6 PENALIZAR MENU / NAVEGAÇÃO
+        # ----------------------------------------------------
+
+        marcadores_navegacao = [
+
+            "home",
+            "inicio",
+            "menu",
+            "contato",
+            "login",
+            "cadastro",
+            "entrar",
+            "politica de privacidade",
+            "política de privacidade",
+            "cookies",
+            "siga-nos",
+            "compartilhe"
+        ]
+
+        navegacao_encontrada = 0
+
+        for marcador in marcadores_navegacao:
+
+            if marcador in texto_normalizado:
+
+                navegacao_encontrada += 1
+
+        if navegacao_encontrada >= 2:
+
+            qualidade -= 8
+
+        elif navegacao_encontrada == 1:
+
+            qualidade -= 3
+
+        # ----------------------------------------------------
+        # E.7 PENALIZAR COMENTÁRIOS / REDES SOCIAIS
+        # ----------------------------------------------------
+
+        marcadores_comentario = [
+
+            "curtir",
+            "comentar",
+            "responder",
+            "comentarios",
+            "comentários",
+            "seguidores",
+            "linkedin",
+            "facebook",
+            "instagram",
+            "twitter",
+            "postado por"
+        ]
+
+        comentario_encontrado = 0
+
+        for marcador in marcadores_comentario:
+
+            if marcador in texto_normalizado:
+
+                comentario_encontrado += 1
+
+        if comentario_encontrado >= 2:
+
+            qualidade -= 8
+
+        elif comentario_encontrado == 1:
+
+            qualidade -= 4
+
+        # ----------------------------------------------------
+        # E.8 PENALIZAR TEXTO CORROMPIDO
+        # ----------------------------------------------------
+
+        caracteres_corrompidos = (
+
+            texto_original.count("\x00")
+            +
+            texto_original.count("\x03")
+            +
+            texto_original.count("\ufffd")
+
+        )
+
+        if caracteres_corrompidos > 0:
+
+            qualidade -= 10
+
+        # ----------------------------------------------------
+        # E.9 PENALIZAR EXCESSO DE FRAGMENTAÇÃO
+        #
+        # Muitos separadores, números isolados e símbolos
+        # indicam frequentemente índice, tabela ou conteúdo
+        # extraído de PDF de forma inadequada.
+        # ----------------------------------------------------
+
+        quantidade_numeros = len(
+            re.findall(
+                r"\b\d+(?:[.,]\d+)?\b",
+                texto_original
+            )
+        )
+
+        if quantidade_numeros >= 8:
+
+            qualidade -= 5
+
+        elif quantidade_numeros >= 5:
+
+            qualidade -= 2
+
+        # ----------------------------------------------------
+        # E.10 APLICAR QUALIDADE À NOTA FINAL
+        # ----------------------------------------------------
+
+        pontuacao += qualidade        
 
         return pontuacao
 
@@ -12492,18 +12826,64 @@ def gerar_conteudo_completo(
         len(str(mapa_mead))
     )
     
+
+    # ========================================================
+    # RECUPERAR ARQUIVO_ORIGEM DA PRIMEIRA SELEÇÃO
+    # ========================================================
+    
+    if not arquivo_origem:
+    
+        if isinstance(textos, dict):
+    
+            fragmentos = textos.get(
+                "fragmentos",
+                []
+            )
+    
+            if isinstance(fragmentos, list):
+    
+                for fragmento in fragmentos:
+    
+                    if not isinstance(
+                        fragmento,
+                        dict
+                    ):
+                        continue
+    
+                    url = str(
+                        fragmento.get(
+                            "url",
+                            ""
+                        ) or ""
+                    ).strip()
+    
+                    if url:
+    
+                        arquivo_origem = url
+    
+                        break
+    
+    
+    print(
+        "ARQUIVO_ORIGEM RECUPERADO:",
+        arquivo_origem
+    )
+
+
     # ========================================================
     # 01. IDENTIDADE DA PÁGINA
     # ========================================================
     
     if arquivo_origem:
     
-        nome_arquivo = os.path.basename(
+        nome_arquivo = str(
             arquivo_origem
-        )
+        ).strip()
     
         nome_sem_extensao = os.path.splitext(
-            nome_arquivo
+            os.path.basename(
+                arquivo_origem
+            )
         )[0]
     
     else:
@@ -12527,6 +12907,10 @@ def gerar_conteudo_completo(
             tema
         )
     )
+
+
+
+
     
     # ========================================================
     # 02. CHECKBOXES EDITORIAIS
@@ -17348,9 +17732,19 @@ def salvar_banco(
     # NÃO criar informacoes_adicionais.
     # ========================================================
 
-    grupo_principal_projeto = str(
-        grupo_principal_projeto or ""
-    ).strip()
+    if grupo_principal_projeto is None:
+        grupo_principal_projeto = str(
+            dados_tema.get(
+                "grupo_principal_projeto",
+                ""
+            )
+            or ""
+        ).strip()
+    else:
+        grupo_principal_projeto = str(
+            grupo_principal_projeto
+            or ""
+        ).strip()
     
     
     # ========================================================
