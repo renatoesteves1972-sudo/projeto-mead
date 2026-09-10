@@ -54,6 +54,42 @@ CATEGORIAS = [
     "duvidas_frequentes"
 ]
 
+TAGS_FIXAS_PRODUTOS = [
+    "empresa de [tema]",
+    "venda de [tema]",
+    "vendemos [tema]",
+    "fornecemos [tema]",
+    "fornecedor de [tema]",
+    "onde encontrar [tema]",
+    "onde comprar [tema]",
+    "orçamento de [tema]",
+    "cotação de [tema]",
+    "[tema] com melhor preço",
+    "[tema] com preço competitivo",
+    "[tema] com preço justo",
+    "[tema] com qualidade",
+    "[tema] resistente",
+    "[tema] durável"
+]
+
+TAGS_FIXAS_SERVICOS = [
+    "[tema] em {cidade}",
+    "[tema] em {estado}",
+    "empresa especializada em [tema]",
+    "especialista em [tema]",
+    "realizamos [tema]",
+    "executamos [tema]",
+    "prestação de [tema]",
+    "profissional de [tema]",
+    "onde encontrar [tema]",
+    "onde contratar [tema]",
+    "orçamento para [tema]",
+    "cotação para [tema]",
+    "[tema] com atendimento especializado",
+    "[tema] com suporte técnico",
+    "[tema] preço"
+]
+
 
 ARQUIVO_MEAD = r"C:\Python\gerador-conteudo\mead\mead.json"
 
