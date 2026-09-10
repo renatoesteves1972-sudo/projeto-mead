@@ -10777,62 +10777,94 @@ marcadores obrigatórios.
     # 18. CRIAR TAGS COM PYTHON
     # ========================================================
     #
-    # As tags NÃO são mais geradas pelo Ollama.
+    # As tags NÃO são geradas pelo Ollama.
     #
-    # O Python monta exatamente 30 tags a partir do tema,
-    # mantendo o padrão PRODUTO/SERVIÇO.
+    # O Python monta exatamente 30 tags a partir do tema.
+    #
+    # PRODUTO:
+    #   - 15 tags fixas comerciais
+    #   - 15 tags complementares técnicas
+    #
+    # SERVIÇO:
+    #   - 15 tags fixas comerciais
+    #   - 15 tags complementares técnicas
     #
     # REGRA OBRIGATÓRIA:
     # A palavra-chave NUNCA pode aparecer sozinha como tag.
     #
-    # Exemplo:
-    #
-    # ❌ "bomba centrifuga"
-    #
-    # ✅ "bomba centrifuga industrial"
-    # ✅ "manutenção de bomba centrifuga"
-    # ✅ "aplicações de bomba centrifuga"
-    #
     # ========================================================
-
+    
     if tema_eh_servico:
-
+    
+        # ----------------------------------------------------
+        # SERVIÇOS
+        # 15 TAGS FIXAS + 15 TAGS COMPLEMENTARES
+        # ----------------------------------------------------
+    
         tags_base = [
+    
+            # 15 TAGS FIXAS DE SERVIÇOS
+            f"{tema_base} em {cidade}",
+            f"{tema_base} em {estado}",
+            f"empresa especializada em {tema_base}",
+            f"especialista em {tema_base}",
+            f"realizamos {tema_base}",
+            f"executamos {tema_base}",
+            f"prestação de {tema_base}",
+            f"profissional de {tema_base}",
+            f"onde encontrar {tema_base}",
+            f"onde contratar {tema_base}",
+            f"orçamento para {tema_base}",
+            f"cotação para {tema_base}",
+            f"{tema_base} com atendimento especializado",
+            f"{tema_base} com suporte técnico",
+            f"{tema_base} preço",
+    
+            # 15 TAGS COMPLEMENTARES DE SERVIÇOS
             f"{tema_base} industrial",
             f"{tema_base} industrial especializada",
             f"{tema_base} técnica",
             f"{tema_base} especializada",
-            f"{tema_base} preventiva",
-            f"{tema_base} corretiva",
             f"{tema_base} profissional",
-            f"{tema_base} em equipamentos",
-            f"{tema_base} em sistemas",
-            f"{tema_base} em processos",
-            f"serviço de {tema_base}",
-            f"serviços de {tema_base}",
-            f"empresa de {tema_base}",
-            f"especialista em {tema_base}",
+            f"{tema_base} para indústria",
+            f"{tema_base} para equipamentos",
+            f"{tema_base} para sistemas",
+            f"{tema_base} para processos",
             f"assistência técnica {tema_base}",
-            f"assistência em {tema_base}",
-            f"manutenção relacionada a {tema_base}",
-            f"reparo relacionado a {tema_base}",
+            f"manutenção de {tema_base}",
+            f"reparo de {tema_base}",
             f"diagnóstico de {tema_base}",
-            f"inspeção de {tema_base}",
             f"solução em {tema_base}",
-            f"atendimento de {tema_base}",
-            f"suporte técnico {tema_base}",
-            f"consultoria em {tema_base}",
+            f"consultoria em {tema_base}"
+        ]
+    
+    else:
+    
+        # ----------------------------------------------------
+        # PRODUTOS
+        # 15 TAGS FIXAS + 15 TAGS COMPLEMENTARES
+        # ----------------------------------------------------
+    
+        tags_base = [
+    
+            # 15 TAGS FIXAS DE PRODUTOS
+            f"empresa de {tema_base}",
+            f"venda de {tema_base}",
+            f"vendemos {tema_base}",
+            f"fornecemos {tema_base}",
+            f"fornecedor de {tema_base}",
+            f"onde encontrar {tema_base}",
+            f"onde comprar {tema_base}",
             f"orçamento de {tema_base}",
             f"cotação de {tema_base}",
-            f"preço de {tema_base}",
-            f"contratação de {tema_base}",
-            f"empresa especializada em {tema_base}",
-            f"serviço especializado {tema_base}"
-        ]
-
-    else:
-
-        tags_base = [
+            f"{tema_base} com melhor preço",
+            f"{tema_base} com preço competitivo",
+            f"{tema_base} com preço justo",
+            f"{tema_base} com qualidade",
+            f"{tema_base} resistente",
+            f"{tema_base} durável",
+    
+            # 15 TAGS COMPLEMENTARES DE PRODUTOS
             f"{tema_base} industrial",
             f"{tema_base} industrial especializada",
             f"{tema_base} profissional",
@@ -10847,22 +10879,7 @@ marcadores obrigatórios.
             f"aplicações de {tema_base}",
             f"uso de {tema_base}",
             f"soluções com {tema_base}",
-            f"equipamento {tema_base}",
-            f"sistema com {tema_base}",
-            f"fornecedor de {tema_base}",
-            f"fabricante de {tema_base}",
-            f"empresa de {tema_base}",
-            f"especialista em {tema_base}",
-            f"assistência técnica {tema_base}",
-            f"manutenção de {tema_base}",
-            f"reparo de {tema_base}",
-            f"diagnóstico de {tema_base}",
-            f"orçamento de {tema_base}",
-            f"cotação de {tema_base}",
-            f"preço de {tema_base}",
-            f"compra de {tema_base}",
-            f"fornecimento de {tema_base}",
-            f"solução industrial {tema_base}"
+            f"equipamento {tema_base}"
         ]
 
     # ========================================================
