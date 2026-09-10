@@ -55,6 +55,9 @@ CATEGORIAS = [
 ]
 
 
+ARQUIVO_MEAD = r"C:\Python\gerador-conteudo\mead\mead.json"
+
+
 # ============================================================
 # CARREGAR MEAD
 # ============================================================
@@ -68,7 +71,6 @@ def carregar_mead():
 
         return {}
 
-
     try:
 
         with open(
@@ -79,20 +81,16 @@ def carregar_mead():
 
             mead = json.load(arquivo)
 
-
         if not isinstance(mead, dict):
 
             print("❌ MEAD inválido. Estrutura esperada: objeto JSON.")
 
             return {}
 
-
         print("\nMEAD carregado:")
         print(mead)
 
-
         return mead
-
 
     except json.JSONDecodeError as erro:
 
@@ -101,13 +99,19 @@ def carregar_mead():
 
         return {}
 
-
     except Exception as erro:
 
         print("❌ Erro ao carregar MEAD:")
         print(erro)
 
         return {}
+
+
+# ============================================================
+# CARREGAR MEAD NA MEMÓRIA
+# ============================================================
+
+MEAD = carregar_mead()
 
 
 
