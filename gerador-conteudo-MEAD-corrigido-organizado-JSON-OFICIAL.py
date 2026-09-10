@@ -19259,29 +19259,6 @@ def gerar_material_interface():
 
             print(grupo)
 
-            # ====================================================
-            # 05. GERAR ENTENDIMENTO DO PRODUTO
-            # ====================================================
-
-            print()
-            print("==============================")
-            print("GERANDO ENTENDIMENTO DO PRODUTO")
-            print("==============================")
-
-            print(
-                "TEMA:",
-                tema
-            )
-
-            print(
-                "GRUPO:",
-                grupo
-            )
-
-            entendimento = gerar_entendimento_produto(
-                tema,
-                grupo
-            )
 
             # ====================================================
             # 06. VALIDAR ENTENDIMENTO
@@ -21555,94 +21532,6 @@ def executar():
         grupo
     )
 
-    # ========================================================
-    # 03. GERAR ENTENDIMENTO DO PRODUTO
-    # ========================================================
-
-    print()
-    print("==============================")
-    print("GERANDO ENTENDIMENTO DO PRODUTO")
-    print("==============================")
-
-    print(
-        "TEMA:",
-        tema
-    )
-
-    print(
-        "GRUPO:",
-        grupo
-    )
-
-    print()
-    print("CHAMANDO:")
-    print(
-        "gerar_entendimento_produto()"
-    )
-
-    inicio_entendimento = time.time()
-
-    entendimento = gerar_entendimento_produto(
-        tema,
-        grupo
-    )
-
-    fim_entendimento = time.time()
-
-    # ========================================================
-    # 04. RESULTADO DO ENTENDIMENTO
-    # ========================================================
-
-    print()
-    print("==============================")
-    print("ENTENDIMENTO DO PRODUTO RETORNOU")
-    print("==============================")
-
-    print(
-        "TIPO:",
-        type(entendimento)
-    )
-
-    print(
-        "CARACTERES:",
-        len(
-            str(
-                entendimento or ""
-            )
-        )
-    )
-
-    print(
-        "TEMPO:",
-        formatar_tempo(
-            fim_entendimento
-            -
-            inicio_entendimento
-        )
-    )
-
-    print()
-
-    if entendimento:
-
-        print(
-            "ENTENDIMENTO:"
-        )
-
-        print(
-            entendimento
-        )
-
-    else:
-
-        print(
-            "ENTENDIMENTO VAZIO"
-        )
-
-    print()
-    print("==============================")
-    print("FIM ENTENDIMENTO DO PRODUTO")
-    print("==============================")
 
     # ========================================================
     # 05. PESQUISA
