@@ -1,5 +1,3 @@
-# Alterações incorporadas: somente as mudanças do MEAD/tags/segmentos/blocos definidas em 2026-09-10 + correção de escopo de grupo_principal_projeto.
-
 import json
 import os
 import re
@@ -40,22 +38,12 @@ PAGINAS_EM_PROCESSAMENTO = set()
 
 from pathlib import Path
 
-PASTA_DADOS = Path(
-    r"C:\Python\gerador-conteudo\dados-brutos"
-)
-
-CATEGORIAS = [
-    "definicao",
-    "beneficios",
-    "vantagens",
-    "materia_prima",
-    "aplicacoes",
-    "fabricacao",
-    "manutencao",
-    "ativos_narrativos",
-    "duvidas_frequentes"
-]
-
+# ============================================================
+# TAGS FIXAS — ALTERAÇÃO DE 10/09/2026
+# ============================================================
+# A base padronizada pertence ao Python.
+# O Ollama NÃO cria as tags finais.
+# ============================================================
 
 TAGS_FIXAS_PRODUTOS = [
     "empresa de [tema]",
@@ -76,8 +64,6 @@ TAGS_FIXAS_PRODUTOS = [
 ]
 
 TAGS_FIXAS_SERVICOS = [
-    "[tema] em {cidade}",
-    "[tema] em {estado}",
     "empresa especializada em [tema]",
     "especialista em [tema]",
     "realizamos [tema]",
@@ -90,7 +76,26 @@ TAGS_FIXAS_SERVICOS = [
     "cotação para [tema]",
     "[tema] com atendimento especializado",
     "[tema] com suporte técnico",
-    "[tema] preço"
+    "[tema] preço",
+    "manutenção de [tema]",
+    "assistência técnica em [tema]"
+]
+
+
+PASTA_DADOS = Path(
+    r"C:\Python\gerador-conteudo\dados-brutos"
+)
+
+CATEGORIAS = [
+    "definicao",
+    "beneficios",
+    "vantagens",
+    "materia_prima",
+    "aplicacoes",
+    "fabricacao",
+    "manutencao",
+    "ativos_narrativos",
+    "duvidas_frequentes"
 ]
 
 
@@ -9267,10 +9272,7 @@ def selecionar_informacoes_relevantes(
 
         return resultado_vazio
 
-        # Grupo informado na interface; não é gerado pela IA.
-    grupo_principal_projeto = entrada_grupo.get().strip() if "entrada_grupo" in globals() else ""
-
-# ========================================================
+    # ========================================================
     # 01. NORMALIZAR FONTES
     # ========================================================
 
@@ -12385,7 +12387,7 @@ def selecionar_informacoes_relevantes(
 #
 # ============================================================
 
-def gerar_segmentos_pagina(tema, quantidade=None):
+def gerar_segmentos_pagina(tema):
 
     import random
 
@@ -12396,51 +12398,87 @@ def gerar_segmentos_pagina(tema, quantidade=None):
     if not tema:
         return []
 
-    # ========================================================
+    # --------------------------------------------------------
     # BANCO FIXO DE SEGMENTOS
-    # ========================================================
+    # --------------------------------------------------------
     #
-    # O Python cria os segmentos a partir de um banco técnico.
-    # Cada segmento precisa mencionar o tema.
-    # A página pode possuir de 5 a 10 segmentos.
+    # O tema é inserido diretamente em todos os segmentos.
+    # Portanto nenhum segmento pode ficar sem referência
+    # ao produto ou serviço.
     #
-    # ========================================================
+    # Mais de 20 opções para permitir variação entre páginas.
+    # --------------------------------------------------------
 
     banco_segmentos = [
 
         f"Aplicações industriais de {tema}",
+
         f"Funcionamento e características de {tema}",
+
         f"Critérios técnicos para seleção de {tema}",
+
         f"Manutenção preventiva de {tema}",
+
         f"Instalação adequada de {tema}",
+
         f"Benefícios operacionais de {tema}",
+
         f"Dimensionamento de {tema} para diferentes sistemas",
+
         f"Desempenho técnico de {tema}",
+
         f"Eficiência operacional de {tema}",
+
         f"Características construtivas de {tema}",
+
         f"Cuidados na operação de {tema}",
+
         f"Soluções industriais com {tema}",
+
         f"Aplicações de {tema} em processos industriais",
+
         f"Segurança na operação de {tema}",
+
         f"Diagnóstico de problemas em {tema}",
+
         f"Inspeção e conservação de {tema}",
+
         f"Escolha de {tema} conforme a aplicação",
+
         f"Condições de operação de {tema}",
+
         f"Vantagens técnicas de {tema}",
+
         f"Integração de {tema} em sistemas industriais",
+
         f"Cuidados durante a instalação de {tema}",
+
         f"Procedimentos de manutenção de {tema}",
+
         f"Especificação técnica de {tema}",
+
         f"Confiabilidade operacional de {tema}",
+
         f"Desempenho de {tema} em diferentes aplicações",
+
         f"Aplicação de {tema} em sistemas industriais",
+
         f"Operação adequada de {tema}",
+
         f"Seleção de {tema} para processos industriais",
+
         f"Manutenção e conservação de {tema}",
+
         f"Aspectos técnicos de {tema}"
+
     ]
 
+    # --------------------------------------------------------
+    # LIMPAR DUPLICIDADES
+    # --------------------------------------------------------
+
     segmentos_validos = []
+
     vistos = set()
 
     for segmento in banco_segmentos:
@@ -12458,65 +12496,139 @@ def gerar_segmentos_pagina(tema, quantidade=None):
             continue
 
         vistos.add(chave)
-        segmentos_validos.append(segmento)
 
-    if len(segmentos_validos) < 5:
-        print(
-            "❌ ERRO: banco de segmentos possui menos de 5 opções."
+        segmentos_validos.append(
+            segmento
         )
+
+    # --------------------------------------------------------
+    # GARANTIR QUANTIDADE MÍNIMA
+    # --------------------------------------------------------
+
+    if len(segmentos_validos) < 20:
+
+        print()
+        print(
+            "❌ ERRO: banco de segmentos possui menos "
+            "de 20 opções."
+        )
+
         return []
 
-    if quantidade is None:
-        quantidade = random.randint(5, 10)
-
-    try:
-        quantidade = int(quantidade)
-    except Exception:
-        quantidade = 8
-
-    quantidade = max(5, min(10, quantidade))
-    quantidade = min(quantidade, len(segmentos_validos))
+    # --------------------------------------------------------
+    # SORTEAR EXATAMENTE 12
+    # --------------------------------------------------------
+    #
+    # random.sample() garante que não haverá repetição.
+    # --------------------------------------------------------
 
     segmentos_escolhidos = random.sample(
         segmentos_validos,
-        quantidade
+        12
     )
+
+    # --------------------------------------------------------
+    # VALIDAÇÃO FINAL
+    # --------------------------------------------------------
+    #
+    # Todo segmento precisa conter referência ao tema.
+    # --------------------------------------------------------
 
     tema_normalizado = tema.casefold()
 
-    segmentos_finais = [
-        segmento
-        for segmento in segmentos_escolhidos
-        if tema_normalizado in segmento.casefold()
-    ]
+    segmentos_finais = []
 
-    if len(segmentos_finais) < 5:
-        print(
-            "❌ ERRO: não foi possível montar pelo menos 5 segmentos válidos."
+    for segmento in segmentos_escolhidos:
+
+        if tema_normalizado not in segmento.casefold():
+
+            print()
+            print(
+                "⚠️ SEGMENTO REJEITADO POR NÃO "
+                "REFERENCIAR O TEMA:"
+            )
+            print(segmento)
+
+            continue
+
+        segmentos_finais.append(
+            segmento
         )
+
+    # --------------------------------------------------------
+    # SEGURANÇA
+    # --------------------------------------------------------
+
+    if len(segmentos_finais) != 12:
+
+        print()
+        print(
+            "❌ ERRO: não foi possível montar "
+            "12 segmentos válidos."
+        )
+
         return []
 
+    # --------------------------------------------------------
+    # LOG
+    # --------------------------------------------------------
+
     print()
-    print("==========================================")
-    print("SEGMENTOS DA PÁGINA")
-    print("==========================================")
-    print(f"TEMA: {tema}")
-    print(f"BANCO DISPONÍVEL: {len(segmentos_validos)}")
-    print(f"SEGMENTOS SORTEADOS: {len(segmentos_finais)}")
+    print(
+        "=========================================="
+    )
+    print(
+        "SEGMENTOS DA PÁGINA"
+    )
+    print(
+        "=========================================="
+    )
+
+    print(
+        f"TEMA: {tema}"
+    )
+
+    print(
+        f"BANCO DISPONÍVEL: "
+        f"{len(segmentos_validos)}"
+    )
+
+    print(
+        "SEGMENTOS SORTEADOS: 12"
+    )
 
     for numero, segmento in enumerate(
         segmentos_finais,
         start=1
     ):
+
         print(
-            f"SEGMENTO_{numero}: {segmento}"
+            f"SEGMENTO_{numero}: "
+            f"{segmento}"
         )
 
-    print("==========================================")
+    print(
+        "=========================================="
+    )
 
     return segmentos_finais
 
 
+# ============================================================
+# FORMAS GRAMATICAIS DO TEMA
+# ============================================================
+#
+# Função independente.
+#
+# NÃO fica dentro de gerar_conteudo_completo().
+#
+# Objetivo:
+# - identificar masculino/feminino do tema;
+# - fornecer as formas necessárias para segmentos e tags;
+# - evitar o uso do tema sozinho;
+# - manter concordância dos adjetivos.
+#
+# ============================================================
 
 def obter_formas_gramaticais_tema(tema):
 
@@ -12731,6 +12843,14 @@ def gerar_conteudo_completo(
     dados_coleta=None
 ):
 
+    # Grupo principal vem da interface e precisa existir antes
+    # de qualquer salvamento intermediário desta função.
+    grupo_principal_projeto = (
+        entrada_grupo.get().strip()
+        if "entrada_grupo" in globals()
+        else ""
+    )
+
     inicio_geracao = time.time()
 
     tema_base = str(
@@ -12895,10 +13015,7 @@ def gerar_conteudo_completo(
     total_blocos = 5
     paragrafos_por_bloco = 3
     total_paragrafos = 15
-    # Segmentos: o projeto aceita de 5 a 10.
-    # Usamos 8 como quantidade-base para manter estabilidade
-    # sem perder a variação do banco de segmentos.
-    total_segmentos = 8
+    total_segmentos = 12
     total_tags = 30
     
     print()
@@ -14548,7 +14665,7 @@ marcadores obrigatórios.
     # Os segmentos NÃO são gerados pelos checkboxes.
     #
     # O Python possui um banco fixo com mais de 20
-    # possibilidades e sorteia entre 5 e 10 para a página.
+    # possibilidades e sorteia exatamente 12 para a página.
     #
     # Cada segmento obrigatoriamente referencia o tema,
     # que representa o produto ou serviço.
@@ -14556,12 +14673,11 @@ marcadores obrigatórios.
     # ========================================================
     
     lista_segmentos = gerar_segmentos_pagina(
-        tema,
-        total_segmentos
+        tema
     )
-
-    if not (5 <= len(lista_segmentos) <= 10):
-
+    
+    if len(lista_segmentos) != 12:
+    
         print()
         print(
             "❌ FALHA NA GERAÇÃO DOS SEGMENTOS."
@@ -14569,7 +14685,7 @@ marcadores obrigatórios.
     
         print(
             "A página não será considerada válida "
-            "sem entre 5 e 10 segmentos."
+            "sem exatamente 12 segmentos."
         )
     
         return None
@@ -14677,7 +14793,7 @@ marcadores obrigatórios.
         lista_segmentos
     ) if "remover_duplicados" in locals() else lista_segmentos
 
-    lista_segmentos = lista_segmentos[:10]
+    lista_segmentos = lista_segmentos[:12]
 
 
     # ========================================================
@@ -14702,64 +14818,59 @@ marcadores obrigatórios.
     #
     # ========================================================
 
-    # ========================================================
-    # BASE FIXA DE TAGS COMERCIAIS
-    # ========================================================
-    #
-    # Estas tags fazem parte da estratégia fixa do projeto.
-    # O Python monta as tags; o Ollama não cria nem escolhe tags.
-    #
-    # ========================================================
+    # --------------------------------------------------------
+    # BASE FIXA DE 10/09/2026
+    # A base padronizada pertence ao Python.
+    # Os placeholders [tema] são substituídos pelo tema real.
+    # --------------------------------------------------------
 
-    cidade = "São Paulo"
-    estado = "SP"
+    tags_fixas = (
+        TAGS_FIXAS_SERVICOS
+        if tema_eh_servico
+        else TAGS_FIXAS_PRODUTOS
+    )
+
+    tags_base_fixas = [
+        str(tag).replace(
+            "[tema]",
+            tema_base
+        )
+        for tag in tags_fixas
+    ]
+
+    # --------------------------------------------------------
+    # Variações adicionais do Python
+    # Servem apenas para completar as 30 tags quando necessário.
+    # --------------------------------------------------------
 
     if tema_eh_servico:
 
-        tags_fixas = [
-            str(tag)
-            .replace("[tema]", tema_base)
-            .replace("{cidade}", cidade)
-            .replace("{estado}", estado)
-            for tag in TAGS_FIXAS_SERVICOS
-        ]
-
-        tags_complementares = [
+        tags_base_adicionais = [
             f"{tema_base} industrial",
-            f"{tema_base} industrial especializada",
             f"{tema_base} técnica",
             f"{tema_base} especializada",
+            f"{tema_base} preventiva",
+            f"{tema_base} corretiva",
             f"{tema_base} profissional",
-            f"{tema_base} para indústria",
-            f"{tema_base} para equipamentos",
-            f"{tema_base} para sistemas",
-            f"{tema_base} para processos",
-            f"assistência técnica {tema_base}",
-            f"manutenção de {tema_base}",
-            f"reparo de {tema_base}",
+            f"{tema_base} em equipamentos",
+            f"{tema_base} em sistemas",
+            f"{tema_base} em processos",
+            f"serviços de {tema_base}",
+            f"assistência em {tema_base}",
             f"diagnóstico de {tema_base}",
-            f"solução em {tema_base}",
+            f"inspeção de {tema_base}",
+            f"suporte técnico {tema_base}",
             f"consultoria em {tema_base}"
         ]
 
     else:
 
-        tags_fixas = [
-            str(tag)
-            .replace("[tema]", tema_base)
-            .replace("{cidade}", cidade)
-            .replace("{estado}", estado)
-            for tag in TAGS_FIXAS_PRODUTOS
-        ]
-
-        tags_complementares = [
+        tags_base_adicionais = [
             f"{tema_base} industrial",
-            f"{tema_base} industrial especializada",
             f"{tema_base} profissional",
             f"{tema_base} técnica",
             f"{tema_base} especializada",
             f"{tema_base} para indústria",
-            f"{tema_base} industrial aplicação",
             f"{tema_base} para sistemas",
             f"{tema_base} para processos",
             f"{tema_base} hidráulica",
@@ -14767,10 +14878,13 @@ marcadores obrigatórios.
             f"aplicações de {tema_base}",
             f"uso de {tema_base}",
             f"soluções com {tema_base}",
-            f"equipamento {tema_base}"
+            f"equipamento {tema_base}",
+            f"sistema com {tema_base}",
+            f"assistência técnica {tema_base}"
         ]
 
-    tags_base = tags_fixas + tags_complementares
+    # As tags fixas vêm primeiro e não são substituídas por outras.
+    tags_base = tags_base_fixas + tags_base_adicionais
 
     # ========================================================
     # LIMPAR E VALIDAR TAGS
@@ -14846,9 +14960,10 @@ marcadores obrigatórios.
     ]
 
     # --------------------------------------------------------
-    # A base fixa + complementares fornece 30 tags válidas.
+    # O banco acima possui 29 opções válidas.
     #
-    # A palavra-chave isolada nunca é aceita como tag.
+    # Como a palavra-chave isolada foi retirada, não devemos
+    # simplesmente fazer [:30] e aceitar quantidade menor.
     #
     # Se houver menos de 30 tags válidas, interrompemos a
     # geração para evitar um JSON estruturalmente incorreto.
@@ -14943,7 +15058,7 @@ marcadores obrigatórios.
     #
     # Neste ponto o Python já criou:
     # - as informações relevantes
-    # - entre 5 e 10 segmentos
+    # - exatamente 12 segmentos
     # - exatamente 30 tags
     #
     # Tudo é enviado junto ao salvar_banco() para que seja
@@ -15125,7 +15240,7 @@ marcadores obrigatórios.
     if total_paragrafos_real != total_paragrafos:
         estrutura_valida = False
     
-    if not (5 <= total_segmentos_real <= 10):
+    if total_segmentos_real != total_segmentos:
         estrutura_valida = False
     
     if total_tags_real != total_tags:
@@ -23364,12 +23479,16 @@ def gerar_material_interface():
                 try:
         
                     resposta_tema_http = requests.post(
-                        "http://localhost:11434/api/generate",
+                        "http://localhost:11434/api/chat",
                         json={
                             "model": "qwen3:latest",
-                            "prompt": prompt_correcao_tema,
+                            "messages": [
+                                {
+                                    "role": "user",
+                                    "content": prompt_correcao_tema
+                                }
+                            ],
                             "stream": False,
-                            "think": False,
                             "options": {
                                 "temperature": 0.0,
                                 "num_predict": 50
@@ -23380,16 +23499,14 @@ def gerar_material_interface():
 
                     if resposta_tema_http.status_code != 200:
                         raise RuntimeError(
-                            f"Ollama retornou HTTP "
-                            f"{resposta_tema_http.status_code}"
+                            f"Ollama retornou HTTP {resposta_tema_http.status_code}"
                         )
 
-                    dados_tema = resposta_tema_http.json()
-
+                    resposta_tema = resposta_tema_http.json()
                     tema_corrigido = str(
-                        dados_tema.get("response", "")
+                        resposta_tema.get("message", {}).get("content", "")
                     ).strip()
-        
+
                     if tema_corrigido:
                         tema = tema_corrigido
                     else:
