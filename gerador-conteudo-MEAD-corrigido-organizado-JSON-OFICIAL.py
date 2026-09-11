@@ -1,3 +1,16 @@
+# ============================================================
+# BASE OFICIAL RECONSTRUÍDA — 2026-09-11
+# ============================================================
+# Esta versão foi reconstruída a partir da versão funcional
+# gerador-conteudo-MEAD-corrigido-organizado-JSON-OFICIAL-valendo.py
+# preservando a estrutura funcional e incorporando:
+# - tags comerciais fixas geradas pelo Python;
+# - 30 tags finais sem a palavra-chave isolada;
+# - 5 a 10 segmentos;
+# - correção da chamada Ollama usada na correção ortográfica do tema;
+# - preservação da gravação oficial dos blocos no JSON.
+# ============================================================
+
 import json
 import os
 import re
@@ -53,6 +66,7 @@ CATEGORIAS = [
     "ativos_narrativos",
     "duvidas_frequentes"
 ]
+
 
 TAGS_FIXAS_PRODUTOS = [
     "empresa de [tema]",
@@ -149,6 +163,1589 @@ def carregar_mead():
 
 MEAD = carregar_mead()
 
+
+
+# ============================================================
+# PREPARAR MEAD PARA IA
+# ============================================================
+
+def preparar_mead(mead):
+
+    """
+    Prepara somente as regras editoriais necessárias do MEAD
+    para serem utilizadas pelo Ollama.
+
+    IMPORTANTE:
+    - Não envia o JSON MEAD inteiro.
+    - Não envia patrimônio ou textos de pesquisa.
+    - Não seleciona informações.
+    - Não altera os fragmentos escolhidos pelo Python.
+    - O Python continua responsável pela seleção.
+    - O Ollama continua responsável pela redação.
+    """
+
+    if not isinstance(mead, dict):
+        return ""
+
+    try:
+
+        identidade = mead.get("identidade", {})
+        principio = mead.get("principio_operacional", {})
+        preparacao = mead.get("preparacao", {})
+        tags = preparacao.get("tags", {})
+        construcao = mead.get("construcao_conteudo", {})
+        estrutura = mead.get("estrutura_pagina_editorial", {})
+        seo = mead.get("regras_seo", {})
+        fidelidade = mead.get("fidelidade", {})
+        contexto_blocos = mead.get("contexto_blocos", {})
+        lista_segmentos = mead.get("lista_segmentos", {})
+
+        mead_ia = {
+
+            "metodo": identidade.get(
+                "metodo",
+                "MEAD"
+            ),
+
+            "objetivo": identidade.get(
+                "objetivo",
+                ""
+            ),
+
+            "principio_operacional": {
+
+                "regra_principal": principio.get(
+                    "regra_principal",
+                    ""
+                ),
+
+                "regra_de_fidelidade": principio.get(
+                    "regra_de_fidelidade",
+                    ""
+                ),
+
+                "regra_de_protagonismo": principio.get(
+                    "regra_de_protagonismo",
+                    ""
+                ),
+
+                "regra_de_diversidade": principio.get(
+                    "regra_de_diversidade",
+                    ""
+                ),
+
+                "regra_de_separacao": principio.get(
+                    "regra_de_separacao",
+                    ""
+                )
+            },
+
+            # ==================================================
+            # PALAVRA-CHAVE
+            # ==================================================
+
+            "palavra_chave": preparacao.get(
+                "palavra_chave",
+                {}
+            ),
+
+            # ==================================================
+            # REGRAS DE TAGS PARA O OLLAMA
+            # ==================================================
+
+            "tags": {
+
+                "quantidade": tags.get(
+                    "quantidade",
+                    30
+                ),
+
+                "regra": tags.get(
+                    "regra",
+                    ""
+                ),
+
+                "principio_origem": tags.get(
+                    "principio_origem",
+                    {}
+                ),
+
+                "grupos": tags.get(
+                    "grupos",
+                    []
+                ),
+
+                "ordem_prioridade": tags.get(
+                    "ordem_prioridade",
+                    []
+                ),
+
+                "regra_localizacao": tags.get(
+                    "regra_localizacao",
+                    {}
+                ),
+
+                "regra_servicos": {
+
+                    "usar": tags.get(
+                        "regra_servicos",
+                        {}
+                    ).get(
+                        "usar",
+                        True
+                    ),
+
+                    "base": tags.get(
+                        "regra_servicos",
+                        {}
+                    ).get(
+                        "base",
+                        ""
+                    ),
+
+                    "variacoes_permitidas": tags.get(
+                        "regra_servicos",
+                        {}
+                    ).get(
+                        "variacoes_permitidas",
+                        []
+                    ),
+
+                    "regra": tags.get(
+                        "regra_servicos",
+                        {}
+                    ).get(
+                        "regra",
+                        ""
+                    )
+                },
+
+                "regra_produtos": {
+
+                    "usar": tags.get(
+                        "regra_produtos",
+                        {}
+                    ).get(
+                        "usar",
+                        True
+                    ),
+
+                    "base": tags.get(
+                        "regra_produtos",
+                        {}
+                    ).get(
+                        "base",
+                        ""
+                    ),
+
+                    "variacoes_permitidas": tags.get(
+                        "regra_produtos",
+                        {}
+                    ).get(
+                        "variacoes_permitidas",
+                        []
+                    ),
+
+                    "regra": tags.get(
+                        "regra_produtos",
+                        {}
+                    ).get(
+                        "regra",
+                        ""
+                    )
+                },
+
+                "regra_completude": tags.get(
+                    "regra_completude",
+                    {}
+                ),
+
+                "regra_substituicao": tags.get(
+                    "regra_substituicao",
+                    {}
+                ),
+
+                "restricoes": tags.get(
+                    "restricoes",
+                    []
+                )
+            },
+
+            # ==================================================
+            # CONTEXTO DOS CINCO BLOCOS
+            # ==================================================
+
+            "contexto_blocos": contexto_blocos,
+
+            # ==================================================
+            # CONSTRUÇÃO DO CONTEÚDO
+            # ==================================================
+
+            "construcao_conteudo": {
+
+                "total_blocos": construcao.get(
+                    "total_blocos",
+                    5
+                ),
+
+                "paragrafos_por_bloco": construcao.get(
+                    "paragrafos_por_bloco",
+                    3
+                ),
+
+                "total_paragrafos": construcao.get(
+                    "total_paragrafos",
+                    15
+                ),
+
+                "palavras_por_paragrafo":
+                    construcao.get(
+                        "palavras_por_paragrafo",
+                        {}
+                    ),
+
+                "regra_narrativa":
+                    construcao.get(
+                        "regra_narrativa",
+                        {}
+                    )
+            },
+
+            # ==================================================
+            # ESTRUTURA DA PÁGINA
+            # ==================================================
+
+            "estrutura_pagina": {
+
+                "blocos_texto": estrutura.get(
+                    "blocos_texto",
+                    5
+                ),
+
+                "paragrafos_por_bloco":
+                    estrutura.get(
+                        "paragrafos_por_bloco",
+                        3
+                    ),
+
+                "total_paragrafos":
+                    estrutura.get(
+                        "total_paragrafos",
+                        15
+                    ),
+
+                "palavras_por_paragrafo":
+                    estrutura.get(
+                        "palavras_por_paragrafo",
+                        {}
+                    )
+            },
+
+
+           
+
+            # ==================================================
+            # SEO
+            # ==================================================
+
+            "regras_seo": {
+
+                "evitar": seo.get(
+                    "evitar",
+                    []
+                ),
+
+                "priorizar": seo.get(
+                    "priorizar",
+                    []
+                )
+            },
+
+            # ==================================================
+            # FIDELIDADE
+            # ==================================================
+
+            "fidelidade": {
+
+                "permitido": fidelidade.get(
+                    "permitido",
+                    []
+                ),
+
+                "proibido": fidelidade.get(
+                    "proibido",
+                    []
+                )
+            }
+        }
+
+        return json.dumps(
+            mead_ia,
+            ensure_ascii=False,
+            indent=2
+        )
+
+    except Exception as erro:
+
+        print("❌ Erro ao preparar MEAD para IA:")
+        print(erro)
+
+        return ""
+
+
+# ============================================================
+# PREPARAR DADOS FIXOS DA PÁGINA
+# ============================================================
+
+def preparar_dados_pagina(
+        tema,
+        tags=None,
+        segmentos_listas=None,
+        dados_pagina=None
+    ):
+
+    """
+    Organiza os dados já produzidos pelo Python
+    para serem enviados posteriormente para
+    montar_pagina_json().
+
+    NÃO pesquisa.
+    NÃO chama Ollama.
+    NÃO gera conteúdo.
+    NÃO altera fragmentos.
+    NÃO grava o JSON.
+
+    IMPORTANTE:
+    - Não cria mais "informacoes_adicionais".
+    - Não cria "categorias".
+    - Os parágrafos da página devem ser recebidos
+      posteriormente pelo fluxo de montagem dos blocos.
+    """
+
+    try:
+
+        # ----------------------------------------------------
+        # TEMA
+        # ----------------------------------------------------
+
+        tema = str(
+            tema or ""
+        ).strip()
+
+        if not tema:
+
+            print(
+                "❌ preparar_dados_pagina(): "
+                "tema vazio."
+            )
+
+            return None
+
+        # ----------------------------------------------------
+        # DADOS DA PÁGINA
+        # ----------------------------------------------------
+
+        if not isinstance(
+            dados_pagina,
+            dict
+        ):
+
+            dados_pagina = {}
+
+        # ----------------------------------------------------
+        # TAGS
+        # ----------------------------------------------------
+
+        if not isinstance(
+            tags,
+            list
+        ):
+
+            tags = []
+
+        tags_finais = []
+
+        for tag in tags:
+
+            tag = str(
+                tag or ""
+            ).strip()
+
+            if not tag:
+                continue
+
+            if tag in tags_finais:
+                continue
+
+            tags_finais.append(
+                tag
+            )
+
+            if len(
+                tags_finais
+            ) >= 30:
+
+                break
+
+        dados_pagina[
+            "tags"
+        ] = tags_finais
+
+        # ----------------------------------------------------
+        # SEGMENTOS / LISTAS
+        # ----------------------------------------------------
+
+        if not isinstance(
+            segmentos_listas,
+            dict
+        ):
+
+            segmentos_listas = {}
+
+        segmentos_oficiais = {}
+
+        # ----------------------------------------------------
+        # GARANTIR OS 12 SEGMENTOS
+        # ----------------------------------------------------
+
+        for numero in range(
+            1,
+            13
+        ):
+
+            chave = (
+                f"segmento_{numero}"
+            )
+
+            lista = segmentos_listas.get(
+                chave,
+                []
+            )
+
+            if not isinstance(
+                lista,
+                list
+            ):
+
+                lista = []
+
+            lista_final = []
+
+            for item in lista:
+
+                item = str(
+                    item or ""
+                ).strip()
+
+                if not item:
+                    continue
+
+                lista_final.append(
+                    item
+                )
+
+            segmentos_oficiais[
+                chave
+            ] = lista_final
+
+        dados_pagina[
+            "segmentos_listas"
+        ] = segmentos_oficiais
+
+        # ----------------------------------------------------
+        # IMPORTANTE
+        # ----------------------------------------------------
+        #
+        # NÃO criar:
+        #
+        # dados_pagina["informacoes_adicionais"]
+        #
+        # NÃO criar:
+        #
+        # dados_pagina["categorias"]
+        #
+        # Essas estruturas antigas não fazem mais parte
+        # da estrutura editorial final da página.
+        #
+        # Os textos dos 15 parágrafos devem entrar nos
+        # blocos da página posteriormente.
+        # ----------------------------------------------------
+
+        dados_pagina.pop(
+            "informacoes_adicionais",
+            None
+        )
+
+        dados_pagina.pop(
+            "categorias",
+            None
+        )
+
+        # ----------------------------------------------------
+        # RETORNO
+        # ----------------------------------------------------
+
+        print()
+        print(
+            "=========================================="
+        )
+        print(
+            "DADOS FIXOS DA PÁGINA PREPARADOS"
+        )
+        print(
+            "=========================================="
+        )
+        print(
+            f"TEMA: {tema}"
+        )
+        print(
+            f"TAGS: {len(tags_finais)}"
+        )
+
+        total_itens = 0
+
+        for numero in range(
+            1,
+            13
+        ):
+
+            chave = (
+                f"segmento_{numero}"
+            )
+
+            quantidade = len(
+                segmentos_oficiais[
+                    chave
+                ]
+            )
+
+            total_itens += quantidade
+
+            print(
+                f"{chave}: "
+                f"{quantidade} itens"
+            )
+
+        print(
+            f"TOTAL ITENS DAS LISTAS: "
+            f"{total_itens}"
+        )
+
+        print(
+            "INFORMACOES_ADICIONAIS: REMOVIDO"
+        )
+
+        print(
+            "CATEGORIAS: REMOVIDO"
+        )
+
+        print(
+            "=========================================="
+        )
+
+        return dados_pagina
+
+    except Exception as erro:
+
+        print()
+        print(
+            "❌ ERRO ao preparar dados da página:"
+        )
+        print(erro)
+
+        return None
+
+
+        
+        
+# ============================================================
+# MONTAR PÁGINA OFICIAL PARA O JSON
+# ============================================================
+
+def montar_pagina_json(
+        tema,
+        grupo="",
+        tipo="",
+        tags=None,
+        controle_repeticoes=None,
+        mapa_mead=None,
+        informacoes_relevantes=None,
+        dados_pagina=None,
+        informacoes_adicionais=None,
+        categorias=None
+    ):
+
+    """
+    Monta a estrutura oficial completa de uma página
+    antes da gravação no conteudo-site.json.
+
+    IMPORTANTE:
+
+    - Não realiza pesquisa.
+    - Não seleciona informações.
+    - Não gera conteúdo.
+    - Não altera os fragmentos recebidos.
+    - Não grava diretamente no arquivo.
+    - Apenas organiza os dados na estrutura oficial.
+
+    ESTRUTURA:
+
+        tema
+            └── pagina
+                ├── tema
+                ├── arquivo_origem
+                ├── h1
+                ├── titulo
+                ├── subtitulo
+                ├── descricao
+                ├── bloco_1
+                │   └── informacoes_relevantes
+                ├── bloco_2
+                │   └── informacoes_relevantes
+                ├── bloco_3
+                │   └── informacoes_relevantes
+                ├── bloco_4
+                │   └── informacoes_relevantes
+                ├── bloco_5
+                │   └── informacoes_relevantes
+                ├── segmentos_listas
+                │   ├── segmento_1
+                │   ├── ...
+                │   └── segmento_12
+                └── imagens
+
+    NÃO EXISTE MAIS:
+
+        pagina_completa["informacoes_relevantes"]
+
+    As informações relevantes pertencem aos cinco blocos.
+    """
+
+    try:
+
+        # ====================================================
+        # NORMALIZAR TEMA
+        # ====================================================
+
+        tema = str(
+            tema or ""
+        ).strip()
+
+        if not tema:
+
+            raise ValueError(
+                "Tema vazio ao montar página JSON."
+            )
+
+        # ====================================================
+        # NORMALIZAR ENTRADAS
+        # ====================================================
+
+        if not isinstance(
+            tags,
+            list
+        ):
+
+            tags = []
+
+        if not isinstance(
+            controle_repeticoes,
+            dict
+        ):
+
+            controle_repeticoes = {}
+
+        if not isinstance(
+            mapa_mead,
+            dict
+        ):
+
+            mapa_mead = {}
+
+        if not isinstance(
+            informacoes_relevantes,
+            dict
+        ):
+
+            informacoes_relevantes = {}
+
+        if not isinstance(
+            dados_pagina,
+            dict
+        ):
+
+            dados_pagina = {}
+
+        if not isinstance(
+            informacoes_adicionais,
+            dict
+        ):
+
+            informacoes_adicionais = {}
+
+        if not isinstance(
+            categorias,
+            dict
+        ):
+
+            categorias = {}
+
+        # ====================================================
+        # CRIAR ESTRUTURA OFICIAL
+        # ====================================================
+
+        estrutura = criar_estrutura_json_pagina(
+            tema
+        )
+
+        if not isinstance(
+            estrutura,
+            dict
+        ):
+
+            print(
+                "❌ criar_estrutura_json_pagina() "
+                "não retornou um dicionário."
+            )
+
+            return None
+
+        if tema not in estrutura:
+
+            print(
+                "❌ Tema não encontrado na estrutura "
+                "criada para o JSON."
+            )
+
+            return None
+
+        pagina_completa = estrutura[
+            tema
+        ]
+
+        if not isinstance(
+            pagina_completa,
+            dict
+        ):
+
+            print(
+                "❌ Estrutura da página inválida."
+            )
+
+            return None
+
+        pagina = pagina_completa.get(
+            "pagina"
+        )
+
+        if not isinstance(
+            pagina,
+            dict
+        ):
+
+            print(
+                "❌ Campo 'pagina' inexistente "
+                "ou inválido."
+            )
+
+            return None
+
+        # ====================================================
+        # DADOS PRINCIPAIS
+        # ====================================================
+
+        pagina_completa[
+            "tema"
+        ] = tema
+
+        pagina_completa[
+            "grupo"
+        ] = str(
+            grupo or ""
+        ).strip()
+
+        pagina_completa[
+            "tipo"
+        ] = str(
+            tipo or ""
+        ).strip()
+
+        # ====================================================
+        # TAGS
+        # ====================================================
+
+        tags_finais = []
+
+        for tag in tags:
+
+            tag_limpa = str(
+                tag or ""
+            ).strip()
+
+            if not tag_limpa:
+                continue
+
+            if tag_limpa in tags_finais:
+                continue
+
+            tags_finais.append(
+                tag_limpa
+            )
+
+            if len(
+                tags_finais
+            ) >= 30:
+
+                break
+
+        pagina_completa[
+            "tags"
+        ] = tags_finais
+
+        # ====================================================
+        # CONTROLE DE REPETIÇÕES
+        # ====================================================
+
+        pagina_completa[
+            "controle_repeticoes"
+        ] = {
+
+            "palavra_chave":
+                str(
+                    controle_repeticoes.get(
+                        "palavra_chave",
+                        tema
+                    )
+                    or tema
+                ).strip(),
+
+            "meta_repeticoes":
+                controle_repeticoes.get(
+                    "meta_repeticoes",
+                    60
+                ),
+
+            "repeticoes_realizadas":
+                controle_repeticoes.get(
+                    "repeticoes_realizadas",
+                    0
+                ),
+
+            "repeticoes_faltantes":
+                controle_repeticoes.get(
+                    "repeticoes_faltantes",
+                    60
+                )
+        }
+
+        # ====================================================
+        # MAPA MEAD
+        # ====================================================
+
+        pagina_completa[
+            "mapa_mead"
+        ] = {
+
+            "status":
+                str(
+                    mapa_mead.get(
+                        "status",
+                        ""
+                    )
+                    or ""
+                ).strip(),
+
+            "texto":
+                str(
+                    mapa_mead.get(
+                        "texto",
+                        ""
+                    )
+                    or ""
+                ).strip()
+        }
+
+        # ====================================================
+        # DADOS GERAIS DA PÁGINA
+        # ====================================================
+
+        campos_pagina = [
+
+            "tema",
+            "arquivo_origem",
+            "h1",
+            "titulo",
+            "subtitulo",
+            "descricao"
+
+        ]
+
+        for campo in campos_pagina:
+
+            if campo in dados_pagina:
+
+                pagina[
+                    campo
+                ] = str(
+                    dados_pagina.get(
+                        campo,
+                        ""
+                    )
+                    or ""
+                ).strip()
+
+        # ====================================================
+        # GARANTIR TEMA
+        # ====================================================
+
+        pagina[
+            "tema"
+        ] = tema
+
+        # ====================================================
+        # REGRA OFICIAL
+        #
+        # H1 = palavra-chave
+        # TÍTULO = palavra-chave
+        # ====================================================
+
+        pagina[
+            "h1"
+        ] = tema
+
+        pagina[
+            "titulo"
+        ] = tema
+
+        # ====================================================
+        # ARQUIVO DE ORIGEM
+        # ====================================================
+
+        pagina[
+            "arquivo_origem"
+        ] = str(
+            dados_pagina.get(
+                "arquivo_origem",
+                pagina.get(
+                    "arquivo_origem",
+                    ""
+                )
+            )
+            or ""
+        ).strip()
+
+        # ====================================================
+        # SUBTÍTULO
+        # ====================================================
+
+        pagina[
+            "subtitulo"
+        ] = str(
+            dados_pagina.get(
+                "subtitulo",
+                pagina.get(
+                    "subtitulo",
+                    ""
+                )
+            )
+            or ""
+        ).strip()
+
+        # ====================================================
+        # DESCRIÇÃO
+        # ====================================================
+
+        pagina[
+            "descricao"
+        ] = str(
+            dados_pagina.get(
+                "descricao",
+                pagina.get(
+                    "descricao",
+                    ""
+                )
+            )
+            or ""
+        ).strip()
+
+        # ====================================================
+        # INFORMAÇÕES RELEVANTES POR BLOCO
+        # ====================================================
+
+        fragmentos_blocos = (
+            informacoes_relevantes.get(
+                "blocos",
+                {}
+            )
+        )
+
+        if not isinstance(
+            fragmentos_blocos,
+            dict
+        ):
+
+            fragmentos_blocos = {}
+
+        # ====================================================
+        # ATUALIZAR OS CINCO BLOCOS
+        # ====================================================
+
+        for numero in range(
+            1,
+            6
+        ):
+
+            chave_bloco = (
+                f"bloco_{numero}"
+            )
+
+            dados_bloco = dados_pagina.get(
+                chave_bloco,
+                {}
+            )
+
+            if not isinstance(
+                dados_bloco,
+                dict
+            ):
+
+                dados_bloco = {}
+
+            # ------------------------------------------------
+            # FRAGMENTOS SELECIONADOS PELO PYTHON
+            # ------------------------------------------------
+
+            fragmentos_bloco = (
+                fragmentos_blocos.get(
+                    chave_bloco,
+                    ""
+                )
+            )
+
+            # ------------------------------------------------
+            # Se vier como lista de fragmentos,
+            # transformar em texto mantendo todos.
+            # ------------------------------------------------
+
+            if isinstance(
+                fragmentos_bloco,
+                list
+            ):
+
+                fragmentos_bloco = "\n\n".join(
+                    str(
+                        item or ""
+                    ).strip()
+                    for item in fragmentos_bloco
+                    if str(
+                        item or ""
+                    ).strip()
+                )
+
+            else:
+
+                fragmentos_bloco = str(
+                    fragmentos_bloco or ""
+                ).strip()
+
+            # ------------------------------------------------
+            # COPIAR DADOS EXISTENTES DO BLOCO
+            # ------------------------------------------------
+
+            dados_bloco_final = dict(
+                dados_bloco
+            )
+
+            # ------------------------------------------------
+            # INFORMACOES_RELEVANTES FICA DENTRO DO BLOCO
+            # ------------------------------------------------
+
+            dados_bloco_final[
+                "informacoes_relevantes"
+            ] = fragmentos_bloco
+
+            # ------------------------------------------------
+            # ATUALIZAR BLOCO
+            # ------------------------------------------------
+
+            atualizar_bloco(
+                numero,
+                dados_bloco_final
+            )
+
+        # ====================================================
+        # SEGMENTOS DAS LISTAS
+        # ====================================================
+
+        segmentos_recebidos = (
+            dados_pagina.get(
+                "segmentos_listas",
+                {}
+            )
+        )
+
+        if not isinstance(
+            segmentos_recebidos,
+            dict
+        ):
+
+            segmentos_recebidos = {}
+
+        segmentos_oficiais = {}
+
+        for numero in range(
+            1,
+            13
+        ):
+
+            chave_segmento = (
+                f"segmento_{numero}"
+            )
+
+            valor = segmentos_recebidos.get(
+                chave_segmento,
+                []
+            )
+
+            if not isinstance(
+                valor,
+                list
+            ):
+
+                valor = []
+
+            segmentos_oficiais[
+                chave_segmento
+            ] = [
+
+                str(
+                    item or ""
+                ).strip()
+
+                for item in valor
+
+                if str(
+                    item or ""
+                ).strip()
+            ]
+
+        pagina[
+            "segmentos_listas"
+        ] = segmentos_oficiais
+
+        # ====================================================
+        # POSICIONAMENTO DAS LISTAS
+        # ====================================================
+
+        posicionamento = (
+            dados_pagina.get(
+                "posicionamento_listas",
+                {}
+            )
+        )
+
+        if not isinstance(
+            posicionamento,
+            dict
+        ):
+
+            posicionamento = {}
+
+        pagina[
+            "posicionamento_listas"
+        ][
+            "bloco"
+        ] = posicionamento.get(
+            "bloco"
+        )
+
+        # ====================================================
+        # IMAGENS
+        # ====================================================
+
+        imagens = (
+            dados_pagina.get(
+                "imagens",
+                {}
+            )
+        )
+
+        if not isinstance(
+            imagens,
+            dict
+        ):
+
+            imagens = {}
+
+        for numero in range(
+            1,
+            7
+        ):
+
+            chave_imagem = (
+                f"imagem_{numero}"
+            )
+
+            imagem = imagens.get(
+                chave_imagem,
+                {}
+            )
+
+            if not isinstance(
+                imagem,
+                dict
+            ):
+
+                imagem = {}
+
+            pagina[
+                "imagens"
+            ][
+                chave_imagem
+            ] = {
+
+                "url":
+                    str(
+                        imagem.get(
+                            "url",
+                            ""
+                        )
+                        or ""
+                    ).strip(),
+
+                "arquivo":
+                    str(
+                        imagem.get(
+                            "arquivo",
+                            ""
+                        )
+                        or ""
+                    ).strip(),
+
+                "alt":
+                    str(
+                        imagem.get(
+                            "alt",
+                            ""
+                        )
+                        or ""
+                    ).strip(),
+
+                "descricao":
+                    str(
+                        imagem.get(
+                            "descricao",
+                            ""
+                        )
+                        or ""
+                    ).strip()
+            }
+
+        # ====================================================
+        # ESTRUTURAS LEGADAS — NÃO GRAVAR
+        # ====================================================
+        
+        pagina_completa.pop(
+            "informacoes_adicionais",
+            None
+        )
+
+        # ====================================================
+        # CATEGORIAS — NÃO GRAVAR NO JSON
+        # ====================================================
+        
+        pagina_completa.pop(
+            "categorias",
+            None
+        )
+
+        # ====================================================
+        # CALCULAR CARACTERES DA PÁGINA
+        # ====================================================
+
+        textos = []
+
+        for numero in range(
+            1,
+            6
+        ):
+
+            chave_bloco = (
+                f"bloco_{numero}"
+            )
+
+            bloco = pagina.get(
+                chave_bloco,
+                {}
+            )
+
+            if not isinstance(
+                bloco,
+                dict
+            ):
+
+                continue
+
+            # ------------------------------------------------
+            # INFORMACOES RELEVANTES
+            # ------------------------------------------------
+
+            textos.append(
+                str(
+                    bloco.get(
+                        "informacoes_relevantes",
+                        ""
+                    )
+                    or ""
+                )
+            )
+
+            # ------------------------------------------------
+            # TITULO DO BLOCO
+            # ------------------------------------------------
+
+            textos.append(
+                str(
+                    bloco.get(
+                        "titulo",
+                        ""
+                    )
+                    or ""
+                )
+            )
+
+            # ------------------------------------------------
+            # PARAGRAFOS
+            # ------------------------------------------------
+
+            paragrafos = bloco.get(
+                "paragrafos",
+                []
+            )
+
+            if isinstance(
+                paragrafos,
+                list
+            ):
+
+                textos.extend(
+                    str(
+                        item or ""
+                    )
+                    for item in paragrafos[:3]
+                )
+
+        pagina[
+            "caracteres"
+        ] = sum(
+            len(
+                texto
+            )
+            for texto in textos
+        )
+
+        # ====================================================
+        # STATUS
+        # ====================================================
+
+        pagina[
+            "status"
+        ] = "pronta_para_gravacao"
+
+        # ====================================================
+        # CHECK DE SEGURANÇA
+        #
+        # Nunca permitir informacoes_relevantes
+        # no nível global da página.
+        # ====================================================
+
+        if (
+            "informacoes_relevantes"
+            in pagina_completa
+        ):
+
+            print(
+                "⚠️ ERRO: campo global "
+                "'informacoes_relevantes' "
+                "foi recriado."
+            )
+
+            pagina_completa.pop(
+                "informacoes_relevantes",
+                None
+            )
+
+        # ====================================================
+        # CHECK DOS FRAGMENTOS POR BLOCO
+        # ====================================================
+
+        print()
+        print(
+            "======================================"
+        )
+        print(
+            "CHECK INFORMAÇÕES RELEVANTES"
+        )
+        print(
+            "======================================"
+        )
+
+        total_fragmentos = 0
+
+        for numero in range(
+            1,
+            6
+        ):
+
+            chave_bloco = (
+                f"bloco_{numero}"
+            )
+
+            bloco = pagina.get(
+                chave_bloco,
+                {}
+            )
+
+            texto_bloco = ""
+
+            if isinstance(
+                bloco,
+                dict
+            ):
+
+                texto_bloco = str(
+                    bloco.get(
+                        "informacoes_relevantes",
+                        ""
+                    )
+                    or ""
+                ).strip()
+
+            caracteres_bloco = len(
+                texto_bloco
+            )
+
+            if caracteres_bloco > 0:
+
+                print(
+                    f"🟢 {chave_bloco}: "
+                    f"{caracteres_bloco} caracteres"
+                )
+
+                total_fragmentos += (
+                    caracteres_bloco
+                )
+
+            else:
+
+                print(
+                    f"🔴 {chave_bloco}: "
+                    "sem fragmentos"
+                )
+
+        print(
+            "TOTAL FRAGMENTOS NOS BLOCOS: "
+            f"{total_fragmentos}"
+        )
+
+        print(
+            "======================================"
+        )
+
+        # ====================================================
+        # CHECK DAS 12 LISTAS
+        # ====================================================
+
+        print()
+        print(
+            "======================================"
+        )
+        print(
+            "CHECK SEGMENTOS DAS LISTAS"
+        )
+        print(
+            "======================================"
+        )
+
+        total_itens_listas = 0
+
+        for numero in range(
+            1,
+            13
+        ):
+
+            chave_segmento = (
+                f"segmento_{numero}"
+            )
+
+            itens = segmentos_oficiais.get(
+                chave_segmento,
+                []
+            )
+
+            quantidade = len(
+                itens
+            )
+
+            total_itens_listas += (
+                quantidade
+            )
+
+            if quantidade > 0:
+
+                print(
+                    f"🟢 {chave_segmento}: "
+                    f"{quantidade} itens"
+                )
+
+            else:
+
+                print(
+                    f"🔴 {chave_segmento}: "
+                    "sem itens"
+                )
+
+        print(
+            "TOTAL ITENS DAS 12 LISTAS: "
+            f"{total_itens_listas}"
+        )
+
+        print(
+            "======================================"
+        )
+
+        # ====================================================
+        # RETORNO
+        # ====================================================
+
+        return pagina_completa
+
+    except Exception as erro:
+
+        print()
+        print(
+            "❌ Erro ao montar página oficial:"
+        )
+
+        print(
+            erro
+        )
+
+        return None
+
+
+# ========================================================
+# 01. CARREGAR MEAD GLOBAL
+# ========================================================
+
+MEAD = carregar_mead()
+
+MEAD_TEXTO = preparar_mead(MEAD)
+
+print("\nMEAD preparado para IA:")
+print(MEAD_TEXTO)
+
+
 # ========================================================
 # 02. GRUPOS TEMÁTICOS
 # ========================================================
@@ -203,6 +1800,8 @@ GRUPOS_TEMATICOS = {
     ]
 
 }
+
+
 
 
 # ============================================================
@@ -976,7 +2575,169 @@ def identificar_grupo_tema(tema):
 
     return "geral"
     
+    
 
+# ============================================================
+# ENTENDIMENTO INICIAL DO PRODUTO
+# ============================================================
+
+def gerar_entendimento_produto(
+    tema,
+    grupo_principal=""
+):
+
+    print()
+    print("==============================")
+    print("GERANDO ENTENDIMENTO INICIAL")
+    print("==============================")
+
+    print("TEMA:", tema)
+    print("GRUPO PRINCIPAL:", grupo_principal)
+
+    if not tema:
+        print("TEMA VAZIO")
+        return ""
+
+    if not grupo_principal:
+        grupo_principal = (
+            "Não informado. "
+            "Identificar a categoria técnica "
+            "mais provável a partir do tema."
+        )
+
+    prompt = f"""
+Analise tecnicamente o tema para orientar uma pesquisa.
+
+TEMA: {tema}
+GRUPO: {grupo_principal}
+
+Retorne somente 4 pontos curtos:
+
+1. O que é.
+2. Para que serve.
+3. Como funciona.
+4. O que deve ser pesquisado tecnicamente.
+
+REGRAS:
+- Seja extremamente objetivo.
+- Máximo de 120 palavras.
+- Não invente informações.
+- Não use marcas ou modelos.
+- Não informe números ou especificações.
+- Não escreva conteúdo editorial.
+"""
+
+    try:
+
+        inicio_ollama = time.time()
+
+        resposta = requests.post(
+
+            "http://localhost:11434/api/generate",
+
+            json={
+
+                "model": "qwen2.5:3b",
+
+                "prompt": prompt,
+
+                "stream": False,
+
+                "options": {
+
+                    "num_predict": 150,
+
+                    "num_ctx": 2048,
+
+                    "temperature": 0.0,
+
+                    "think": False
+
+                }
+
+            },
+
+            timeout=(30, 300)
+
+        )
+
+        tempo_ollama = (
+            time.time()
+            - inicio_ollama
+        )
+
+    except requests.exceptions.Timeout:
+
+        print("TIMEOUT ENTENDIMENTO")
+        return ""
+
+    except requests.exceptions.ConnectionError as e:
+
+        print("ERRO DE CONEXÃO OLLAMA")
+        print(repr(e))
+        return ""
+
+    except Exception as e:
+
+        print("ERRO ENTENDIMENTO")
+        print(repr(e))
+        return ""
+
+    print()
+    print("==============================")
+    print("OLLAMA RESPONDEU")
+    print("==============================")
+
+    print("STATUS:", resposta.status_code)
+
+    print(
+        "TEMPO:",
+        round(tempo_ollama, 1),
+        "segundos"
+    )
+
+    if resposta.status_code != 200:
+        return ""
+
+    try:
+
+        dados = resposta.json()
+
+        entendimento = dados.get(
+            "response",
+            ""
+        )
+
+    except Exception as e:
+
+        print(
+            "ERRO AO LER RESPOSTA:",
+            repr(e)
+        )
+
+        return ""
+
+    entendimento = entendimento.strip()
+
+    print()
+    print("==============================")
+    print("ENTENDIMENTO GERADO")
+    print("==============================")
+
+    print(
+        "CARACTERES:",
+        len(entendimento)
+    )
+
+    print()
+    print(entendimento)
+
+    print()
+    print("==============================")
+    print("FIM ENTENDIMENTO INICIAL")
+    print("==============================")
+
+    return entendimento    
 
 
 # ============================================================
@@ -1404,6 +3165,235 @@ def coletar_pagina(url):
 
         return None
         
+
+# ============================================================
+# LIMPAR REFERÊNCIAS COMERCIAIS
+# ============================================================
+
+def limpar_referencias(
+    texto,
+    tema="",
+    tipo="html"
+):
+
+
+    if not texto:
+
+        return ""
+
+
+
+    tema_normalizado = normalizar_texto(
+        tema
+    )
+
+
+
+    # ========================================================
+    # 01. DEFINIR NÍVEL DE LIMPEZA
+    # ========================================================
+
+    eh_pdf = (
+
+        tipo.lower() == "pdf"
+
+    )
+
+
+
+    limpeza_forte = not eh_pdf
+
+
+
+    # =====================================
+    # LIMPEZA ESPECÍFICA
+    # PROTEÇÃO CONTRA INCÊNDIO
+    # =====================================
+
+    eh_construcao = any(
+
+        termo in tema_normalizado
+
+        for termo in [
+
+            "firestop",
+            "selagem",
+            "corta fogo",
+            "passagem corta fogo",
+            "protecao passiva"
+
+        ]
+
+    )
+
+
+
+    if eh_construcao and limpeza_forte:
+
+
+        padroes = [
+
+            r"\bCP\s*\d+\b",
+
+            r"\bCFS\s*\d+\b",
+
+            r"\bFFC\b",
+
+            r"\bCKC\b",
+
+            r"\bFS-?\d+\b",
+
+
+            r"\bHilti\b",
+
+            r"\bFirestop\b",
+
+            r"\bPromat\b",
+
+            r"\b3M\b",
+
+            r"\bSika\b",
+
+            r"\bFischer\b",
+
+            r"\bRockwool\b",
+
+
+            r"\bClasse\s+Ultimate\b",
+
+            r"\bUltimate\b"
+
+        ]
+
+
+
+        for padrao in padroes:
+
+
+            texto = re.sub(
+
+                padrao,
+
+                "",
+
+                texto,
+
+                flags=re.IGNORECASE
+
+            )
+
+
+
+    # ========================================================
+    # 02. LIMPEZA COMERCIAL GERAL
+    # ========================================================
+
+    remover = [
+
+        "entre em contato",
+
+        "solicite orçamento",
+
+        "fale conosco",
+
+        "peça sua cotação",
+
+        "comprar agora",
+
+        "consulte disponibilidade",
+
+        "melhor preço",
+
+        "oferta exclusiva"
+
+    ]
+
+
+
+    for item in remover:
+
+
+        texto = re.sub(
+
+            item,
+
+            "",
+
+            texto,
+
+            flags=re.IGNORECASE
+
+        )
+
+
+
+    # =====================================
+    # CAMPOS COMERCIAIS
+    # SOMENTE HTML
+    # =====================================
+
+    if limpeza_forte:
+
+
+        texto = re.sub(
+
+            r"(part number|codigo interno|código interno)\s*[:\-]?\s*\w+",
+
+            "",
+
+            texto,
+
+            flags=re.IGNORECASE
+
+        )
+
+
+
+    # ========================================================
+    # 03. REMOVER LINKS
+    # ========================================================
+
+    texto = re.sub(
+
+        r"https?://\S+",
+
+        "",
+
+        texto
+
+    )
+
+
+
+    texto = re.sub(
+
+        r"www\.\S+",
+
+        "",
+
+        texto
+
+    )
+
+
+
+    # ========================================================
+    # 04. NORMALIZAR ESPAÇOS
+    # ========================================================
+
+    texto = re.sub(
+
+        r"\s+",
+
+        " ",
+
+        texto
+
+    )
+
+
+
+    return texto.strip()
 
 
 # ============================================================
@@ -3627,6 +5617,1910 @@ def mostrar_focos_editoriais():
     return focos    
 
 
+
+# ============================================================
+# CONTROLAR CONTEXTO PARA IA
+# ============================================================
+
+def controlar_contexto_ia(
+    textos,
+    limite_total=16000
+):
+
+    contexto = ""
+
+    if not textos:
+        return contexto
+
+
+    # ========================================================
+    # 01. PERCORRER FONTES
+    # ========================================================
+
+    for item in textos:
+
+        if len(contexto) >= limite_total:
+            break
+
+
+        # ---------------------------------
+        # TEXTO DA FONTE
+        # ---------------------------------
+
+        if isinstance(item, dict):
+
+            texto = item.get(
+                "texto",
+                ""
+            )
+
+        elif isinstance(item, str):
+
+            texto = item
+
+        else:
+
+            continue
+
+
+        if not texto:
+            continue
+
+
+        # ---------------------------------
+        # LIMITE RESTANTE
+        # ---------------------------------
+
+        restante = (
+            limite_total
+            - len(contexto)
+        )
+
+
+        if restante <= 0:
+            break
+
+
+        # ---------------------------------
+        # ADICIONAR TEXTO
+        # ---------------------------------
+
+        trecho = texto[:restante]
+
+
+        contexto += (
+            "\n\n"
+            + trecho
+        )
+
+
+    # ========================================================
+    # 02. NORMALIZAÇÃO
+    # ========================================================
+
+    contexto = contexto.strip()
+
+
+    # ========================================================
+    # 03. DEBUG
+    # ========================================================
+
+    print()
+    print("==============================")
+    print("CONTROLE CONTEXTO IA")
+    print("==============================")
+
+    print(
+        "LIMITE:",
+        limite_total
+    )
+
+    print(
+        "CARACTERES ENVIADOS:",
+        len(contexto)
+    )
+
+    print("==============================")
+
+
+    return contexto
+    
+
+# ============================================================
+# CONTROLAR ABERTURAS DO PROTAGONISTA
+# ============================================================
+
+def controlar_aberturas_protagonista(texto, tema, limite=3):
+
+
+
+    print()
+    print("=" * 60)
+    print("CONTROLE DE ABERTURAS DO PROTAGONISTA")
+    print("=" * 60)
+
+    print("TEMA:", tema)
+    print("LIMITE DE ABERTURAS DIRETAS:", limite)
+
+    if not texto or not texto.strip():
+
+        print("TEXTO VAZIO")
+        print("CONTROLE NÃO EXECUTADO")
+
+        return texto
+
+    # --------------------------------------------------------
+    # NORMALIZAÇÃO
+    # --------------------------------------------------------
+
+    def normalizar(texto_local):
+
+        texto_local = texto_local.lower().strip()
+
+        texto_local = unicodedata.normalize(
+            "NFD",
+            texto_local
+        )
+
+        texto_local = "".join(
+            caractere
+            for caractere in texto_local
+            if unicodedata.category(caractere) != "Mn"
+        )
+
+        texto_local = re.sub(
+            r"\s+",
+            " ",
+            texto_local
+        )
+
+        return texto_local
+
+    tema_normalizado = normalizar(tema)
+
+    # --------------------------------------------------------
+    # SEPARAR TEXTO DOS MARCADORES
+    # --------------------------------------------------------
+
+    linhas = texto.splitlines()
+
+    paragrafos = []
+
+    bloco_atual = None
+
+    for linha in linhas:
+
+        linha_limpa = linha.strip()
+
+        if not linha_limpa:
+            continue
+
+        # ----------------------------------------------------
+        # IGNORA MARCADORES DE BLOCO
+        # ----------------------------------------------------
+
+        if re.match(
+            r"^\*\*BLOCO\s+\d+\*\*$",
+            linha_limpa,
+            re.IGNORECASE
+        ):
+
+            bloco_atual = linha_limpa
+
+            continue
+
+        # ----------------------------------------------------
+        # IGNORA LINHAS DE SEGMENTOS
+        # ----------------------------------------------------
+
+        if linha_limpa.startswith("- "):
+            continue
+
+        # ----------------------------------------------------
+        # IGNORA TÍTULOS / MARCADORES
+        # ----------------------------------------------------
+
+        if (
+            linha_limpa.startswith("**")
+            and linha_limpa.endswith("**")
+        ):
+            continue
+
+        # ----------------------------------------------------
+        # PARÁGRAFO
+        # ----------------------------------------------------
+
+        paragrafos.append({
+            "texto": linha_limpa,
+            "bloco": bloco_atual
+        })
+
+    print()
+    print("PARÁGRAFOS ANALISADOS:", len(paragrafos))
+
+    # --------------------------------------------------------
+    # IDENTIFICAR ABERTURAS DIRETAS
+    # --------------------------------------------------------
+
+    ocorrencias = []
+
+    for indice, item in enumerate(paragrafos):
+
+        texto_paragrafo = item["texto"]
+
+        inicio_normalizado = normalizar(
+            texto_paragrafo
+        )
+
+        # Aceita:
+        #
+        # A bomba centrifuga...
+        # A bomba centrífuga...
+        #
+        # Também permite artigo masculino/feminino
+        # conforme o tema.
+
+        if (
+            inicio_normalizado.startswith(
+                tema_normalizado
+            )
+            or inicio_normalizado.startswith(
+                "a " + tema_normalizado
+            )
+            or inicio_normalizado.startswith(
+                "o " + tema_normalizado
+            )
+        ):
+
+            ocorrencias.append({
+                "indice": indice,
+                "bloco": item["bloco"],
+                "texto": texto_paragrafo
+            })
+
+    # --------------------------------------------------------
+    # PRINT DAS OCORRÊNCIAS
+    # --------------------------------------------------------
+
+    print()
+    print("ABERTURAS DIRETAS ENCONTRADAS:", len(ocorrencias))
+
+    if ocorrencias:
+
+        for numero, ocorrencia in enumerate(
+            ocorrencias,
+            start=1
+        ):
+
+            print()
+            print(
+                f"ABERTURA {numero}"
+            )
+
+            print(
+                "PARÁGRAFO:",
+                ocorrencia["indice"] + 1
+            )
+
+            print(
+                "BLOCO:",
+                ocorrencia["bloco"]
+            )
+
+            print(
+                "TEXTO:",
+                ocorrencia["texto"][:180]
+            )
+
+    else:
+
+        print(
+            "NENHUMA ABERTURA DIRETA ENCONTRADA"
+        )
+
+    # --------------------------------------------------------
+    # VERIFICAR LIMITE
+    # --------------------------------------------------------
+
+    if len(ocorrencias) <= limite:
+
+        print()
+        print("STATUS: DENTRO DO LIMITE")
+        print(
+            f"ABERTURAS: {len(ocorrencias)} / {limite}"
+        )
+
+        print(
+            "NENHUMA CORREÇÃO NECESSÁRIA"
+        )
+
+        print("=" * 60)
+
+        return texto
+
+    # --------------------------------------------------------
+    # EXISTE EXCESSO
+    # --------------------------------------------------------
+
+    print()
+    print("STATUS: EXCESSO DE ABERTURAS")
+    print(
+        f"ABERTURAS ENCONTRADAS: {len(ocorrencias)}"
+    )
+    print(
+        f"LIMITE PERMITIDO: {limite}"
+    )
+
+    # --------------------------------------------------------
+    # SELECIONAR SOMENTE OS EXCEDENTES
+    # --------------------------------------------------------
+
+    excedentes = ocorrencias[limite:]
+
+    print()
+    print(
+        "PARÁGRAFOS QUE SERÃO CORRIGIDOS:",
+        len(excedentes)
+    )
+
+    for numero, ocorrencia in enumerate(
+        excedentes,
+        start=1
+    ):
+
+        print()
+        print(
+            f"EXCEDENTE {numero}"
+        )
+
+        print(
+            "PARÁGRAFO:",
+            ocorrencia["indice"] + 1
+        )
+
+        print(
+            "BLOCO:",
+            ocorrencia["bloco"]
+        )
+
+        print(
+            "TEXTO:",
+            ocorrencia["texto"][:200]
+        )
+
+    # --------------------------------------------------------
+    # MONTAR PEDIDO DE CORREÇÃO
+    # --------------------------------------------------------
+
+    instrucoes = []
+
+    instrucoes.append(
+        "VARIAÇÃO EDITORIAL DE ABERTURAS"
+    )
+
+    instrucoes.append(
+        f"Palavra-chave: {tema}"
+    )
+
+    instrucoes.append(
+        "O texto já está pronto e não deve ser reescrito integralmente."
+    )
+
+    instrucoes.append(
+        "Corrija SOMENTE os parágrafos fornecidos."
+    )
+
+    instrucoes.append(
+        f"Não inicie o parágrafo com '{tema}'."
+    )
+
+    instrucoes.append(
+        "A palavra-chave pode continuar aparecendo naturalmente dentro do parágrafo."
+    )
+
+    instrucoes.append(
+        "Preserve integralmente o significado técnico."
+    )
+
+    instrucoes.append(
+        "Não invente informações."
+    )
+
+    instrucoes.append(
+        "Não transforme o texto em propaganda."
+    )
+
+    instrucoes.append(
+        "Use uma abertura natural e diferente."
+    )
+
+    instrucoes.append(
+        "Pode iniciar pelo cenário, operação, necessidade, aplicação, engenharia, processo, benefício, cliente ou outro elemento coerente."
+    )
+
+    instrucoes.append(
+        "Não utilize outra fórmula repetitiva."
+    )
+
+    instrucoes.append(
+        "Retorne somente os parágrafos corrigidos, na mesma ordem."
+    )
+
+    instrucoes.append(
+        "Separe cada parágrafo corrigido por uma linha em branco."
+    )
+
+    instrucoes.append("")
+    instrucoes.append("PARÁGRAFOS PARA CORRIGIR:")
+
+    for numero, ocorrencia in enumerate(
+        excedentes,
+        start=1
+    ):
+
+        instrucoes.append(
+            f"[PARÁGRAFO {numero}]"
+        )
+
+        instrucoes.append(
+            ocorrencia["texto"]
+        )
+
+        instrucoes.append("")
+
+    prompt_correcao = "\n".join(
+        instrucoes
+    )
+
+    print()
+    print("=" * 60)
+    print("ENVIANDO CORREÇÃO DE ABERTURAS PARA OLLAMA")
+    print("=" * 60)
+
+    print(
+        "MODELO: qwen2.5:3b"
+    )
+
+    print(
+        "PROMPT:",
+        len(prompt_correcao),
+        "caracteres"
+    )
+
+    inicio_ollama = time.time()
+
+    try:
+
+        resposta = requests.post(
+
+            "http://localhost:11434/api/generate",
+
+            json={
+
+                "model": "qwen2.5:3b",
+
+                "prompt": prompt_correcao,
+
+                "stream": False,
+
+                "think": False,
+
+                "options": {
+
+                    "num_predict": 300,
+
+                    "num_ctx": 4096,
+
+                    "temperature": 0.0
+
+                }
+
+            },
+
+            timeout=(30, 180)
+
+        )
+
+        tempo_ollama = (
+            time.time() - inicio_ollama
+        )
+
+        print()
+        print(
+            "OLLAMA STATUS:",
+            resposta.status_code
+        )
+
+        print(
+            "TEMPO:",
+            round(tempo_ollama, 1),
+            "segundos"
+        )
+
+        if resposta.status_code != 200:
+
+            print(
+                "ERRO: OLLAMA NÃO RETORNOU 200"
+            )
+
+            print(
+                "TEXTO ORIGINAL SERÁ PRESERVADO"
+            )
+
+            print("=" * 60)
+
+            return texto
+
+        dados = resposta.json()
+
+        texto_corrigido = dados.get(
+            "response",
+            ""
+        ).strip()
+
+        print(
+            "RESPOSTA OLLAMA:",
+            len(texto_corrigido),
+            "caracteres"
+        )
+
+        if not texto_corrigido:
+
+            print(
+                "RESPOSTA VAZIA"
+            )
+
+            print(
+                "TEXTO ORIGINAL SERÁ PRESERVADO"
+            )
+
+            print("=" * 60)
+
+            return texto
+
+    except Exception as erro:
+
+        print()
+        print(
+            "ERRO NA CORREÇÃO:",
+            erro
+        )
+
+        print(
+            "TEXTO ORIGINAL SERÁ PRESERVADO"
+        )
+
+        print("=" * 60)
+
+        return texto
+
+    # --------------------------------------------------------
+    # EXTRAIR PARÁGRAFOS CORRIGIDOS
+    # --------------------------------------------------------
+
+    corrigidos = [
+
+        p.strip()
+
+        for p in re.split(
+            r"\n\s*\n",
+            texto_corrigido
+        )
+
+        if p.strip()
+
+    ]
+
+    print()
+    print(
+        "PARÁGRAFOS CORRIGIDOS RECEBIDOS:",
+        len(corrigidos)
+    )
+
+    # --------------------------------------------------------
+    # SEGURANÇA
+    # --------------------------------------------------------
+
+    if len(corrigidos) != len(excedentes):
+
+        print()
+        print(
+            "ATENÇÃO: QUANTIDADE DE PARÁGRAFOS DIFERENTE"
+        )
+
+        print(
+            "ESPERADO:",
+            len(excedentes)
+        )
+
+        print(
+            "RECEBIDO:",
+            len(corrigidos)
+        )
+
+        print(
+            "CORREÇÃO DESCARTADA"
+        )
+
+        print(
+            "TEXTO ORIGINAL SERÁ PRESERVADO"
+        )
+
+        print("=" * 60)
+
+        return texto
+
+    # --------------------------------------------------------
+    # SUBSTITUIR SOMENTE OS PARÁGRAFOS EXCEDENTES
+    # --------------------------------------------------------
+
+    mapa_correcoes = {}
+
+    for ocorrencia, novo_texto in zip(
+        excedentes,
+        corrigidos
+    ):
+
+        mapa_correcoes[
+            ocorrencia["indice"]
+        ] = novo_texto
+
+    novo_texto_final = texto
+
+    # --------------------------------------------------------
+    # RECONSTRUIR TEXTO PRESERVANDO BLOCOS
+    # --------------------------------------------------------
+
+    linhas_originais = texto.splitlines()
+
+    resultado = []
+
+    indice_paragrafo = 0
+
+    for linha in linhas_originais:
+
+        linha_limpa = linha.strip()
+
+        # ----------------------------------------------------
+        # LINHAS VAZIAS
+        # ----------------------------------------------------
+
+        if not linha_limpa:
+
+            resultado.append("")
+
+            continue
+
+        # ----------------------------------------------------
+        # MARCADORES / TÍTULOS / SEGMENTOS
+        # ----------------------------------------------------
+
+        if (
+            re.match(
+                r"^\*\*BLOCO\s+\d+\*\*$",
+                linha_limpa,
+                re.IGNORECASE
+            )
+            or linha_limpa.startswith("**")
+            or linha_limpa.startswith("- ")
+        ):
+
+            resultado.append(linha)
+
+            continue
+
+        # ----------------------------------------------------
+        # PARÁGRAFO
+        # ----------------------------------------------------
+
+        if indice_paragrafo in mapa_correcoes:
+
+            resultado.append(
+                mapa_correcoes[
+                    indice_paragrafo
+                ]
+            )
+
+        else:
+
+            resultado.append(linha)
+
+        indice_paragrafo += 1
+
+    novo_texto_final = "\n".join(
+        resultado
+    )
+
+    # --------------------------------------------------------
+    # NOVA CONTAGEM
+    # --------------------------------------------------------
+
+    paragrafos_novos = []
+
+    for linha in novo_texto_final.splitlines():
+
+        linha_limpa = linha.strip()
+
+        if not linha_limpa:
+            continue
+
+        if re.match(
+            r"^\*\*BLOCO\s+\d+\*\*$",
+            linha_limpa,
+            re.IGNORECASE
+        ):
+            continue
+
+        if linha_limpa.startswith("- "):
+            continue
+
+        if (
+            linha_limpa.startswith("**")
+            and linha_limpa.endswith("**")
+        ):
+            continue
+
+        paragrafos_novos.append(
+            linha_limpa
+        )
+
+    novas_ocorrencias = []
+
+    for indice, paragrafo in enumerate(
+        paragrafos_novos
+    ):
+
+        inicio_normalizado = normalizar(
+            paragrafo
+        )
+
+        if (
+            inicio_normalizado.startswith(
+                tema_normalizado
+            )
+            or inicio_normalizado.startswith(
+                "a " + tema_normalizado
+            )
+            or inicio_normalizado.startswith(
+                "o " + tema_normalizado
+            )
+        ):
+
+            novas_ocorrencias.append(
+                indice
+            )
+
+    # --------------------------------------------------------
+    # RESULTADO FINAL
+    # --------------------------------------------------------
+
+    print()
+    print("=" * 60)
+    print("RESULTADO DO CONTROLE")
+    print("=" * 60)
+
+    print(
+        "ANTES:",
+        len(ocorrencias),
+        "aberturas diretas"
+    )
+
+    print(
+        "DEPOIS:",
+        len(novas_ocorrencias),
+        "aberturas diretas"
+    )
+
+    print(
+        "LIMITE:",
+        limite
+    )
+
+    if len(novas_ocorrencias) <= limite:
+
+        print(
+            "STATUS FINAL: APROVADO"
+        )
+
+    else:
+
+        print(
+            "STATUS FINAL: AINDA ACIMA DO LIMITE"
+        )
+
+        print(
+            "ATENÇÃO: NÃO SERÁ FEITA NOVA CHAMADA AO OLLAMA"
+        )
+
+    print("=" * 60)
+
+    return novo_texto_final
+
+
+
+# ============================================================
+# AUDITAR E CORRIGIR ABERTURAS REPETIDAS
+# ============================================================
+
+def auditar_e_corrigir_aberturas(
+    conteudo,
+    tema
+):
+
+    print()
+    print("==============================")
+    print("AUDITORIA DE ABERTURAS")
+    print("==============================")
+
+
+
+    # ========================================================
+    # 01. NORMALIZAÇÃO
+    # ========================================================
+
+    tema_limpo = (
+        str(tema)
+        .strip()
+        .lower()
+    )
+
+    # ========================================================
+    # 02. EXTRAIR PARÁGRAFOS
+    # ========================================================
+
+    paragrafos = [
+
+        p.strip()
+
+        for p in re.split(
+            r"\n\s*\n",
+            conteudo
+        )
+
+        if p.strip()
+
+    ]
+
+    # ========================================================
+    # 03. CONTAR ABERTURAS DIRETAS
+    # ========================================================
+
+    aberturas_diretas = []
+
+    for indice, paragrafo in enumerate(paragrafos):
+
+        inicio = paragrafo.lower()
+
+        # Remove pequenas marcações
+        inicio = re.sub(
+            r"^[\*\#\-\s]+",
+            "",
+            inicio
+        ).strip()
+
+        # ---------------------------------
+        # Verificar início com o tema
+        # ---------------------------------
+
+        if inicio.startswith(
+            tema_limpo
+        ):
+
+            aberturas_diretas.append(
+                indice
+            )
+
+    # ========================================================
+    # 04. RESULTADO
+    # ========================================================
+
+    quantidade_aberturas = len(
+        aberturas_diretas
+    )
+
+    print(
+        "PALAVRA-CHAVE:",
+        tema
+    )
+
+    print(
+        "ABERTURAS DIRETAS:",
+        quantidade_aberturas
+    )
+
+    print(
+        "LIMITE PERMITIDO:",
+        3
+    )
+
+    print(
+        "POSIÇÕES:",
+        [
+            x + 1
+            for x in aberturas_diretas
+        ]
+    )
+
+    # ========================================================
+    # 05. DENTRO DO LIMITE
+    # ========================================================
+
+    if quantidade_aberturas <= 3:
+
+        print()
+        print(
+            "ABERTURAS DENTRO DO LIMITE"
+        )
+
+        print(
+            "CORREÇÃO NECESSÁRIA:",
+            False
+        )
+
+        return conteudo
+
+    # ========================================================
+    # 06. LIMITE EXCEDIDO
+    # ========================================================
+
+    print()
+    print("==============================")
+    print("ABERTURAS EXCEDERAM O LIMITE")
+    print("==============================")
+
+    print(
+        "ENCONTRADAS:",
+        quantidade_aberturas
+    )
+
+    print(
+        "PERMITIDAS:",
+        3
+    )
+
+    print(
+        "INICIANDO CORREÇÃO IA..."
+    )
+
+    # ========================================================
+    # 07. PROMPT DE CORREÇÃO
+    # ========================================================
+
+    prompt_correcao = f"""
+Você é um editor técnico especializado em naturalidade editorial.
+
+Revise o conteúdo abaixo.
+
+TEMA:
+{tema}
+
+==================================================
+REGRA PRINCIPAL — ABERTURA DOS PARÁGRAFOS
+==================================================
+
+Existe uma regra editorial obrigatória:
+
+No máximo 3 dos 15 parágrafos podem começar
+diretamente com a palavra-chave:
+
+"{tema}"
+
+Os demais parágrafos devem começar naturalmente
+por outros elementos da narrativa.
+
+A palavra-chave NÃO está proibida no início dos
+parágrafos.
+
+Ela pode aparecer no início em até 3 parágrafos.
+
+O objetivo é apenas impedir repetição excessiva.
+
+Exemplos de entradas naturais:
+
+o cenário;
+a operação;
+a necessidade;
+o processo;
+a aplicação;
+um critério técnico;
+uma característica;
+uma consequência;
+uma condição operacional;
+a experiência;
+o contexto industrial;
+o sistema;
+o ambiente;
+a demanda;
+o funcionamento;
+a utilização.
+
+==================================================
+VARIAÇÃO NARRATIVA
+==================================================
+
+Evite também repetir excessivamente a mesma
+estrutura de abertura.
+
+Não substitua uma repetição por outra.
+
+Evite sequências repetitivas como:
+
+"Em ambientes..."
+"Em ambientes..."
+"Em ambientes..."
+
+"Durante..."
+"Durante..."
+"Durante..."
+
+"Para..."
+"Para..."
+"Para..."
+
+"Quando..."
+"Quando..."
+"Quando..."
+
+"A empresa..."
+"A empresa..."
+"A empresa..."
+
+"Nossa empresa..."
+"Nossa empresa..."
+"Nossa empresa..."
+
+A construção dos parágrafos deve parecer natural
+e escrita por um especialista humano.
+
+Varie:
+
+- sujeito;
+- perspectiva;
+- posição da palavra-chave;
+- estrutura sintática;
+- ponto de entrada da informação;
+- relação entre contexto e explicação técnica.
+
+==================================================
+PRESERVAÇÃO DO CONTEÚDO
+==================================================
+
+A revisão é exclusivamente editorial.
+
+NÃO:
+
+- altere o significado técnico;
+- remova informações técnicas;
+- invente informações;
+- crie informações técnicas novas;
+- altere especificações;
+- altere números;
+- altere características técnicas;
+- altere aplicações técnicas;
+- altere afirmações sustentadas pelas fontes;
+- substitua o protagonista;
+- transforme componentes em protagonistas;
+- transforme manutenção em protagonista;
+- transforme instalação em protagonista;
+- transforme aplicações em protagonistas.
+
+A palavra-chave continua sendo o protagonista
+semântico da página.
+
+==================================================
+ESTRUTURA OBRIGATÓRIA
+==================================================
+
+Preserve exatamente:
+
+5 blocos;
+
+3 parágrafos em cada bloco;
+
+15 parágrafos no total;
+
+12 segmentos de aplicação.
+
+NÃO:
+
+- crie novos parágrafos;
+- remova parágrafos;
+- una parágrafos;
+- divida parágrafos;
+- altere a ordem dos blocos;
+- altere os títulos dos blocos;
+- altere a quantidade de segmentos;
+- altere o conteúdo dos segmentos sem necessidade.
+
+==================================================
+EXTENSÃO
+==================================================
+
+Não reduza o conteúdo.
+
+Não transforme parágrafos longos em
+parágrafos curtos.
+
+Não remova informações apenas para
+corrigir uma abertura.
+
+Quando uma abertura precisar ser alterada,
+modifique somente a construção inicial
+necessária para eliminar a repetição.
+
+Preserve o restante do parágrafo.
+
+==================================================
+CRITÉRIO DE NATURALIDADE
+==================================================
+
+Antes de finalizar, verifique internamente:
+
+1. Existem no máximo 3 parágrafos iniciados
+   diretamente por "{tema}"?
+
+2. As demais aberturas possuem variedade?
+
+3. Existe alguma sequência excessiva de
+   estruturas iniciadas por "Em", "Durante",
+   "Para", "Quando", "A empresa" ou outra
+   fórmula repetitiva?
+
+4. A palavra-chave continua sendo o
+   protagonista semântico?
+
+5. O texto continua tecnicamente equivalente
+   ao conteúdo original?
+
+6. Foram preservados exatamente:
+   - 5 blocos;
+   - 15 parágrafos;
+   - 12 segmentos?
+
+Somente finalize quando todas essas condições
+forem atendidas.
+
+==================================================
+SAÍDA
+==================================================
+
+Retorne somente o conteúdo corrigido.
+
+Não explique as alterações.
+
+Não apresente comentários editoriais.
+
+Não mostre esta instrução.
+
+Não mostre análise.
+
+==================================================
+CONTEÚDO
+==================================================
+
+{conteudo}
+"""
+
+    # ========================================================
+    # 08. CHAMADA OLLAMA
+    # ========================================================
+
+    inicio_correcao = time.time()
+
+    try:
+
+        resposta = requests.post(
+
+            "http://localhost:11434/api/generate",
+
+            json={
+
+                "model":
+                    "qwen2.5:3b",
+
+                "prompt":
+                    prompt_correcao,
+
+                "stream":
+                    False,
+
+                "think":
+                    False,
+
+                "options": {
+
+                    "num_predict":
+                        800,
+
+                    "num_ctx":
+                        8192,
+
+                    "temperature":
+                        0.0,
+
+                    "top_p":
+                        0.9,
+
+                    "repeat_penalty":
+                        1.08
+
+                }
+
+            },
+
+            timeout=(
+                30,
+                900
+            )
+
+        )
+
+    except requests.exceptions.Timeout:
+
+        print()
+        print(
+            "TIMEOUT NA CORREÇÃO"
+        )
+
+        print(
+            "MANTENDO CONTEÚDO ORIGINAL"
+        )
+
+        return conteudo
+
+    except requests.exceptions.ConnectionError as e:
+
+        print()
+        print(
+            "ERRO DE CONEXÃO NA CORREÇÃO"
+        )
+
+        print(
+            repr(e)
+        )
+
+        print(
+            "MANTENDO CONTEÚDO ORIGINAL"
+        )
+
+        return conteudo
+
+    except Exception as e:
+
+        print()
+        print(
+            "ERRO NA CORREÇÃO"
+        )
+
+        print(
+            repr(e)
+        )
+
+        print(
+            "MANTENDO CONTEÚDO ORIGINAL"
+        )
+
+        return conteudo
+
+    # ========================================================
+    # 09. RECEBER RESULTADO
+    # ========================================================
+
+    if resposta.status_code != 200:
+
+        print()
+        print(
+            "ERRO HTTP NA CORREÇÃO:",
+            resposta.status_code
+        )
+
+        print(
+            "MANTENDO CONTEÚDO ORIGINAL"
+        )
+
+        return conteudo
+
+    try:
+
+        dados = resposta.json()
+
+        novo_conteudo = dados.get(
+            "response",
+            ""
+        ).strip()
+
+    except Exception:
+
+        novo_conteudo = ""
+
+    # ========================================================
+    # 10. VALIDAR RETORNO
+    # ========================================================
+
+    if not novo_conteudo:
+
+        print()
+        print(
+            "CORREÇÃO IA RETORNOU VAZIO"
+        )
+
+        print(
+            "MANTENDO CONTEÚDO ORIGINAL"
+        )
+
+        return conteudo
+
+    tempo_correcao = (
+        time.time()
+        - inicio_correcao
+    )
+
+    print()
+    print("==============================")
+    print("CORREÇÃO IA FINALIZADA")
+    print("==============================")
+
+    print(
+        "TEMPO:",
+        round(
+            tempo_correcao,
+            1
+        ),
+        "segundos"
+    )
+
+    print(
+        "CARACTERES ANTES:",
+        len(conteudo)
+    )
+
+    print(
+        "CARACTERES DEPOIS:",
+        len(novo_conteudo)
+    )
+
+    # ========================================================
+    # 11. AUDITORIA NOVAMENTE
+    # ========================================================
+
+    paragrafos_corrigidos = [
+
+        p.strip()
+
+        for p in re.split(
+            r"\n\s*\n",
+            novo_conteudo
+        )
+
+        if p.strip()
+
+    ]
+
+    aberturas_corrigidas = []
+
+    for indice, paragrafo in enumerate(
+        paragrafos_corrigidos
+    ):
+
+        inicio = paragrafo.lower()
+
+        inicio = re.sub(
+            r"^[\*\#\-\s]+",
+            "",
+            inicio
+        ).strip()
+
+        if inicio.startswith(
+            tema_limpo
+        ):
+
+            aberturas_corrigidas.append(
+                indice
+            )
+
+    quantidade_corrigida = len(
+        aberturas_corrigidas
+    )
+
+    print()
+    print("==============================")
+    print("RESULTADO PÓS-CORREÇÃO")
+    print("==============================")
+
+    print(
+        "ABERTURAS ANTES:",
+        quantidade_aberturas
+    )
+
+    print(
+        "ABERTURAS DEPOIS:",
+        quantidade_corrigida
+    )
+
+    print(
+        "LIMITE:",
+        3
+    )
+
+    print(
+        "CORREÇÃO FUNCIONOU:",
+        quantidade_corrigida <= 3
+    )
+
+    print(
+        "POSIÇÕES FINAIS:",
+        [
+            x + 1
+            for x in aberturas_corrigidas
+        ]
+    )
+
+    # ========================================================
+    # 12. SEGURANÇA
+    # ========================================================
+
+    # Se a IA devolveu algo ainda pior,
+    # não substituímos o conteúdo original.
+
+    if quantidade_corrigida > 3:
+
+        print()
+        print(
+            "ATENÇÃO: LIMITE AINDA EXCEDIDO"
+        )
+
+        print(
+            "CONTEÚDO ORIGINAL SERÁ PRESERVADO"
+        )
+
+        return conteudo
+
+    print()
+    print(
+        "CONTEÚDO CORRIGIDO ACEITO"
+    )
+
+    return novo_conteudo
+    
+
+
+
+
+# ============================================================
+# REVISAR NATURALIDADE DO CONTEÚDO
+# ============================================================
+
+def revisar_naturalidade_conteudo(
+    tema,
+    conteudo
+):
+
+    print()
+    print("==============================")
+    print("INICIANDO REVISÃO DE NATURALIDADE")
+    print("==============================")
+
+    print(
+        "TEMA:",
+        tema
+    )
+
+    print(
+        "CONTEÚDO ORIGINAL:",
+        len(conteudo),
+        "caracteres"
+    )
+
+    # ========================================================
+    # 01. VALIDAR CONTEÚDO
+    # ========================================================
+
+    if not conteudo:
+
+        print()
+        print("==============================")
+        print("CONTEÚDO VAZIO PARA REVISÃO")
+        print("==============================")
+
+        return ""
+
+    # ========================================================
+    # 02. PROMPT ENXUTO
+    # ========================================================
+
+    prompt = f"""
+Você é um editor técnico experiente.
+
+Faça uma revisão editorial do conteúdo abaixo.
+
+OBJETIVO:
+Melhorar a naturalidade da narrativa sem modificar
+o conteúdo técnico.
+
+TEMA PRINCIPAL:
+{tema}
+
+REGRAS:
+
+1. "{tema}" continua sendo o protagonista absoluto
+da narrativa.
+
+2. Revise principalmente as aberturas dos parágrafos
+e as transições entre ideias.
+
+3. Evite que os parágrafos comecem repetidamente
+com "{tema}" ou com a mesma estrutura sintática.
+
+4. Varie naturalmente o ponto de entrada das frases:
+contexto, situação, característica, consequência,
+aplicação, necessidade, processo ou resultado.
+
+5. Não force sinônimos para "{tema}" quando isso
+prejudicar a precisão técnica.
+
+6. Preserve integralmente os fatos e informações
+técnicas existentes.
+
+NÃO ALTERE:
+- números;
+- especificações;
+- características;
+- aplicações;
+- processos;
+- relações de causa e efeito;
+- informações técnicas;
+- sentido das afirmações.
+
+7. Não introduza informações novas.
+
+8. Não remova informações existentes.
+
+9. Não resuma o conteúdo.
+
+10. Preserve exatamente a estrutura existente:
+- 5 blocos;
+- 15 parágrafos;
+- 12 segmentos de aplicação;
+- títulos;
+- ordem dos blocos.
+
+11. Componentes, manutenção, instalação e aplicações
+devem continuar como elementos de apoio.
+O protagonista permanece sendo "{tema}".
+
+12. Faça somente as alterações necessárias para que
+o texto pareça escrito de forma natural por um
+especialista humano.
+
+IMPORTANTE:
+Não tente reconstruir o texto.
+Não altere sua estrutura.
+Não transforme o conteúdo em outro texto.
+Apenas refine as construções que apresentam
+repetição ou artificialidade.
+
+RETORNE SOMENTE O TEXTO REVISADO.
+
+==================================================
+CONTEÚDO
+==================================================
+
+{conteudo}
+"""
+
+    # ========================================================
+    # 03. CONTROLE
+    # ========================================================
+
+    num_predict = 2600
+    num_ctx = 12288
+
+    print()
+    print("==============================")
+    print("CONTROLE REVISÃO")
+    print("==============================")
+
+    print(
+        "PROMPT:",
+        len(prompt),
+        "caracteres"
+    )
+
+    print(
+        "TOKENS:",
+        num_predict
+    )
+
+    print(
+        "CONTEXTO:",
+        num_ctx
+    )
+
+    print(
+        "MODELO:",
+        "qwen2.5:3b"
+    )
+
+    # ========================================================
+    # 04. ENVIAR PARA OLLAMA
+    # ========================================================
+
+    print()
+    print("==============================")
+    print("ENVIANDO REVISÃO PARA OLLAMA")
+    print("==============================")
+
+    inicio_ollama = time.time()
+
+    try:
+
+        resposta = requests.post(
+
+            "http://localhost:11434/api/generate",
+
+            json={
+
+                "model":
+                    "qwen2.5:3b",
+
+                "prompt":
+                    prompt,
+
+                "stream":
+                    True,
+
+                "think":
+                    False,
+
+                "options": {
+
+                    "num_predict":
+                        num_predict,
+
+                    "num_ctx":
+                        num_ctx,
+
+                    "temperature":
+                        0.1,
+
+                    "top_p":
+                        0.9,
+
+                    "repeat_penalty":
+                        1.08
+
+                }
+
+            },
+
+            stream=True,
+
+            timeout=(
+                30,
+                900
+            )
+
+        )
+
+    except requests.exceptions.Timeout:
+
+        print()
+        print("==============================")
+        print("TIMEOUT OLLAMA — REVISÃO")
+        print("==============================")
+
+        return ""
+
+    except requests.exceptions.ConnectionError as e:
+
+        print()
+        print("==============================")
+        print("ERRO DE CONEXÃO OLLAMA — REVISÃO")
+        print("==============================")
+
+        print(
+            repr(e)
+        )
+
+        return ""
+
+    except Exception as e:
+
+        print()
+        print("==============================")
+        print("ERRO OLLAMA — REVISÃO")
+        print("==============================")
+
+        print(
+            repr(e)
+        )
+
+        return ""
+
+    print()
+    print("==============================")
+    print("OLLAMA RESPONDENDO — REVISÃO")
+    print("==============================")
+
+    print(
+        "STATUS:",
+        resposta.status_code
+    )
+
+    if resposta.status_code != 200:
+
+        try:
+
+            print(
+                resposta.text[:1000]
+            )
+
+        except Exception:
+
+            pass
+
+        return ""
+
+    # ========================================================
+    # 05. RECEBER STREAM
+    # ========================================================
+
+    conteudo_revisado = ""
+
+    ultimo_print = time.time()
+
+    try:
+
+        for linha in resposta.iter_lines():
+
+            if not linha:
+
+                continue
+
+            try:
+
+                dados = json.loads(
+                    linha.decode(
+                        "utf-8"
+                    )
+                )
+
+            except Exception:
+
+                continue
+
+            trecho = dados.get(
+                "response",
+                ""
+            )
+
+            if trecho:
+
+                conteudo_revisado += trecho
+
+                agora = time.time()
+
+                if agora - ultimo_print >= 30:
+
+                    print()
+                    print("==============================")
+                    print("STATUS REVISÃO OLLAMA")
+                    print("==============================")
+
+                    print(
+                        "TEMPO DECORRIDO:",
+                        round(
+                            agora - inicio_ollama,
+                            1
+                        ),
+                        "s"
+                    )
+
+                    print(
+                        "CARACTERES:",
+                        len(
+                            conteudo_revisado
+                        )
+                    )
+
+                    ultimo_print = agora
+
+            if dados.get(
+                "done",
+                False
+            ):
+
+                break
+
+    except Exception as e:
+
+        print()
+        print("==============================")
+        print("ERRO DURANTE STREAM — REVISÃO")
+        print("==============================")
+
+        print(
+            repr(e)
+        )
+
+        return ""
+
+    fim_ollama = time.time()
+
+    # ========================================================
+    # 06. LIMPAR RESULTADO
+    # ========================================================
+
+    conteudo_revisado = (
+        conteudo_revisado
+        .strip()
+    )
+
+    print()
+    print("==============================")
+    print("REVISÃO DE NATURALIDADE FINALIZADA")
+    print("==============================")
+
+    print(
+        "TEMPO TOTAL:",
+        round(
+            fim_ollama - inicio_ollama,
+            1
+        ),
+        "segundos"
+    )
+
+    print(
+        "CONTEÚDO ORIGINAL:",
+        len(conteudo),
+        "caracteres"
+    )
+
+    print(
+        "CONTEÚDO REVISADO:",
+        len(conteudo_revisado),
+        "caracteres"
+    )
+
+    # ========================================================
+    # 07. VALIDAR RETORNO
+    # ========================================================
+
+    if not conteudo_revisado:
+
+        print()
+        print("==============================")
+        print("REVISÃO NÃO RETORNOU CONTEÚDO")
+        print("==============================")
+
+        print(
+            "CONTEÚDO ORIGINAL SERÁ PRESERVADO"
+        )
+
+        return ""
+
+    # ========================================================
+    # 08. MOSTRAR RESULTADO
+    # ========================================================
+
+    print()
+    print("==============================")
+    print("CONTEÚDO REVISADO RECEBIDO")
+    print("==============================")
+
+    print(
+        conteudo_revisado[:3000]
+    )
+
+    print()
+    print("==============================")
+    print("FIM REVISÃO DE NATURALIDADE")
+    print("==============================")
+
+    return conteudo_revisado
+
+
+
 # ============================================================
 # CORRIGIR CONTEÚDO COM QWEN3
 # ============================================================
@@ -4802,6 +8696,79 @@ def extrair_trechos_relevantes(
     return resultado[
         :limite
     ]    
+
+
+# ============================================================
+# SELECIONAR GRUPO
+# ============================================================
+
+def preparar_grupo_para_ia(
+    grupo,
+    tema,
+    mapa_texto,
+    limite=5000
+):
+
+    partes = []
+
+    restante = limite
+
+
+    for fonte in grupo:
+
+        if restante <= 0:
+
+            break
+
+
+        trecho = extrair_trechos_relevantes(
+
+            fonte["texto"],
+
+            tema,
+
+            mapa_texto,
+
+            limite=restante
+
+        )
+
+
+        if not trecho:
+
+            continue
+
+
+        bloco = f"""
+[FONTE {fonte["indice"]}]
+TIPO: {fonte["tipo"]}
+PDF TÉCNICO: {"SIM" if fonte["eh_pdf"] else "NÃO"}
+URL: {fonte["url"]}
+
+{trecho}
+"""
+
+
+        if len(bloco) > restante:
+
+            bloco = bloco[
+                :restante
+            ]
+
+
+        partes.append(
+            bloco
+        )
+
+
+        restante -= len(
+            bloco
+        )
+
+
+    return "\n".join(
+        partes
+    )[:limite]
 
 
 # ============================================================
@@ -8409,30 +12376,26 @@ def selecionar_informacoes_relevantes(
     return resultado
 
 
+
 # ============================================================
 # GERAR SEGMENTOS DA PÁGINA
 # ============================================================
 #
 # REGRA MEAD:
 #
-# - Os segmentos NÃO são fixos.
-# - O tema é analisado junto com as informações coletadas.
-# - O Ollama identifica mercados, setores e aplicações
-#   compatíveis com o produto ou serviço.
-# - São solicitados exatamente 12 segmentos específicos.
-# - Não pode haver repetição.
-# - Cada segmento precisa conter o tema.
+# - Existe um banco fixo com mais de 20 segmentos.
+# - O tema/produto/serviço aparece obrigatoriamente
+#   em cada segmento.
+# - O Python sorteia exatamente 12 segmentos.
+# - Não pode haver repetição dentro da mesma página.
+# - Os checkboxes NÃO participam da criação dos segmentos.
+# - Segmento genérico sem referência ao tema é proibido.
 #
 # ============================================================
 
-def gerar_segmentos_pagina(
-    tema,
-    contexto,
-    mapa_mead=None
-):
+def gerar_segmentos_pagina(tema, quantidade=None):
 
-    import re
-    import requests
+    import random
 
     tema = str(
         tema or ""
@@ -8441,225 +12404,58 @@ def gerar_segmentos_pagina(
     if not tema:
         return []
 
-    contexto = str(
-        contexto or ""
-    ).strip()
-
-    if not contexto:
-        print()
-        print(
-            "❌ ERRO: não existem informações suficientes "
-            "para gerar os segmentos."
-        )
-        return []
-
-    if mapa_mead is None:
-        mapa_mead = ""
-
-    mapa_mead = str(
-        mapa_mead or ""
-    ).strip()
-
     # ========================================================
-    # PREPARAR CONTEXTO
+    # BANCO FIXO DE SEGMENTOS
     # ========================================================
     #
-    # Limitamos o tamanho enviado ao Ollama para evitar
-    # contexto excessivo.
+    # O Python cria os segmentos a partir de um banco técnico.
+    # Cada segmento precisa mencionar o tema.
+    # A página pode possuir de 5 a 10 segmentos.
     #
-    # O objetivo aqui NÃO é gerar conteúdo da página.
-    # É somente descobrir segmentos reais do tema.
     # ========================================================
 
-    contexto_segmentos = contexto[:12000]
+    banco_segmentos = [
 
-    mapa_segmentos = mapa_mead[:5000]
-
-    # ========================================================
-    # PROMPT
-    # ========================================================
-
-    prompt = f"""
-Você é responsável exclusivamente por identificar
-SEGMENTOS DE MERCADO, SETORES INDUSTRIAIS,
-APLICAÇÕES E CONTEXTOS DE USO reais para um produto
-ou serviço.
-
-TEMA PRINCIPAL:
-{tema}
-
-MAPA MEAD:
-{mapa_segmentos}
-
-INFORMAÇÕES PESQUISADAS:
-{contexto_segmentos}
-
-TAREFA:
-
-Identifique exatamente 12 segmentos específicos e
-realistas relacionados ao TEMA.
-
-Os segmentos devem representar mercados, setores,
-indústrias, aplicações ou contextos de uso realmente
-compatíveis com o tema e sustentados pelas informações
-fornecidas.
-
-NÃO crie segmentos genéricos.
-
-NÃO use apenas características técnicas.
-
-NÃO use frases como:
-- "{tema} industrial"
-- "{tema} profissional"
-- "{tema} técnica"
-- "{tema} especializada"
-- "{tema} para diferentes aplicações"
-
-Essas expressões são genéricas e não são segmentos.
-
-PREFIRA estruturas como:
-
-"{tema} para mineração"
-"{tema} para saneamento"
-"{tema} para indústria química"
-"{tema} para indústria alimentícia"
-
-mas SOMENTE quando forem compatíveis com as
-informações fornecidas.
-
-REGRAS:
-
-1. Gere exatamente 12 segmentos.
-2. Cada segmento deve conter o tema.
-3. Cada segmento deve ser específico.
-4. Não repita segmentos.
-5. Não invente mercados sem fundamento.
-6. Não crie nomes de empresas.
-7. Não crie clientes.
-8. Não crie números, certificações ou normas.
-9. Não explique os segmentos.
-10. Retorne somente os 12 segmentos.
-
-FORMATO OBRIGATÓRIO:
-
-SEGMENTO_1: ...
-SEGMENTO_2: ...
-SEGMENTO_3: ...
-SEGMENTO_4: ...
-SEGMENTO_5: ...
-SEGMENTO_6: ...
-SEGMENTO_7: ...
-SEGMENTO_8: ...
-SEGMENTO_9: ...
-SEGMENTO_10: ...
-SEGMENTO_11: ...
-SEGMENTO_12: ...
-"""
-
-    # ========================================================
-    # CHAMAR OLLAMA
-    # ========================================================
-
-    try:
-
-        resposta = requests.post(
-            "http://localhost:11434/api/generate",
-            json={
-                "model": "qwen3:latest",
-                "prompt": prompt,
-                "stream": False
-            },
-            timeout=600
-        )
-
-        resposta.raise_for_status()
-
-        dados = resposta.json()
-
-        texto = str(
-            dados.get(
-                "response",
-                ""
-            )
-        ).strip()
-
-    except Exception as erro:
-
-        print()
-        print(
-            "❌ ERRO AO GERAR SEGMENTOS COM O OLLAMA:"
-        )
-        print(erro)
-
-        return []
-
-    if not texto:
-
-        print()
-        print(
-            "❌ O OLLAMA NÃO RETORNOU SEGMENTOS."
-        )
-
-        return []
-
-    # ========================================================
-    # EXTRAIR OS 12 SEGMENTOS
-    # ========================================================
-
-    segmentos = []
-
-    for numero in range(1, 13):
-
-        padrao = (
-            rf"SEGMENTO[_\s]*{numero}\s*:"
-            rf"\s*(.+)"
-        )
-
-        encontrado = re.search(
-            padrao,
-            texto,
-            re.IGNORECASE
-        )
-
-        if not encontrado:
-            continue
-
-        segmento = encontrado.group(
-            1
-        ).strip()
-
-        # Remover eventual texto residual
-        segmento = segmento.split(
-            "\n"
-        )[0].strip()
-
-        # Remover marcadores desnecessários
-        segmento = re.sub(
-            r"^[\-\*\d\.\)\s]+",
-            "",
-            segmento
-        ).strip()
-
-        if segmento:
-            segmentos.append(
-                segmento
-            )
-
-    # ========================================================
-    # LIMPAR DUPLICIDADES
-    # ========================================================
+        f"Aplicações industriais de {tema}",
+        f"Funcionamento e características de {tema}",
+        f"Critérios técnicos para seleção de {tema}",
+        f"Manutenção preventiva de {tema}",
+        f"Instalação adequada de {tema}",
+        f"Benefícios operacionais de {tema}",
+        f"Dimensionamento de {tema} para diferentes sistemas",
+        f"Desempenho técnico de {tema}",
+        f"Eficiência operacional de {tema}",
+        f"Características construtivas de {tema}",
+        f"Cuidados na operação de {tema}",
+        f"Soluções industriais com {tema}",
+        f"Aplicações de {tema} em processos industriais",
+        f"Segurança na operação de {tema}",
+        f"Diagnóstico de problemas em {tema}",
+        f"Inspeção e conservação de {tema}",
+        f"Escolha de {tema} conforme a aplicação",
+        f"Condições de operação de {tema}",
+        f"Vantagens técnicas de {tema}",
+        f"Integração de {tema} em sistemas industriais",
+        f"Cuidados durante a instalação de {tema}",
+        f"Procedimentos de manutenção de {tema}",
+        f"Especificação técnica de {tema}",
+        f"Confiabilidade operacional de {tema}",
+        f"Desempenho de {tema} em diferentes aplicações",
+        f"Aplicação de {tema} em sistemas industriais",
+        f"Operação adequada de {tema}",
+        f"Seleção de {tema} para processos industriais",
+        f"Manutenção e conservação de {tema}",
+        f"Aspectos técnicos de {tema}"
+    ]
 
     segmentos_validos = []
-
     vistos = set()
 
-    for segmento in segmentos:
+    for segmento in banco_segmentos:
 
-        segmento = re.sub(
-            r"\s+",
-            " ",
-            str(segmento).strip()
-        )
+        segmento = str(
+            segmento or ""
+        ).strip()
 
         if not segmento:
             continue
@@ -8669,130 +12465,66 @@ SEGMENTO_12: ...
         if chave in vistos:
             continue
 
-        vistos.add(
-            chave
-        )
+        vistos.add(chave)
+        segmentos_validos.append(segmento)
 
-        segmentos_validos.append(
-            segmento
-        )
-
-    # ========================================================
-    # VALIDAR PRESENÇA DO TEMA
-    # ========================================================
-
-    tema_normalizado = re.sub(
-        r"\s+",
-        " ",
-        tema.casefold()
-    ).strip()
-
-    segmentos_finais = []
-
-    for segmento in segmentos_validos:
-
-        segmento_normalizado = re.sub(
-            r"\s+",
-            " ",
-            segmento.casefold()
-        ).strip()
-
-        if tema_normalizado not in segmento_normalizado:
-
-            print()
-            print(
-                "⚠️ SEGMENTO REJEITADO:"
-            )
-            print(
-                "O segmento não contém o tema:"
-            )
-            print(
-                segmento
-            )
-
-            continue
-
-        segmentos_finais.append(
-            segmento
-        )
-
-    # ========================================================
-    # GARANTIA FINAL
-    # ========================================================
-
-    if len(segmentos_finais) != 12:
-
-        print()
+    if len(segmentos_validos) < 5:
         print(
-            "❌ ERRO: o gerador não conseguiu produzir "
-            "exatamente 12 segmentos válidos."
+            "❌ ERRO: banco de segmentos possui menos de 5 opções."
         )
-
-        print(
-            "SEGMENTOS RECEBIDOS:",
-            len(segmentos_finais)
-        )
-
         return []
 
-    # ========================================================
-    # LOG
-    # ========================================================
+    if quantidade is None:
+        quantidade = random.randint(5, 10)
+
+    try:
+        quantidade = int(quantidade)
+    except Exception:
+        quantidade = 8
+
+    quantidade = max(5, min(10, quantidade))
+    quantidade = min(quantidade, len(segmentos_validos))
+
+    segmentos_escolhidos = random.sample(
+        segmentos_validos,
+        quantidade
+    )
+
+    tema_normalizado = tema.casefold()
+
+    segmentos_finais = [
+        segmento
+        for segmento in segmentos_escolhidos
+        if tema_normalizado in segmento.casefold()
+    ]
+
+    if len(segmentos_finais) < 5:
+        print(
+            "❌ ERRO: não foi possível montar pelo menos 5 segmentos válidos."
+        )
+        return []
 
     print()
-    print(
-        "=========================================="
-    )
-    print(
-        "SEGMENTOS DA PÁGINA"
-    )
-    print(
-        "=========================================="
-    )
-
-    print(
-        "TEMA:",
-        tema
-    )
-
-    print(
-        "SEGMENTOS GERADOS PELO OLLAMA:",
-        len(segmentos_finais)
-    )
+    print("==========================================")
+    print("SEGMENTOS DA PÁGINA")
+    print("==========================================")
+    print(f"TEMA: {tema}")
+    print(f"BANCO DISPONÍVEL: {len(segmentos_validos)}")
+    print(f"SEGMENTOS SORTEADOS: {len(segmentos_finais)}")
 
     for numero, segmento in enumerate(
         segmentos_finais,
         start=1
     ):
-
         print(
-            f"SEGMENTO_{numero}:",
-            segmento
+            f"SEGMENTO_{numero}: {segmento}"
         )
 
-    print(
-        "=========================================="
-    )
+    print("==========================================")
 
     return segmentos_finais
 
 
-
-# ============================================================
-# FORMAS GRAMATICAIS DO TEMA
-# ============================================================
-#
-# Função independente.
-#
-# NÃO fica dentro de gerar_conteudo_completo().
-#
-# Objetivo:
-# - identificar masculino/feminino do tema;
-# - fornecer as formas necessárias para segmentos e tags;
-# - evitar o uso do tema sozinho;
-# - manter concordância dos adjetivos.
-#
-# ============================================================
 
 def obter_formas_gramaticais_tema(tema):
 
@@ -9171,7 +12903,10 @@ def gerar_conteudo_completo(
     total_blocos = 5
     paragrafos_por_bloco = 3
     total_paragrafos = 15
-    total_segmentos = 12
+    # Segmentos: o projeto aceita de 5 a 10.
+    # Usamos 8 como quantidade-base para manter estabilidade
+    # sem perder a variação do banco de segmentos.
+    total_segmentos = 8
     total_tags = 30
     
     print()
@@ -10821,7 +14556,7 @@ marcadores obrigatórios.
     # Os segmentos NÃO são gerados pelos checkboxes.
     #
     # O Python possui um banco fixo com mais de 20
-    # possibilidades e sorteia exatamente 12 para a página.
+    # possibilidades e sorteia entre 5 e 10 para a página.
     #
     # Cada segmento obrigatoriamente referencia o tema,
     # que representa o produto ou serviço.
@@ -10829,11 +14564,12 @@ marcadores obrigatórios.
     # ========================================================
     
     lista_segmentos = gerar_segmentos_pagina(
-        tema
+        tema,
+        total_segmentos
     )
-    
-    if len(lista_segmentos) != 12:
-    
+
+    if not (5 <= len(lista_segmentos) <= 10):
+
         print()
         print(
             "❌ FALHA NA GERAÇÃO DOS SEGMENTOS."
@@ -10841,7 +14577,7 @@ marcadores obrigatórios.
     
         print(
             "A página não será considerada válida "
-            "sem exatamente 12 segmentos."
+            "sem entre 5 e 10 segmentos."
         )
     
         return None
@@ -10889,54 +14625,114 @@ marcadores obrigatórios.
     )
 
 
+    # --------------------------------------------------------
+    # MONTAR OS 12 SEGMENTOS
+    # --------------------------------------------------------
+
+    if tema_eh_servico:
+
+        segmentos_base = [
+            tema_base,
+            f"{tema_base} industrial",
+            f"{tema_base} preventiva",
+            f"{tema_base} corretiva",
+            f"{tema_base} técnica",
+            f"{tema_base} especializada",
+            f"{tema_base} para equipamentos industriais",
+            f"{tema_base} para sistemas industriais",
+            f"{tema_base} para processos industriais",
+            f"assistência técnica em {tema_base}",
+            f"diagnóstico e {tema_base}",
+            f"orçamento de {tema_base}"
+        ]
+
+    else:
+
+        segmentos_base = [
+            tema_base,
+            f"{tema_base} industrial",
+            f"{tema_base} para sistemas industriais",
+            f"{tema_base} para processos industriais",
+            f"{tema_base} para aplicações industriais",
+            f"{tema_base} para transferência de fluidos",
+            f"{tema_base} para sistemas hidráulicos",
+            f"{tema_base} para diferentes aplicações",
+            f"aplicações de {tema_base}",
+            f"manutenção de {tema_base}",
+            f"assistência técnica para {tema_base}",
+            f"orçamento de {tema_base}"
+        ]
+
+    lista_segmentos = []
+
+    for segmento in segmentos_base:
+
+        segmento = re.sub(
+            r"\s+",
+            " ",
+            str(segmento).strip()
+        )
+
+        if not segmento:
+            continue
+
+        lista_segmentos.append(
+            segmento
+        )
+
+    # Garantia estrutural: exatamente 12 segmentos
+    lista_segmentos = remover_duplicados(
+        lista_segmentos
+    ) if "remover_duplicados" in locals() else lista_segmentos
+
+    lista_segmentos = lista_segmentos[:10]
+
+
     # ========================================================
     # 18. CRIAR TAGS COM PYTHON
     # ========================================================
     #
-    # As tags NÃO são geradas pelo Ollama.
+    # As tags NÃO são mais geradas pelo Ollama.
     #
-    # O Python monta exatamente 30 tags a partir do tema.
-    #
-    # PRODUTO:
-    #   - 15 tags fixas comerciais
-    #   - 15 tags complementares técnicas
-    #
-    # SERVIÇO:
-    #   - 15 tags fixas comerciais
-    #   - 15 tags complementares técnicas
+    # O Python monta exatamente 30 tags a partir do tema,
+    # mantendo o padrão PRODUTO/SERVIÇO.
     #
     # REGRA OBRIGATÓRIA:
     # A palavra-chave NUNCA pode aparecer sozinha como tag.
     #
+    # Exemplo:
+    #
+    # ❌ "bomba centrifuga"
+    #
+    # ✅ "bomba centrifuga industrial"
+    # ✅ "manutenção de bomba centrifuga"
+    # ✅ "aplicações de bomba centrifuga"
+    #
     # ========================================================
-    
+
+    # ========================================================
+    # BASE FIXA DE TAGS COMERCIAIS
+    # ========================================================
+    #
+    # Estas tags fazem parte da estratégia fixa do projeto.
+    # O Python monta as tags; o Ollama não cria nem escolhe tags.
+    #
+    # ========================================================
+
+    cidade = "São Paulo"
+    estado = "SP"
+
     if tema_eh_servico:
-    
-        # ----------------------------------------------------
-        # SERVIÇOS
-        # 15 TAGS FIXAS + 15 TAGS COMPLEMENTARES
-        # ----------------------------------------------------
-    
-        tags_base = [
-    
-            # 15 TAGS FIXAS DE SERVIÇOS
-            f"{tema_base} em {cidade}",
-            f"{tema_base} em {estado}",
-            f"empresa especializada em {tema_base}",
-            f"especialista em {tema_base}",
-            f"realizamos {tema_base}",
-            f"executamos {tema_base}",
-            f"prestação de {tema_base}",
-            f"profissional de {tema_base}",
-            f"onde encontrar {tema_base}",
-            f"onde contratar {tema_base}",
-            f"orçamento para {tema_base}",
-            f"cotação para {tema_base}",
-            f"{tema_base} com atendimento especializado",
-            f"{tema_base} com suporte técnico",
-            f"{tema_base} preço",
-    
-            # 15 TAGS COMPLEMENTARES DE SERVIÇOS
+
+        tags_fixas = [
+            str(tag)
+            .replace("[tema]", tema_base)
+            .replace("{cidade}", cidade)
+            .replace("{estado}", estado)
+            for tag in TAGS_FIXAS_SERVICOS
+        ]
+
+        tags_complementares = [
             f"{tema_base} industrial",
             f"{tema_base} industrial especializada",
             f"{tema_base} técnica",
@@ -10953,34 +14749,18 @@ marcadores obrigatórios.
             f"solução em {tema_base}",
             f"consultoria em {tema_base}"
         ]
-    
+
     else:
-    
-        # ----------------------------------------------------
-        # PRODUTOS
-        # 15 TAGS FIXAS + 15 TAGS COMPLEMENTARES
-        # ----------------------------------------------------
-    
-        tags_base = [
-    
-            # 15 TAGS FIXAS DE PRODUTOS
-            f"empresa de {tema_base}",
-            f"venda de {tema_base}",
-            f"vendemos {tema_base}",
-            f"fornecemos {tema_base}",
-            f"fornecedor de {tema_base}",
-            f"onde encontrar {tema_base}",
-            f"onde comprar {tema_base}",
-            f"orçamento de {tema_base}",
-            f"cotação de {tema_base}",
-            f"{tema_base} com melhor preço",
-            f"{tema_base} com preço competitivo",
-            f"{tema_base} com preço justo",
-            f"{tema_base} com qualidade",
-            f"{tema_base} resistente",
-            f"{tema_base} durável",
-    
-            # 15 TAGS COMPLEMENTARES DE PRODUTOS
+
+        tags_fixas = [
+            str(tag)
+            .replace("[tema]", tema_base)
+            .replace("{cidade}", cidade)
+            .replace("{estado}", estado)
+            for tag in TAGS_FIXAS_PRODUTOS
+        ]
+
+        tags_complementares = [
             f"{tema_base} industrial",
             f"{tema_base} industrial especializada",
             f"{tema_base} profissional",
@@ -10997,6 +14777,8 @@ marcadores obrigatórios.
             f"soluções com {tema_base}",
             f"equipamento {tema_base}"
         ]
+
+    tags_base = tags_fixas + tags_complementares
 
     # ========================================================
     # LIMPAR E VALIDAR TAGS
@@ -11072,10 +14854,9 @@ marcadores obrigatórios.
     ]
 
     # --------------------------------------------------------
-    # O banco acima possui 29 opções válidas.
+    # A base fixa + complementares fornece 30 tags válidas.
     #
-    # Como a palavra-chave isolada foi retirada, não devemos
-    # simplesmente fazer [:30] e aceitar quantidade menor.
+    # A palavra-chave isolada nunca é aceita como tag.
     #
     # Se houver menos de 30 tags válidas, interrompemos a
     # geração para evitar um JSON estruturalmente incorreto.
@@ -11170,7 +14951,7 @@ marcadores obrigatórios.
     #
     # Neste ponto o Python já criou:
     # - as informações relevantes
-    # - exatamente 12 segmentos
+    # - entre 5 e 10 segmentos
     # - exatamente 30 tags
     #
     # Tudo é enviado junto ao salvar_banco() para que seja
@@ -11352,7 +15133,7 @@ marcadores obrigatórios.
     if total_paragrafos_real != total_paragrafos:
         estrutura_valida = False
     
-    if total_segmentos_real != total_segmentos:
+    if not (5 <= total_segmentos_real <= 10):
         estrutura_valida = False
     
     if total_tags_real != total_tags:
@@ -11649,6 +15430,370 @@ marcadores obrigatórios.
     return conteudo
 
 
+
+# ============================================================
+# LIMPAR REFERÊNCIAS COMERCIAIS
+# ============================================================
+
+def limpar_referencias_comerciais(texto, tema):
+
+    if not texto:
+        return texto
+
+
+    tema_lower = tema.lower()
+
+
+    # =====================================
+    # REMOVER MARCAS SOMENTE PARA SELAGEM
+    # CORTA FOGO
+    # =====================================
+
+    if any(
+        palavra in tema_lower
+        for palavra in [
+
+            "firestop",
+            "selagem",
+            "corta fogo",
+            "passagem corta fogo"
+
+        ]
+    ):
+
+        remover = [
+
+            "CP 636",
+            "CKC",
+            "Firestop",
+            "Hilti",
+            "3M",
+            "Promat",
+            "Noneifire",
+            "Promaseal",
+            "Tecbor",
+            "FFC",
+            "FCR"
+
+        ]
+
+
+        for item in remover:
+
+            texto = re.sub(
+                item,
+                "",
+                texto,
+                flags=re.IGNORECASE
+            )
+
+
+
+    # ========================================================
+    # 01. NORMALIZA TEXTO
+    # ========================================================
+
+    texto = texto.replace(
+        "corta-fogo",
+        "corta fogo"
+    )
+
+
+    texto = texto.replace(
+        "Corta-Fogo",
+        "Corta Fogo"
+    )
+
+
+    texto = re.sub(
+        r"\s+",
+        " ",
+        texto
+    )
+
+
+    return texto.strip()
+    
+    # ========================================================
+    # 02. AUDITORIA DE NATURALIDADE
+    # ========================================================
+
+    print()
+    print("==============================")
+    print("INICIANDO AUDITORIA DE NATURALIDADE")
+    print("==============================")
+
+    conteudo = auditar_e_corrigir_aberturas(
+        conteudo,
+        tema
+    )
+
+    print()
+    print("==============================")
+    print("AUDITORIA DE NATURALIDADE FINALIZADA")
+    print("==============================")    
+
+
+    
+
+# ============================================================
+# LIMPAR LISTA DE REFERÊNCIAS
+# ============================================================
+
+def limpar_lista_referencias(
+    textos,
+    tema
+):
+
+    textos_limpos = []
+
+
+    for item in textos:
+
+
+        if not item:
+            continue
+
+
+
+    # ========================================================
+    # 01. NORMALIZAR FORMATO
+    # ========================================================
+
+        if isinstance(item, dict):
+
+            texto = item.get(
+                "texto",
+                ""
+            )
+
+            url = item.get(
+                "url",
+                ""
+            )
+
+            tipo = item.get(
+                "tipo",
+                "texto"
+            )
+
+
+        else:
+
+            texto = str(item)
+
+            url = ""
+
+            tipo = "texto"
+
+
+
+        if not texto:
+
+            continue
+
+
+
+        texto_upper = texto.upper()
+
+
+
+    # ========================================================
+    # 02. REMOVER MAPAS MEAD ANTIGOS
+    # ========================================================
+
+        if "### MAPA_MEAD" in texto_upper:
+
+            print(
+                "MAPA MEAD ANTIGO REMOVIDO"
+            )
+
+            continue
+
+
+
+        if "PROTAGONISTA:" in texto_upper:
+
+            print(
+                "REFERÊNCIA COM PROTAGONISTA REMOVIDA"
+            )
+
+            continue
+
+
+
+    # ========================================================
+    # 03. LIMPEZA COMERCIAL
+    # ========================================================
+
+        texto = limpar_referencias_comerciais(
+            texto,
+            tema
+        )
+        
+        
+    # ========================================================
+    # 04. LIMPEZA BÁSICA PARA IA
+    # ========================================================
+        
+        texto = texto.strip()
+        
+        texto = " ".join(
+            texto.split()
+        )
+
+
+
+        if len(texto) < 300:
+
+            print(
+                "TEXTO DESCARTADO - PEQUENO:",
+                len(texto)
+            )
+
+            continue
+
+
+
+    # ========================================================
+    # 05. SALVAR TEXTO LIMPO
+    # ========================================================
+
+        textos_limpos.append(
+            {
+                "url": url,
+                "tipo": tipo,
+                "texto": texto
+            }
+        )
+
+
+
+    print()
+    print("==============================")
+    print("TEXTOS DISPONÍVEIS")
+    print("==============================")
+    print(len(textos))
+
+
+
+    print()
+    print("==============================")
+    print("TEXTOS APÓS LIMPEZA")
+    print("==============================")
+    print(len(textos_limpos))
+
+
+
+    for i, item in enumerate(textos_limpos):
+
+        print(
+            f"{i+1}: {len(item.get('texto',''))} caracteres | "
+            f"{item.get('url','')[:80]}"
+        )
+
+
+
+    return textos_limpos
+    
+
+# ============================================================
+# EXTRAIR MAPA MEAD DA RESPOSTA
+# ============================================================
+
+def extrair_mapa_mead(conteudo):
+
+    if not conteudo:
+        return ""
+
+    inicio = conteudo.find("### MAPA_MEAD")
+
+    if inicio == -1:
+        return ""
+
+    secoes = [
+        "### DEFINICAO",
+        "### BENEFICIOS",
+        "### VANTAGENS",
+        "### MATERIA_PRIMA",
+        "### APLICACOES",
+        "### FABRICACAO",
+        "### MANUTENCAO",
+        "### ATIVOS_NARRATIVOS",
+        "### DUVIDAS_FREQUENTES"
+    ]
+
+    fim = len(conteudo)
+
+    for secao in secoes:
+
+        pos = conteudo.find(secao)
+
+        if pos > inicio:
+            fim = pos
+            break
+
+    return conteudo[inicio:fim].strip()
+    
+    
+    
+
+# ============================================================
+# VALIDAR MAPA MEAD
+# ============================================================
+
+def validar_mapa_mead(texto):
+
+    if not texto:
+        return False
+
+
+    texto_upper = texto.upper()
+
+
+    # remover acentos
+    texto_upper = (
+        texto_upper
+        .replace("Á","A")
+        .replace("À","A")
+        .replace("Ã","A")
+        .replace("Â","A")
+        .replace("É","E")
+        .replace("Ê","E")
+        .replace("Í","I")
+        .replace("Ó","O")
+        .replace("Ô","O")
+        .replace("Õ","O")
+        .replace("Ú","U")
+        .replace("Ç","C")
+    )
+
+
+    obrigatorios = [
+
+        "PROTAGONISTA",
+        "CENARIO",
+        "PROBLEMA",
+        "SOLUCAO"
+
+    ]
+
+
+    for item in obrigatorios:
+
+        if item not in texto_upper:
+
+            print()
+            print("==============================")
+            print("MAPA MEAD FALTANDO:")
+            print(item)
+            print("==============================")
+
+            return False
+
+
+    return True
+    
     
 
 # ============================================================
@@ -11857,6 +16002,124 @@ def verificar_tema_banco(tema):
     }    
 
 
+# ============================================================
+# ALIMENTAR A IA COM O MAPA MEAD
+# ============================================================
+
+def obter_textos_banco():
+
+    banco = carregar_banco()
+
+    textos = []
+
+
+    for tema, dados in banco.items():
+
+
+        if not isinstance(
+            dados,
+            dict
+        ):
+            continue
+
+
+
+    # ========================================================
+    # 01. CARREGAR MAPA MEAD
+    # ========================================================
+
+        mapa = dados.get(
+            "mapa_mead",
+            {}
+        )
+
+
+        if isinstance(
+            mapa,
+            dict
+        ):
+
+            texto_mapa = mapa.get(
+                "texto",
+                ""
+            )
+
+
+            if texto_mapa:
+
+                textos.append(
+                    texto_mapa
+                )
+
+
+
+    # ========================================================
+    # 02. CARREGAR CATEGORIAS
+    # ========================================================
+
+        categorias = dados.get(
+            "categorias",
+            {}
+        )
+
+
+        if isinstance(
+            categorias,
+            dict
+        ):
+
+
+            for categoria, conteudo in categorias.items():
+
+
+                if isinstance(
+                    conteudo,
+                    str
+                ):
+
+                    textos.append(
+                        conteudo
+                    )
+
+
+
+    return textos
+
+
+def obter_contexto_banco(
+    limite=5000
+):
+
+    textos = obter_textos_banco()
+
+    contexto = "\n\n".join(
+        item.get("texto", "")
+        for item in textos
+        if isinstance(item, dict)
+    )
+    
+    print()
+    print("==============================")
+    print("DEBUG CONTEXTO MAPA")
+    print("==============================")
+    
+    print(
+        "ITENS RECEBIDOS:",
+        len(textos)
+    )
+    
+    print(
+        "CARACTERES GERADOS:",
+        len(contexto)
+    )
+    
+    print(
+        contexto[:500]
+    )
+
+    return contexto[:limite]
+
+
 
 # ============================================================
 # NORMALIZAR IDENTIDADE DO TEMA
@@ -11894,171 +16157,108 @@ def normalizar_tema_chave(tema):
     return texto
 
 
+
 # ============================================================
 # VALIDAR ESTRUTURA DA PÁGINA
 # ============================================================
 
-def validar_estrutura_pagina(pagina):
+def validar_estrutura_pagina(
+    conteudo
+):
 
     print()
     print("==============================")
     print("VALIDANDO ESTRUTURA DA PÁGINA")
     print("==============================")
 
-    # ========================================================
-    # 01. VALIDAR OBJETO PRINCIPAL
-    # ========================================================
+    texto = str(
+        conteudo or ""
+    ).strip()
 
-    if not isinstance(pagina, dict):
+    if not texto:
 
-        print("❌ PÁGINA INVÁLIDA")
-        print("Motivo: estrutura da página não é um dicionário.")
+        print(
+            "CONTEÚDO VAZIO"
+        )
 
         return False
 
     # ========================================================
-    # 02. PARÂMETROS ATUAIS DO MEAD
+    # 01. CONTAR PARÁGRAFOS
     # ========================================================
 
-    BLOCOS_OBRIGATORIOS = 5
-    PARAGRAFOS_POR_BLOCO = 3
-    TOTAL_PARAGRAFOS = (
-        BLOCOS_OBRIGATORIOS *
-        PARAGRAFOS_POR_BLOCO
-    )
+    paragrafos = []
 
-    MIN_SEGMENTOS = 5
-    MAX_SEGMENTOS = 10
+    for bloco in texto.split("\n\n"):
 
-    # ========================================================
-    # 03. VALIDAR BLOCOS
-    # ========================================================
+        bloco = bloco.strip()
 
-    total_blocos = 0
-    total_paragrafos = 0
+        if not bloco:
+            continue
 
-    for numero in range(
-        1,
-        BLOCOS_OBRIGATORIOS + 1
-    ):
+        # Ignorar títulos de bloco
+        if bloco.startswith("#"):
+            continue
 
-        chave_bloco = f"block_{numero}"
+        if bloco.startswith("BLOCO"):
+            continue
 
-        bloco = pagina.get(
-            chave_bloco
+        if bloco.startswith("Segmentos"):
+            continue
+
+        paragrafos.append(
+            bloco
         )
 
-        if not isinstance(
-            bloco,
-            dict
+    # ========================================================
+    # 02. CONTAR SEGMENTOS
+    # ========================================================
+
+    segmentos = []
+
+    encontrou_segmentos = False
+
+    for linha in texto.splitlines():
+
+        linha_limpa = linha.strip()
+
+        if (
+            "segmentos atendidos" in
+            linha_limpa.lower()
+            or
+            linha_limpa.lower() == "segmentos"
         ):
 
-            print()
-            print("❌ BLOCO AUSENTE:")
-            print(chave_bloco)
+            encontrou_segmentos = True
+            continue
 
-            return False
+        if encontrou_segmentos:
 
-        total_blocos += 1
+            if not linha_limpa:
+                continue
 
-        paragrafos = bloco.get(
-            "paragrafos",
-            []
-        )
-
-        if not isinstance(
-            paragrafos,
-            list
-        ):
-
-            print()
-            print("❌ PARÁGRAFOS INVÁLIDOS:")
-            print(chave_bloco)
-
-            return False
-
-        if len(paragrafos) != PARAGRAFOS_POR_BLOCO:
-
-            print()
-            print("❌ QUANTIDADE INCORRETA DE PARÁGRAFOS:")
-            print(chave_bloco)
-            print(
-                "Encontrados:",
-                len(paragrafos)
-            )
-            print(
-                "Esperados:",
-                PARAGRAFOS_POR_BLOCO
-            )
-
-            return False
-
-        for indice, paragrafo in enumerate(
-            paragrafos,
-            start=1
-        ):
-
-            if not isinstance(
-                paragrafo,
-                str
+            if (
+                linha_limpa.startswith("-")
+                or
+                linha_limpa.startswith("•")
+                or
+                linha_limpa[:2].isdigit()
             ):
 
-                print()
-                print("❌ PARÁGRAFO INVÁLIDO:")
-                print(
-                    f"{chave_bloco} / parágrafo {indice}"
+                segmentos.append(
+                    linha_limpa
                 )
 
-                return False
-
-            if not paragrafo.strip():
-
-                print()
-                print("❌ PARÁGRAFO VAZIO:")
-                print(
-                    f"{chave_bloco} / parágrafo {indice}"
-                )
-
-                return False
-
-        total_paragrafos += len(
-            paragrafos
-        )
-
     # ========================================================
-    # 04. VALIDAR SEGMENTOS
+    # 03. RESULTADO
     # ========================================================
 
-    segmentos = pagina.get(
-        "segmentos_listas",
-        []
+    total_paragrafos = len(
+        paragrafos
     )
-
-    if not isinstance(
-        segmentos,
-        list
-    ):
-
-        print()
-        print("❌ SEGMENTOS INVÁLIDOS")
-
-        return False
 
     total_segmentos = len(
-        [
-            segmento
-            for segmento in segmentos
-            if str(segmento).strip()
-        ]
-    )
-
-    # ========================================================
-    # 05. RESULTADO DOS BLOCOS
-    # ========================================================
-
-    print(
-        "BLOCOS ENCONTRADOS:",
-        total_blocos
+        segmentos
     )
 
     print(
@@ -12072,91 +16272,69 @@ def validar_estrutura_pagina(pagina):
     )
 
     # ========================================================
-    # 06. VALIDAR TOTAL DE PARÁGRAFOS
+    # 04. REGRA OBRIGATÓRIA
     # ========================================================
 
-    if total_paragrafos != TOTAL_PARAGRAFOS:
+    if total_paragrafos < 15:
 
         print()
-        print("❌ PÁGINA REPROVADA")
         print(
-            f"Motivo: esperado exatamente "
-            f"{TOTAL_PARAGRAFOS} parágrafos."
+            "❌ PÁGINA REPROVADA"
+        )
+
+        print(
+            "Motivo: menos de 15 parágrafos."
         )
 
         return False
 
-    # ========================================================
-    # 07. VALIDAR SEGMENTOS
-    # ========================================================
-
-    if total_segmentos < MIN_SEGMENTOS:
+    if total_segmentos < 12:
 
         print()
-        print("❌ PÁGINA REPROVADA")
         print(
-            f"Motivo: mínimo de "
-            f"{MIN_SEGMENTOS} segmentos."
+            "❌ PÁGINA REPROVADA"
+        )
+
+        print(
+            "Motivo: menos de 12 segmentos."
         )
 
         return False
-
-    if total_segmentos > MAX_SEGMENTOS:
-
-        print()
-        print("❌ PÁGINA REPROVADA")
-        print(
-            f"Motivo: máximo de "
-            f"{MAX_SEGMENTOS} segmentos."
-        )
-
-        return False
-
-    # ========================================================
-    # 08. APROVADA
-    # ========================================================
 
     print()
-    print("✅ ESTRUTURA APROVADA")
     print(
-        "5 BLOCOS + 15 PARÁGRAFOS + "
-        f"{total_segmentos} SEGMENTOS"
+        "✅ ESTRUTURA APROVADA"
+    )
+
+    print(
+        "15 PARÁGRAFOS + 12 SEGMENTOS"
     )
 
     return True
 
 
 
-
 # ============================================================
-# GERAR TÍTULOS E DADOS EDITORIAIS DA PÁGINA
+# GERAR TÍTULOS
 # ============================================================
 
 def gerar_titulos(
     tema,
-    conteudo=None,
-    mapa_mead=None
+    conteudo,
+    mapa_mead
 ):
 
     print()
     print("==============================")
-    print("GERANDO DADOS EDITORIAIS")
+    print("GERANDO TÍTULOS")
     print("==============================")
 
     tema = str(
         tema or ""
     ).strip()
 
-    if not tema:
-        return {
-            "h1": "",
-            "titulo": "",
-            "subtitulo": "",
-            "descricao": ""
-        }
-
     # ========================================================
-    # 01. H1
+    # 01. TÍTULO PRINCIPAL
     # ========================================================
 
     h1 = tema
@@ -12165,49 +16343,28 @@ def gerar_titulos(
     # 02. TÍTULO SEO
     # ========================================================
 
-    titulo = (
+    title = (
         tema.capitalize()
         + " | Soluções e Informações Técnicas"
     )
 
     # ========================================================
-    # 03. SUBTÍTULO
-    # ========================================================
-
-    subtitulo = (
-        f"Informações técnicas sobre {tema.lower()}, "
-        "aplicações e critérios para sua utilização."
-    )
-
-    # ========================================================
-    # 04. DESCRIÇÃO
-    # ========================================================
-
-    descricao = (
-        f"Informações técnicas sobre {tema.lower()}, "
-        "suas aplicações, características e aspectos "
-        "importantes para avaliação e utilização."
-    )
-
-    # ========================================================
-    # 05. RESULTADO
+    # 03. RETORNO
     # ========================================================
 
     resultado = {
 
-        "h1": h1,
+        "h1":
+        h1,
 
-        "titulo": titulo,
-
-        "subtitulo": subtitulo,
-
-        "descricao": descricao
+        "title":
+        title
 
     }
 
     print()
     print("==============================")
-    print("DADOS EDITORIAIS GERADOS")
+    print("TÍTULOS GERADOS")
     print("==============================")
 
     print(
@@ -12216,23 +16373,64 @@ def gerar_titulos(
     )
 
     print(
-        "TÍTULO:",
-        titulo
-    )
-
-    print(
-        "SUBTÍTULO:",
-        subtitulo
-    )
-
-    print(
-        "DESCRIÇÃO:",
-        descricao
+        "TITLE:",
+        title
     )
 
     return resultado
+    
+    # ========================================================
+    # DEBUG — PARÁGRAFOS-BASE QUE SERÃO GRAVADOS NO JSON
+    # ========================================================
 
+    print()
+    print("==============================")
+    print("PARÁGRAFOS PYTHON PARA GRAVAÇÃO JSON")
+    print("==============================")
 
+    total_python_json = 0
+
+    for numero_bloco in range(1, 6):
+
+        chave_bloco = f"bloco_{numero_bloco}"
+
+        paragrafos_python = (
+            blocos[
+                chave_bloco
+            ].get(
+                "paragrafos_python",
+                []
+            )
+        )
+
+        print()
+        print(chave_bloco)
+
+        for indice, paragrafo in enumerate(
+            paragrafos_python,
+            start=1
+        ):
+
+            texto = str(
+                paragrafo
+            ).strip()
+
+            if texto:
+
+                total_python_json += 1
+
+                print(
+                    f"  PARÁGRAFO {indice}: "
+                    f"{len(texto.split())} palavras"
+                )
+
+    print()
+    print(
+        "TOTAL PARÁGRAFOS PYTHON PARA JSON:",
+        total_python_json
+    )
+    
+    
 
 # ============================================================
 # SALVAR BANCO
@@ -16786,7 +20984,7 @@ def verificar_novo_conjunto(temas_atuais):
 
 def carregar_progresso():
 
-    arquivo = ARQUIVO_PROGRESSO
+    arquivo = r"C:\Python\gerador-conteudo\banco\progresso.json"
 
 
     if not os.path.exists(arquivo):
@@ -19173,22 +23371,31 @@ def gerar_material_interface():
         
                 try:
         
-                    resposta_tema = ollama.chat(
-                        model="qwen3:latest",
-                        messages=[
-                            {
-                                "role": "user",
-                                "content": prompt_correcao_tema
+                    resposta_tema_http = requests.post(
+                        "http://localhost:11434/api/generate",
+                        json={
+                            "model": "qwen3:latest",
+                            "prompt": prompt_correcao_tema,
+                            "stream": False,
+                            "think": False,
+                            "options": {
+                                "temperature": 0.0,
+                                "num_predict": 50
                             }
-                        ],
-                        options={
-                            "temperature": 0.0,
-                            "num_predict": 50
-                        }
+                        },
+                        timeout=(30, 300)
                     )
-        
+
+                    if resposta_tema_http.status_code != 200:
+                        raise RuntimeError(
+                            f"Ollama retornou HTTP "
+                            f"{resposta_tema_http.status_code}"
+                        )
+
+                    dados_tema = resposta_tema_http.json()
+
                     tema_corrigido = str(
-                        resposta_tema["message"]["content"]
+                        dados_tema.get("response", "")
                     ).strip()
         
                     if tema_corrigido:
@@ -19259,7 +23466,66 @@ def gerar_material_interface():
 
             print(grupo)
 
+            # ====================================================
+            # 05. GERAR ENTENDIMENTO DO PRODUTO
+            # ====================================================
 
+            print()
+            print("==============================")
+            print("GERANDO ENTENDIMENTO DO PRODUTO")
+            print("==============================")
+
+            print(
+                "TEMA:",
+                tema
+            )
+
+            print(
+                "GRUPO:",
+                grupo
+            )
+
+            entendimento = gerar_entendimento_produto(
+                tema,
+                grupo
+            )
+
+            # ====================================================
+            # 06. VALIDAR ENTENDIMENTO
+            # ====================================================
+
+            print()
+            print("==============================")
+            print("ENTENDIMENTO DO PRODUTO")
+            print("==============================")
+
+            if entendimento:
+
+                print(entendimento)
+
+                print()
+                print(
+                    "ENTENDIMENTO GERADO COM SUCESSO"
+                )
+
+                print(
+                    "CARACTERES:",
+                    len(
+                        str(
+                            entendimento
+                        )
+                    )
+                )
+
+            else:
+
+                print(
+                    "ENTENDIMENTO NÃO GERADO"
+                )
+
+                print(
+                    "O FLUXO CONTINUARÁ SEM ENTENDIMENTO."
+                )
 
             # ====================================================
             # 07. INICIO COLETA
@@ -21496,6 +25762,94 @@ def executar():
         grupo
     )
 
+    # ========================================================
+    # 03. GERAR ENTENDIMENTO DO PRODUTO
+    # ========================================================
+
+    print()
+    print("==============================")
+    print("GERANDO ENTENDIMENTO DO PRODUTO")
+    print("==============================")
+
+    print(
+        "TEMA:",
+        tema
+    )
+
+    print(
+        "GRUPO:",
+        grupo
+    )
+
+    print()
+    print("CHAMANDO:")
+    print(
+        "gerar_entendimento_produto()"
+    )
+
+    inicio_entendimento = time.time()
+
+    entendimento = gerar_entendimento_produto(
+        tema,
+        grupo
+    )
+
+    fim_entendimento = time.time()
+
+    # ========================================================
+    # 04. RESULTADO DO ENTENDIMENTO
+    # ========================================================
+
+    print()
+    print("==============================")
+    print("ENTENDIMENTO DO PRODUTO RETORNOU")
+    print("==============================")
+
+    print(
+        "TIPO:",
+        type(entendimento)
+    )
+
+    print(
+        "CARACTERES:",
+        len(
+            str(
+                entendimento or ""
+            )
+        )
+    )
+
+    print(
+        "TEMPO:",
+        formatar_tempo(
+            fim_entendimento
+            -
+            inicio_entendimento
+        )
+    )
+
+    print()
+
+    if entendimento:
+
+        print(
+            "ENTENDIMENTO:"
+        )
+
+        print(
+            entendimento
+        )
+
+    else:
+
+        print(
+            "ENTENDIMENTO VAZIO"
+        )
+
+    print()
+    print("==============================")
+    print("FIM ENTENDIMENTO DO PRODUTO")
+    print("==============================")
 
     # ========================================================
     # 05. PESQUISA
@@ -22232,6 +26586,15 @@ def executar():
         )
     )
 
+    print(
+        "ENTENDIMENTO:",
+        len(
+            str(
+                entendimento or ""
+            )
+        ),
+        "caracteres"
+    )
 
     # ========================================================
     # 22.1 VALIDAR DADOS ANTES DO GERADOR
@@ -22387,6 +26750,11 @@ def executar():
     print(
         "TEMA:",
         tema
+    )
+
+    print(
+        "ENTENDIMENTO GERADO:",
+        bool(entendimento)
     )
 
     print(
