@@ -12656,101 +12656,116 @@ def gerar_segmentos_pagina(tema):
         return segmentos_validos    
 
     # --------------------------------------------------------
-    # SORTEAR EXATAMENTE 12
+    # FILTRAR SEGMENTOS QUE REFERENCIAM O TEMA
     # --------------------------------------------------------
-    #
-    # random.sample() garante que não haverá repetição.
-    # --------------------------------------------------------
-
-    segmentos_escolhidos = random.sample(
-        segmentos_validos,
-        12
-    )
-
-    # --------------------------------------------------------
-    # VALIDAÇÃO FINAL
-    # --------------------------------------------------------
-    #
-    # Todo segmento precisa conter referência ao tema.
-    # --------------------------------------------------------
-
-    tema_normalizado = tema.casefold()
-
-    segmentos_finais = []
-
-    for segmento in segmentos_escolhidos:
-
-        if tema_normalizado not in segmento.casefold():
-
+    
+    tema_normalizado = tema.casefold().strip()
+    
+    segmentos_com_tema = []
+    
+    for segmento in segmentos_validos:
+    
+        if tema_normalizado in segmento.casefold():
+    
+            segmentos_com_tema.append(segmento)
+    
+        else:
+    
             print()
             print(
                 "⚠️ SEGMENTO REJEITADO POR NÃO "
                 "REFERENCIAR O TEMA:"
             )
             print(segmento)
-
-            continue
-
-        segmentos_finais.append(
-            segmento
-        )
-
+    
+    
     # --------------------------------------------------------
     # SEGURANÇA
     # --------------------------------------------------------
-
-    if len(segmentos_finais) != 12:
-
+    
+    if len(segmentos_com_tema) < 12:
+    
         print()
         print(
-            "❌ ERRO: não foi possível montar "
-            "12 segmentos válidos."
+            "❌ ERRO: não foi possível encontrar "
+            "12 segmentos que referenciem o tema."
         )
-
+    
+        print(
+            f"TEMA: {tema}"
+        )
+    
+        print(
+            f"SEGMENTOS COM TEMA: "
+            f"{len(segmentos_com_tema)}"
+        )
+    
         return []
-
+    
+    
+    # --------------------------------------------------------
+    # SORTEAR EXATAMENTE 12
+    # --------------------------------------------------------
+    #
+    # Como todos os segmentos já foram validados,
+    # random.sample() garante 12 diferentes.
+    # --------------------------------------------------------
+    
+    segmentos_finais = random.sample(
+        segmentos_com_tema,
+        12
+    )
+    
+    
     # --------------------------------------------------------
     # LOG
     # --------------------------------------------------------
-
+    
     print()
     print(
         "=========================================="
     )
+    
     print(
         "SEGMENTOS DA PÁGINA"
     )
+    
     print(
         "=========================================="
     )
-
+    
     print(
         f"TEMA: {tema}"
     )
-
+    
     print(
         f"BANCO DISPONÍVEL: "
         f"{len(segmentos_validos)}"
     )
-
+    
+    print(
+        f"SEGMENTOS COM TEMA: "
+        f"{len(segmentos_com_tema)}"
+    )
+    
     print(
         "SEGMENTOS SORTEADOS: 12"
     )
-
+    
     for numero, segmento in enumerate(
         segmentos_finais,
         start=1
     ):
-
+    
         print(
             f"SEGMENTO_{numero}: "
             f"{segmento}"
         )
-
+    
     print(
         "=========================================="
     )
-
+    
     return segmentos_finais
 
 
