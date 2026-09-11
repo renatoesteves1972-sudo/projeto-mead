@@ -100,6 +100,67 @@ CATEGORIAS = [
     "duvidas_frequentes"
 ]
 
+# ============================================================
+# BIBLIOTECA DE SEGMENTOS
+# ============================================================
+
+SEGMENTOS_PRODUTOS = [
+    "Fábrica de [TEMA] para Saneamento",
+    "Fábrica de [TEMA] para Infraestrutura",
+    "[TEMA] para Indústrias",
+    "[TEMA] para Obras de Drenagem",
+    "[TEMA] para Infraestrutura Urbana",
+    "[TEMA] para Vias Públicas",
+    "[TEMA] para Áreas de Circulação",
+    "[TEMA] para Condomínios",
+    "[TEMA] para Empresas de Engenharia",
+    "[TEMA] para Construtoras",
+    "[TEMA] para Obras de Infraestrutura",
+    "Fornecedor de [TEMA] para Indústrias",
+    "Fornecedor de [TEMA] para Empresas de Engenharia",
+    "[TEMA] para Empresas de Saneamento",
+    "[TEMA] para Concessionárias",
+    "[TEMA] para Prefeituras",
+    "[TEMA] em Loteamentos",
+    "[TEMA] em Condomínios",
+    "[TEMA] em Obras de Saneamento",
+    "[TEMA] para Diferentes Aplicações",
+]
+
+
+SEGMENTOS_SERVICOS = [
+    "Empresa de [TEMA] para Indústrias",
+    "Empresa de [TEMA] para Centros Logísticos",
+    "Empresa de [TEMA] para Centros de Distribuição",
+    "[TEMA] para Hospitais",
+    "[TEMA] para Condomínios Empresariais",
+    "[TEMA] para Edifícios Corporativos",
+    "[TEMA] para Centros Comerciais",
+    "[TEMA] para Obras de Retrofit",
+    "[TEMA] para Indústrias Metalúrgicas",
+    "[TEMA] para Indústrias Siderúrgicas",
+    "[TEMA] para Indústrias Químicas",
+    "[TEMA] para Indústrias Alimentícias",
+    "[TEMA] para Papel e Celulose",
+    "[TEMA] para Mineração",
+    "[TEMA] para Montadoras",
+    "[TEMA] para Empresas de Automação Industrial",
+    "[TEMA] para Usinas e Setor de Energia",
+    "[TEMA] para Empresas de Saneamento",
+    "[TEMA] para Centros Logísticos",
+    "[TEMA] para Máquinas Industriais",
+]
+
+
+SEGMENTOS_CORINGAS = [
+    "[TEMA] para Diferentes Aplicações",
+    "[TEMA] para Aplicações Industriais",
+    "[TEMA] para Empresas de Engenharia",
+    "[TEMA] para Empresas Especializadas",
+    "[TEMA] para Obras e Projetos",
+    "[TEMA] para Diferentes Necessidades",
+]
+
 
 ARQUIVO_MEAD = r"C:\Python\gerador-conteudo\mead\mead.json"
 
@@ -12522,6 +12583,77 @@ def gerar_segmentos_pagina(tema):
         )
 
         return []
+        
+        
+    # ========================================================
+    # GERAR SEGMENTOS VÁLIDOS PELO PYTHON
+    # ========================================================
+    
+    def gerar_segmentos_validos(
+        tema,
+        tipo
+    ):
+    
+        tema = str(
+            tema or ""
+        ).strip()
+    
+        if not tema:
+            return []
+    
+        tipo_normalizado = str(
+            tipo or ""
+        ).strip().casefold()
+    
+        # ----------------------------------------------------
+        # Escolher a biblioteca
+        # ----------------------------------------------------
+    
+        if tipo_normalizado == "servico":
+    
+            modelos = (
+                SEGMENTOS_SERVICOS
+                + SEGMENTOS_CORINGAS
+            )
+    
+        else:
+    
+            modelos = (
+                SEGMENTOS_PRODUTOS
+                + SEGMENTOS_CORINGAS
+            )
+    
+        # ----------------------------------------------------
+        # Substituir [TEMA]
+        # ----------------------------------------------------
+    
+        segmentos = []
+    
+        for modelo in modelos:
+    
+            segmento = modelo.replace(
+                "[TEMA]",
+                tema
+            ).strip()
+    
+            if not segmento:
+                continue
+    
+            segmentos.append(
+                segmento
+            )
+    
+        # ----------------------------------------------------
+        # Remover duplicados
+        # ----------------------------------------------------
+    
+        segmentos_validos = list(
+            dict.fromkeys(
+                segmentos
+            )
+        )
+    
+        return segmentos_validos    
 
     # --------------------------------------------------------
     # SORTEAR EXATAMENTE 12
