@@ -1,15 +1,4 @@
-# ============================================================
-# BASE OFICIAL RECONSTRUÍDA — 2026-09-11
-# ============================================================
-# Esta versão foi reconstruída a partir da versão funcional
-# gerador-conteudo-MEAD-corrigido-organizado-JSON-OFICIAL-valendo.py
-# preservando a estrutura funcional e incorporando:
-# - tags comerciais fixas geradas pelo Python;
-# - 30 tags finais sem a palavra-chave isolada;
-# - 5 a 10 segmentos;
-# - correção da chamada Ollama usada na correção ortográfica do tema;
-# - preservação da gravação oficial dos blocos no JSON.
-# ============================================================
+# Alterações incorporadas: somente as mudanças do MEAD/tags/segmentos/blocos definidas em 2026-09-10 + correção de escopo de grupo_principal_projeto.
 
 import json
 import os
@@ -9176,23 +9165,6 @@ def selecionar_informacoes_relevantes(
     print("TEXTOS RECEBIDOS:", len(textos))
 
     # ========================================================
-    # GRUPO PRINCIPAL DO PROJETO — INTERFACE
-    # ========================================================
-    # Esta informação vem exclusivamente do campo
-    # “Grupo Principal do Projeto” da interface.
-    # Ela é auxiliar para o contexto/pesquisa e também é
-    # preservada no tema do JSON. Não é gerada pelo Ollama.
-    # Inicializada localmente para evitar NameError ao salvar
-    # as informações relevantes.
-    # ========================================================
-
-    grupo_principal_projeto = (
-        entrada_grupo.get().strip()
-        if "entrada_grupo" in globals()
-        else ""
-    )
-
-    # ========================================================
     # FUNÇÕES DE IDENTIFICAÇÃO
     # ========================================================
 
@@ -9295,7 +9267,10 @@ def selecionar_informacoes_relevantes(
 
         return resultado_vazio
 
-    # ========================================================
+        # Grupo informado na interface; não é gerado pela IA.
+    grupo_principal_projeto = entrada_grupo.get().strip() if "entrada_grupo" in globals() else ""
+
+# ========================================================
     # 01. NORMALIZAR FONTES
     # ========================================================
 
@@ -14643,7 +14618,7 @@ marcadores obrigatórios.
 
 
     # --------------------------------------------------------
-    # MONTAR OS SEGMENTOS (5 A 10)
+    # MONTAR OS 12 SEGMENTOS
     # --------------------------------------------------------
 
     if tema_eh_servico:
@@ -14697,7 +14672,7 @@ marcadores obrigatórios.
             segmento
         )
 
-    # Garantia estrutural: entre 5 e 10 segmentos
+    # Garantia estrutural: exatamente 12 segmentos
     lista_segmentos = remover_duplicados(
         lista_segmentos
     ) if "remover_duplicados" in locals() else lista_segmentos
@@ -18587,7 +18562,7 @@ def salvar_banco(
     ] = tags_finais[:30]
     
     # ========================================================
-    # NORMALIZAR SEGMENTOS (5 A 10 PREENCHIDOS)
+    # NORMALIZAR 12 SEGMENTOS
     # ========================================================
     
     segmentos_finais = []
@@ -18623,7 +18598,7 @@ def salvar_banco(
     segmentos_finais = segmentos_finais[:12]
     
     # ========================================================
-    # GARANTIR E GRAVAR SEGMENTOS
+    # GARANTIR E GRAVAR 12 SEGMENTOS
     # ========================================================
     
     segmentos_listas_existentes = pagina.get(
