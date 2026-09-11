@@ -19260,42 +19260,6 @@ def gerar_material_interface():
             print(grupo)
 
 
-            # ====================================================
-            # 06. VALIDAR ENTENDIMENTO
-            # ====================================================
-
-            print()
-            print("==============================")
-            print("ENTENDIMENTO DO PRODUTO")
-            print("==============================")
-
-            if entendimento:
-
-                print(entendimento)
-
-                print()
-                print(
-                    "ENTENDIMENTO GERADO COM SUCESSO"
-                )
-
-                print(
-                    "CARACTERES:",
-                    len(
-                        str(
-                            entendimento
-                        )
-                    )
-                )
-
-            else:
-
-                print(
-                    "ENTENDIMENTO NÃO GERADO"
-                )
-
-                print(
-                    "O FLUXO CONTINUARÁ SEM ENTENDIMENTO."
-                )
 
             # ====================================================
             # 07. INICIO COLETA
@@ -22268,15 +22232,6 @@ def executar():
         )
     )
 
-    print(
-        "ENTENDIMENTO:",
-        len(
-            str(
-                entendimento or ""
-            )
-        ),
-        "caracteres"
-    )
 
     # ========================================================
     # 22.1 VALIDAR DADOS ANTES DO GERADOR
@@ -22432,11 +22387,6 @@ def executar():
     print(
         "TEMA:",
         tema
-    )
-
-    print(
-        "ENTENDIMENTO GERADO:",
-        bool(entendimento)
     )
 
     print(
