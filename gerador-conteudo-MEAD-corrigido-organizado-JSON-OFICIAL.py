@@ -9176,6 +9176,23 @@ def selecionar_informacoes_relevantes(
     print("TEXTOS RECEBIDOS:", len(textos))
 
     # ========================================================
+    # GRUPO PRINCIPAL DO PROJETO — INTERFACE
+    # ========================================================
+    # Esta informação vem exclusivamente do campo
+    # “Grupo Principal do Projeto” da interface.
+    # Ela é auxiliar para o contexto/pesquisa e também é
+    # preservada no tema do JSON. Não é gerada pelo Ollama.
+    # Inicializada localmente para evitar NameError ao salvar
+    # as informações relevantes.
+    # ========================================================
+
+    grupo_principal_projeto = (
+        entrada_grupo.get().strip()
+        if "entrada_grupo" in globals()
+        else ""
+    )
+
+    # ========================================================
     # FUNÇÕES DE IDENTIFICAÇÃO
     # ========================================================
 
@@ -14626,7 +14643,7 @@ marcadores obrigatórios.
 
 
     # --------------------------------------------------------
-    # MONTAR OS 12 SEGMENTOS
+    # MONTAR OS SEGMENTOS (5 A 10)
     # --------------------------------------------------------
 
     if tema_eh_servico:
@@ -14680,7 +14697,7 @@ marcadores obrigatórios.
             segmento
         )
 
-    # Garantia estrutural: exatamente 12 segmentos
+    # Garantia estrutural: entre 5 e 10 segmentos
     lista_segmentos = remover_duplicados(
         lista_segmentos
     ) if "remover_duplicados" in locals() else lista_segmentos
@@ -18570,7 +18587,7 @@ def salvar_banco(
     ] = tags_finais[:30]
     
     # ========================================================
-    # NORMALIZAR 12 SEGMENTOS
+    # NORMALIZAR SEGMENTOS (5 A 10 PREENCHIDOS)
     # ========================================================
     
     segmentos_finais = []
@@ -18606,7 +18623,7 @@ def salvar_banco(
     segmentos_finais = segmentos_finais[:12]
     
     # ========================================================
-    # GARANTIR E GRAVAR 12 SEGMENTOS
+    # GARANTIR E GRAVAR SEGMENTOS
     # ========================================================
     
     segmentos_listas_existentes = pagina.get(
