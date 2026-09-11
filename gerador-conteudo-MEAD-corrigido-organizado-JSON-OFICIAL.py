@@ -1,3 +1,5 @@
+# versão 1.0 - 11/09
+
 import json
 import os
 import re
@@ -2605,20 +2607,23 @@ Analise tecnicamente o tema para orientar uma pesquisa.
 TEMA: {tema}
 GRUPO: {grupo_principal}
 
-Retorne somente 4 pontos curtos:
+Retorne um entendimento técnico estruturado para orientar a pesquisa e a seleção dos trechos.
 
-1. O que é.
-2. Para que serve.
-3. Como funciona.
-4. O que deve ser pesquisado tecnicamente.
+1. O que é o produto ou serviço.
+2. Função principal.
+3. Problema ou necessidade que normalmente resolve.
+4. Funcionamento geral.
+5. Principais componentes ou elementos técnicos que devem ser pesquisados.
 
 REGRAS:
-- Seja extremamente objetivo.
-- Máximo de 120 palavras.
-- Não invente informações.
-- Não use marcas ou modelos.
-- Não informe números ou especificações.
+- Seja técnico, objetivo e informativo.
+- Máximo de 180 palavras.
+- O entendimento serve somente para orientar a pesquisa/coleta do Python.
 - Não escreva conteúdo editorial.
+- Não use marcas, modelos ou empresas.
+- Não informe números, capacidades ou especificações que não sejam essenciais ao entendimento geral.
+- Não invente fatos; quando houver incerteza, sinalize o aspecto para pesquisa em vez de afirmar.
+- Priorize conceitos, função, funcionamento, componentes, aplicações e aspectos técnicos que ajudem a localizar bons trechos nas fontes.
 """
 
     try:
@@ -12242,7 +12247,10 @@ def selecionar_informacoes_relevantes(
             "informacoes_relevantes",
             informacoes_relevantes,
             blocos=blocos,
-            grupo_principal_projeto=grupo_principal_projeto
+            grupo_principal_projeto=
+                entrada_grupo.get().strip()
+                if "entrada_grupo" in globals()
+                else ""
         )
     
         print(
@@ -15432,14 +15440,8 @@ marcadores obrigatórios.
                 if "entrada_grupo" in globals()
                 else "",
     
-            # CHECKBOXES EDITORIAIS MARCADOS
-            "segmentos_textuais": [
-                NOMES_BLOCOS_EDITORIAIS[chave]
-                for chave, marcado
-                in obter_estrutura_editorial().items()
-                if marcado
-                and chave in NOMES_BLOCOS_EDITORIAIS
-            ],
+            # SEGMENTOS REAIS DA PÁGINA
+            "segmentos_textuais": lista_segmentos,
     
             # REFERÊNCIAS DAS FONTES COLETADAS
             "referencias": list(
