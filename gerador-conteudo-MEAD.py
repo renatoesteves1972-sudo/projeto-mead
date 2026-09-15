@@ -14613,37 +14613,91 @@ def gerar_conteudo_completo(
     Crie uma narrativa nova, própria e independente.
     """
     
-
+    # ============================================================
+    # TÍTULOS GERADOS PELO PYTHON
+    #
+    # O Python é responsável por:
+    # - H1
+    # - título SEO
+    # - subtítulo
+    # - títulos dos 5 blocos
+    #
+    # O Ollama NÃO gera nenhum desses elementos.
+    # ============================================================
+    
+    titulos_python = gerar_titulos(
+        tema,
+        None,
+        mapa_mead
+    )
+    
+    h1 = titulos_python.get(
+        "h1",
+        ""
+    )
+    
+    titulo = titulos_python.get(
+        "title",
+        ""
+    )
+    
+    subtitulo = titulos_python.get(
+        "subtitulo",
+        ""
+    )
+    
+    # ============================================================
+    # ASSOCIAR OS TÍTULOS AOS BLOCOS
+    # ============================================================
+    
+    for numero_bloco in range(1, 6):
+    
+        chave_bloco = (
+            f"bloco_{numero_bloco}"
+        )
+    
+        dados_bloco = (
+            informacoes_blocos.get(
+                chave_bloco,
+                {}
+            )
+        )
+    
+        if not isinstance(
+            dados_bloco,
+            dict
+        ):
+            dados_bloco = {}
+    
+        dados_bloco["titulo"] = (
+            titulos_python.get(
+                chave_bloco,
+                ""
+            )
+        )
+    
+        informacoes_blocos[
+            chave_bloco
+        ] = dados_bloco
+    
+    
     # ============================================================
     # 11. PROMPT FINAL — OLLAMA
     #
     # RESPONSABILIDADE:
-    # O Python já selecionou os fragmentos.
+    # O Python já fez toda a estrutura da página.
     #
     # O Python já definiu:
     # - H1
     # - título
     # - subtítulo
     # - títulos dos 5 blocos
-    # - estrutura
-    # - fragmentos/parágrafos-base
+    # - estrutura dos blocos
+    # - fragmentos selecionados
+    # - parágrafos-base
     #
-    # O Ollama recebe SOMENTE:
-    # - tema
-    # - instruções editoriais necessárias
-    # - contexto_geracao
-    #
-    # O Ollama NÃO recebe:
-    # - textos brutos
-    # - fontes
-    # - mapa_mead completo
-    # - informacoes_relevantes
-    # - títulos
-    # - subtítulo
-    # - títulos dos blocos
-    #
-    # O Ollama é responsável SOMENTE pelos
-    # 15 parágrafos editoriais finais.
+    # O Ollama é responsável SOMENTE pela redação
+    # dos 15 parágrafos editoriais finais.
     # ============================================================
     
     print()
@@ -14652,7 +14706,7 @@ def gerar_conteudo_completo(
     print("=" * 60)
     
     # ============================================================
-    # CONTEXTO DOS PARÁGRAFOS-BASE PYTHON PARA O OLLAMA
+    # CONTEXTO DOS PARÁGRAFOS-BASE PYTHON
     # ============================================================
     
     contexto_geracao = {}
@@ -14716,19 +14770,13 @@ def gerar_conteudo_completo(
             paragrafos_bloco
         )
     
-    
     # ============================================================
-    # CONTEXTO GERAL DOS FRAGMENTOS SELECIONADOS
+    # CONTEXTO GERAL
     # ============================================================
     
     contexto_fragmentos = "\n\n".join(
         paragrafos_python_para_ia
     )
-    
-    
-    # ------------------------------------------------------------
-    # CONTROLE
-    # ------------------------------------------------------------
     
     print(
         "PARÁGRAFOS-BASE PYTHON ENVIADOS:",
@@ -14744,7 +14792,6 @@ def gerar_conteudo_completo(
         "CARACTERES DOS PARÁGRAFOS-BASE:",
         len(contexto_fragmentos)
     )
-    
     
     for numero_bloco in range(1, 6):
     
@@ -14770,188 +14817,233 @@ def gerar_conteudo_completo(
     
     
     # ============================================================
-    # PROMPT
+    # PROMPT DO OLLAMA
+    #
+    # IMPORTANTE:
+    # O Ollama NÃO cria:
+    # - H1
+    # - título
+    # - subtítulo
+    # - títulos dos blocos
+    # - tags
+    # - segmentos
+    # - estrutura
+    #
+    # O Ollama cria SOMENTE:
+    # 15 parágrafos editoriais.
     # ============================================================
     
     prompt = f"""
 Você é um redator técnico especializado.
 
-TEMA:
+Sua única função nesta etapa é transformar os
+parágrafos-base selecionados pelo Python em
+texto editorial final.
+
+============================================================
+TEMA
+============================================================
+
 {tema}
 
-O Python já fez toda a seleção das informações.
+============================================================
+RESPONSABILIDADE DO PYTHON
+============================================================
 
-Os textos abaixo são os ÚNICOS dados técnicos que você
-deve utilizar para escrever a página.
+O Python já realizou:
 
-NÃO pesquise.
-NÃO use conhecimento externo.
-NÃO invente informações.
-NÃO acrescente especificações.
-NÃO acrescente números.
-NÃO acrescente aplicações que não estejam nos fragmentos.
+- seleção das informações;
+- organização das informações;
+- definição dos 5 blocos;
+- definição da ordem dos blocos;
+- definição dos títulos;
+- definição do H1;
+- definição do título SEO;
+- definição do subtítulo;
+- preparação dos parágrafos-base.
 
-Sua função é transformar os fragmentos selecionados em
-uma redação técnica, natural e original.
+Você NÃO deve criar nenhuma dessas estruturas.
 
-==================================================
-ESTRUTURA OBRIGATÓRIA
-==================================================
+============================================================
+SUA RESPONSABILIDADE
+============================================================
 
-Crie:
+Você deve escrever SOMENTE os 15 parágrafos
+editoriais finais.
 
-1 título principal;
-1 subtítulo;
+São:
 
-5 blocos;
+5 blocos
+3 parágrafos por bloco
+total de 15 parágrafos.
 
-cada bloco deve possuir:
-1 título;
-3 parágrafos;
-
-total:
-15 parágrafos.
-
-Cada parágrafo deve possuir aproximadamente
+Cada parágrafo deve ter aproximadamente
 60 a 70 palavras.
 
-Os 3 fragmentos de cada bloco pertencem somente
-àquele bloco.
+============================================================
+REGRAS EDITORIAIS
+============================================================
 
-Não misture os fragmentos entre os blocos.
+1. Use somente as informações presentes nos
+   parágrafos-base fornecidos pelo Python.
 
-==================================================
-PROTAGONISTA
-==================================================
+2. Não invente informações.
 
-O protagonista absoluto é:
+3. Não invente:
+   - clientes;
+   - empresas;
+   - marcas;
+   - fabricantes;
+   - anos;
+   - certificações;
+   - normas;
+   - números;
+   - métricas;
+   - capacidades;
+   - características técnicas;
+   - aplicações;
+   - resultados;
+   - depoimentos.
 
-{tema}
+4. Não faça pesquisas externas.
 
-Os demais elementos são apenas apoio à explicação.
+5. Não acrescente conhecimento técnico que não
+   esteja sustentado pelos fragmentos fornecidos.
 
-==================================================
-NARRATIVA
-==================================================
+6. Preserve a fidelidade às informações selecionadas.
 
-Escreva de forma técnica, natural e humana.
+7. Escreva de forma natural e humana.
 
-Varie as aberturas dos parágrafos.
+8. Evite frases repetitivas.
 
-Não comece todos os parágrafos com a palavra-chave.
+9. Evite iniciar todos os parágrafos da mesma maneira.
 
-Evite repetição de estrutura.
+10. O tema deve aparecer naturalmente no texto,
+    sem forçar sua repetição.
 
-Não faça propaganda exagerada.
+11. Não faça listas.
 
-Não invente experiência, clientes, certificações,
-números, desempenho ou características técnicas.
+12. Não crie títulos.
 
-==================================================
-MARCADORES — USE EXATAMENTE ASSIM
-==================================================
+13. Não crie subtítulos.
 
-IMPORTANTE:
+14. Não crie tags.
 
-Os marcadores abaixo devem ser copiados
-EXATAMENTE como estão escritos.
+15. Não crie segmentos.
 
-NÃO coloque acentos nos marcadores.
+16. Não escreva introdução ou conclusão fora
+    dos 15 parágrafos.
 
-NÃO altere letras.
+17. Não misture informações de um bloco com
+    outro bloco.
 
-NÃO altere maiúsculas ou minúsculas.
+============================================================
+ESTRUTURA
+============================================================
 
-NÃO troque os nomes.
-
-Use exatamente:
-
-[TITULO_PRINCIPAL]
-[/TITULO_PRINCIPAL]
-
-[SUBTITULO]
-[/SUBTITULO]
+A resposta deve obedecer exatamente esta estrutura:
 
 [BLOCO_1]
+
+[PARAGRAFO_1]
+Texto do primeiro parágrafo.
+[/PARAGRAFO_1]
+
+[PARAGRAFO_2]
+Texto do segundo parágrafo.
+[/PARAGRAFO_2]
+
+[PARAGRAFO_3]
+Texto do terceiro parágrafo.
+[/PARAGRAFO_3]
+
 [/BLOCO_1]
+
 
 [BLOCO_2]
+
+[PARAGRAFO_1]
+Texto do primeiro parágrafo.
+[/PARAGRAFO_1]
+
+[PARAGRAFO_2]
+Texto do segundo parágrafo.
+[/PARAGRAFO_2]
+
+[PARAGRAFO_3]
+Texto do terceiro parágrafo.
+[/PARAGRAFO_3]
+
 [/BLOCO_2]
 
+
 [BLOCO_3]
+
+[PARAGRAFO_1]
+Texto do primeiro parágrafo.
+[/PARAGRAFO_1]
+
+[PARAGRAFO_2]
+Texto do segundo parágrafo.
+[/PARAGRAFO_2]
+
+[PARAGRAFO_3]
+Texto do terceiro parágrafo.
+[/PARAGRAFO_3]
+
 [/BLOCO_3]
 
+
 [BLOCO_4]
+
+[PARAGRAFO_1]
+Texto do primeiro parágrafo.
+[/PARAGRAFO_1]
+
+[PARAGRAFO_2]
+Texto do segundo parágrafo.
+[/PARAGRAFO_2]
+
+[PARAGRAFO_3]
+Texto do terceiro parágrafo.
+[/PARAGRAFO_3]
+
 [/BLOCO_4]
 
+
 [BLOCO_5]
+
+[PARAGRAFO_1]
+Texto do primeiro parágrafo.
+[/PARAGRAFO_1]
+
+[PARAGRAFO_2]
+Texto do segundo parágrafo.
+[/PARAGRAFO_2]
+
+[PARAGRAFO_3]
+Texto do terceiro parágrafo.
+[/PARAGRAFO_3]
+
 [/BLOCO_5]
 
-[TITULO_BLOCO]
-[/TITULO_BLOCO]
+============================================================
+REGRA FINAL
+============================================================
 
-[PARAGRAFO_1]
-[/PARAGRAFO_1]
+Não escreva nada antes de [BLOCO_1].
 
-[PARAGRAFO_2]
-[/PARAGRAFO_2]
+Não escreva nada depois de [/BLOCO_5].
 
-[PARAGRAFO_3]
-[/PARAGRAFO_3]
+Não altere os marcadores.
 
-==================================================
-ORDEM OBRIGATÓRIA
-==================================================
+Não crie nenhum elemento que não tenha sido solicitado.
 
-[TITULO_PRINCIPAL]
-Título
-[/TITULO_PRINCIPAL]
-
-[SUBTITULO]
-Subtítulo
-[/SUBTITULO]
-
-[BLOCO_1]
-
-[TITULO_BLOCO]
-Título do bloco
-[/TITULO_BLOCO]
-
-[PARAGRAFO_1]
-Texto
-[/PARAGRAFO_1]
-
-[PARAGRAFO_2]
-Texto
-[/PARAGRAFO_2]
-
-[PARAGRAFO_3]
-Texto
-[/PARAGRAFO_3]
-
-[/BLOCO_1]
-
-Repita exatamente a mesma estrutura
-para BLOCO_2, BLOCO_3, BLOCO_4 e BLOCO_5.
-
-NÃO escreva nada antes dos marcadores.
-
-NÃO escreva nada depois dos marcadores.
-
-NÃO repita o título principal no final.
-
-==================================================
-FRAGMENTOS SELECIONADOS PELO PYTHON
-==================================================
+============================================================
+PARÁGRAFOS-BASE SELECIONADOS PELO PYTHON
+============================================================
 
 {contexto_fragmentos}
-
-==================================================
-INÍCIO DA GERAÇÃO
-==================================================
-
-Retorne somente o conteúdo estruturado pelos
-marcadores obrigatórios.
 """
 
 
@@ -15219,31 +15311,44 @@ marcadores obrigatórios.
         ).strip()
     
     # ========================================================
-    # 15 / 16 
+    # 15 / 16
     # ========================================================
     
     # ========================================================
-    # EXTRAIR TÍTULO, SUBTÍTULO, BLOCOS E PARÁGRAFOS
+    # EXTRAIR BLOCOS E PARÁGRAFOS
+    #
+    # TÍTULO, SUBTÍTULO E TÍTULOS DOS BLOCOS
+    # JÁ FORAM DEFINIDOS PELO PYTHON.
     # ========================================================
     
-    titulo = extrair_marcador(
-        conteudo_bruto,
-        "TITULO_PRINCIPAL"
+    h1 = titulos_python.get(
+        "h1",
+        ""
     )
     
-    subtitulo = extrair_marcador(
-        conteudo_bruto,
-        "SUBTITULO"
+    titulo = titulos_python.get(
+        "title",
+        ""
+    )
+    
+    subtitulo = titulos_python.get(
+        "subtitulo",
+        ""
     )
     
     blocos = []
     
     for numero_bloco in range(1, total_blocos + 1):
     
-        marcador_inicio = f"[BLOCO_{numero_bloco}]"
+        marcador_inicio = (
+            f"[BLOCO_{numero_bloco}]"
+        )
     
         if numero_bloco < total_blocos:
-            marcador_proximo = f"[BLOCO_{numero_bloco + 1}]"
+    
+            marcador_proximo = (
+                f"[BLOCO_{numero_bloco + 1}]"
+            )
     
             padrao_bloco = (
                 re.escape(marcador_inicio)
@@ -15252,6 +15357,7 @@ marcadores obrigatórios.
             )
     
         else:
+    
             padrao_bloco = (
                 re.escape(marcador_inicio)
                 + r"(.*)$"
@@ -15266,98 +15372,66 @@ marcadores obrigatórios.
         if not resultado_bloco:
             continue
     
-        texto_bloco = resultado_bloco.group(1).strip()
-    
-        titulo_bloco = extrair_marcador(
-            texto_bloco,
-            "TITULO_BLOCO"
+        texto_bloco = (
+            resultado_bloco.group(1).strip()
         )
     
-        # ----------------------------------------------------
-        # REMOVER O TÍTULO DO BLOCO
-        # ----------------------------------------------------
+        # ====================================================
+        # TÍTULO DO BLOCO
+        #
+        # NÃO VEM MAIS DO OLLAMA.
+        # ====================================================
     
-        texto_paragrafos = re.sub(
-            r"\[TITULO_BLOCO\].*?\[/TITULO_BLOCO\]",
-            "",
-            texto_bloco,
-            flags=re.IGNORECASE | re.DOTALL
-        ).strip()
-    
-        paragrafos = []
+        titulo_bloco = titulos_python.get(
+            f"bloco_{numero_bloco}",
+            ""
+        )
     
         # ----------------------------------------------------
         # EXTRAIR OS 3 PARÁGRAFOS
         #
-        # OLLAMA ATUAL:
+        # OLLAMA:
         #
+        # [PARAGRAFO_1]
         # texto do parágrafo
         # [/PARAGRAFO_1]
         #
+        # [PARAGRAFO_2]
         # texto do parágrafo
         # [/PARAGRAFO_2]
         #
+        # [PARAGRAFO_3]
         # texto do parágrafo
         # [/PARAGRAFO_3]
-        #
-        # Portanto não exigimos marcador de abertura.
         # ----------------------------------------------------
-    
-        for numero_paragrafo in range(
-            1,
-            paragrafos_por_bloco + 1
-        ):
-    
-            marcador_fechamento = (
-                f"[/PARAGRAFO_{numero_paragrafo}]"
-            )
-    
-            pos_fechamento = (
-                texto_paragrafos.lower().find(
-                    marcador_fechamento.lower()
-                )
-            )
-    
-            if pos_fechamento == -1:
-                continue
-    
-            if numero_paragrafo == 1:
-    
-                inicio = 0
-    
-            else:
-    
-                marcador_anterior = (
-                    f"[/PARAGRAFO_{numero_paragrafo - 1}]"
-                )
-    
-                pos_anterior = (
-                    texto_paragrafos.lower().find(
-                        marcador_anterior.lower()
-                    )
-                )
-    
-                if pos_anterior == -1:
-                    continue
-    
-                inicio = (
-                    pos_anterior
-                    + len(marcador_anterior)
-                )
-    
-            paragrafo = texto_paragrafos[
-                inicio:pos_fechamento
-            ].strip()
-    
-            if paragrafo:
-                paragrafos.append(
-                    paragrafo
-                )
-    
+        
+        padrao_paragrafo = (
+            r"\[PARAGRAFO_(\d+)\]"
+            r"(.*?)"
+            r"\[/PARAGRAFO_\1\]"
+        )
+        
+        resultados = re.findall(
+            padrao_paragrafo,
+            texto_bloco,
+            re.IGNORECASE | re.DOTALL
+        )
+        
+        paragrafos = [
+            texto.strip()
+            for numero, texto in resultados
+            if texto.strip()
+        ]
+        
+        # ----------------------------------------------------
+        # GARANTIR NO MÁXIMO 3 PARÁGRAFOS
+        # ----------------------------------------------------
+        
+        paragrafos = paragrafos[:paragrafos_por_bloco]
+        
         conteudo_bloco = "\n\n".join(
             paragrafos
         )
-    
 
         # ========================================================
         # PRESERVAR OS DADOS DO PYTHON NO BLOCO FINAL
