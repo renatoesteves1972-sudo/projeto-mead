@@ -14618,19 +14618,32 @@ def gerar_conteudo_completo(
     # 11. PROMPT FINAL — OLLAMA
     #
     # RESPONSABILIDADE:
-    # O Python já selecionou os 15 fragmentos.
+    # O Python já selecionou os fragmentos.
+    #
+    # O Python já definiu:
+    # - H1
+    # - título
+    # - subtítulo
+    # - títulos dos 5 blocos
+    # - estrutura
+    # - fragmentos/parágrafos-base
     #
     # O Ollama recebe SOMENTE:
     # - tema
-    # - instruções editoriais
-    # - 15 fragmentos separados pelo Python
+    # - instruções editoriais necessárias
+    # - contexto_geracao
     #
-    # NÃO enviar:
+    # O Ollama NÃO recebe:
     # - textos brutos
-    # - 35 fontes
-    # - mapa_mead
-    # - MEAD
-    # - contexto adicional
+    # - fontes
+    # - mapa_mead completo
+    # - informacoes_relevantes
+    # - títulos
+    # - subtítulo
+    # - títulos dos blocos
+    #
+    # O Ollama é responsável SOMENTE pelos
+    # 15 parágrafos editoriais finais.
     # ============================================================
     
     print()
@@ -14640,66 +14653,8 @@ def gerar_conteudo_completo(
     
     
     # ------------------------------------------------------------
-    # MONTAR OS 15 PARÁGRAFOS-BASE JÁ PREPARADOS PELO PYTHON
-    # ------------------------------------------------------------
-    
-    paragrafos_python_para_ia = []
-
-    for numero_bloco in range(1, 6):
-    
-        chave_bloco = f"bloco_{numero_bloco}"
-    
-        dados_bloco = blocos_informacoes.get(
-            chave_bloco,
-            {}
-        )
-    
-        paragrafos_python = []
-    
-        if isinstance(dados_bloco, dict):
-    
-            paragrafos_python = dados_bloco.get(
-                "paragrafos_python",
-                []
-            )
-    
-        if not isinstance(
-            paragrafos_python,
-            list
-        ):
-    
-            paragrafos_python = []
-    
-        for indice, paragrafo in enumerate(
-            paragrafos_python,
-            start=1
-        ):
-    
-            texto_paragrafo = str(
-                paragrafo or ""
-            ).strip()
-    
-            if texto_paragrafo:
-    
-                paragrafos_python_para_ia.append(
-                    f"BLOCO {numero_bloco} - "
-                    f"PARÁGRAFO-BASE {indice}\n"
-                    f"{texto_paragrafo}"
-                )
-    
-    
-    contexto_fragmentos = "\n\n".join(
-        paragrafos_python_para_ia
-    ).strip()
-    
-    # ------------------------------------------------------------
     # CONTROLE
     # ------------------------------------------------------------
-    
-    print()
-    print("=" * 60)
-    print("CONTEXTO QUE SERÁ ENVIADO AO OLLAMA")
-    print("=" * 60)
     
     print(
         "PARÁGRAFOS-BASE PYTHON ENVIADOS:",
@@ -14715,6 +14670,7 @@ def gerar_conteudo_completo(
         "CARACTERES DOS PARÁGRAFOS-BASE:",
         len(contexto_fragmentos)
     )
+    
     
     for numero_bloco in range(1, 6):
     
@@ -17248,7 +17204,31 @@ def gerar_titulos(
     )
 
     # ========================================================
-    # 03. RETORNO
+    # 03. SUBTÍTULO
+    # ========================================================
+
+    subtitulo = (
+        "Informações técnicas, aplicações, características "
+        "e orientações sobre "
+        + tema
+    )
+
+    # ========================================================
+    # 04. TÍTULOS DOS 5 BLOCOS
+    # ========================================================
+
+    bloco_1 = f"O que é {tema} e como funciona"
+
+    bloco_2 = f"Características e aplicações de {tema}"
+
+    bloco_3 = f"Vantagens e diferenciais de {tema}"
+
+    bloco_4 = f"Aspectos técnicos e cuidados com {tema}"
+
+    bloco_5 = f"Escolha, fornecimento e suporte para {tema}"
+
+    # ========================================================
+    # 05. RETORNO
     # ========================================================
 
     resultado = {
@@ -17257,13 +17237,31 @@ def gerar_titulos(
         h1,
 
         "title":
-        title
+        title,
+
+        "subtitulo":
+        subtitulo,
+
+        "bloco_1":
+        bloco_1,
+
+        "bloco_2":
+        bloco_2,
+
+        "bloco_3":
+        bloco_3,
+
+        "bloco_4":
+        bloco_4,
+
+        "bloco_5":
+        bloco_5
 
     }
 
     print()
     print("==============================")
-    print("TÍTULOS GERADOS")
+    print("TÍTULOS GERADOS PELO PYTHON")
     print("==============================")
 
     print(
@@ -17274,6 +17272,36 @@ def gerar_titulos(
     print(
         "TITLE:",
         title
+    )
+
+    print(
+        "SUBTÍTULO:",
+        subtitulo
+    )
+
+    print(
+        "BLOCO 1:",
+        bloco_1
+    )
+
+    print(
+        "BLOCO 2:",
+        bloco_2
+    )
+
+    print(
+        "BLOCO 3:",
+        bloco_3
+    )
+
+    print(
+        "BLOCO 4:",
+        bloco_4
+    )
+
+    print(
+        "BLOCO 5:",
+        bloco_5
     )
 
     return resultado
