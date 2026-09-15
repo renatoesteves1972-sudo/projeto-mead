@@ -14651,6 +14651,80 @@ def gerar_conteudo_completo(
     print("PREPARANDO CONTEXTO FINAL PARA O OLLAMA")
     print("=" * 60)
     
+    # ============================================================
+    # CONTEXTO DOS PARÁGRAFOS-BASE PYTHON PARA O OLLAMA
+    # ============================================================
+    
+    contexto_geracao = {}
+    
+    paragrafos_python_para_ia = []
+    
+    for numero_bloco in range(1, 6):
+    
+        chave_bloco = (
+            f"bloco_{numero_bloco}"
+        )
+    
+        dados_bloco = (
+            informacoes_blocos.get(
+                chave_bloco,
+                {}
+            )
+        )
+    
+        if not isinstance(
+            dados_bloco,
+            dict
+        ):
+            dados_bloco = {}
+    
+        paragrafos_python = (
+            dados_bloco.get(
+                "paragrafos_python",
+                []
+            )
+        )
+    
+        if not isinstance(
+            paragrafos_python,
+            list
+        ):
+            paragrafos_python = []
+    
+        paragrafos_bloco = []
+    
+        for paragrafo in paragrafos_python:
+    
+            texto_paragrafo = str(
+                paragrafo or ""
+            ).strip()
+    
+            if not texto_paragrafo:
+                continue
+    
+            paragrafos_bloco.append(
+                texto_paragrafo
+            )
+    
+            paragrafos_python_para_ia.append(
+                texto_paragrafo
+            )
+    
+        contexto_geracao[
+            chave_bloco
+        ] = "\n\n".join(
+            paragrafos_bloco
+        )
+    
+    
+    # ============================================================
+    # CONTEXTO GERAL DOS FRAGMENTOS SELECIONADOS
+    # ============================================================
+    
+    contexto_fragmentos = "\n\n".join(
+        paragrafos_python_para_ia
+    )
+    
     
     # ------------------------------------------------------------
     # CONTROLE
