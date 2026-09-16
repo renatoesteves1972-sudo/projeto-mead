@@ -24476,7 +24476,12 @@ def gerar_material_interface():
                     ).strip()
 
                     if tema_corrigido:
-                        tema = tema_corrigido
+                        # Se o tema original já possui caracteres acentuados,
+                        # preserva exatamente a forma digitada pelo usuário.
+                        if tema_original != normalizar_tema_chave(tema_original):
+                            tema = tema_original
+                        else:
+                            tema = tema_corrigido
                     else:
                         tema = tema_original
         
