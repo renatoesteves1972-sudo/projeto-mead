@@ -1,4 +1,4 @@
-# versão 1.1 - 15/09
+# versão 1.2 - 16/09
 
 import json
 import os
@@ -11477,7 +11477,7 @@ def selecionar_informacoes_relevantes(
                 pontuacao += 2
                 
                 
-                # ----------------------------------------------------
+        # ----------------------------------------------------
         # E. QUALIDADE EDITORIAL DO FRAGMENTO
         #
         # Mede se o trecho realmente possui conteúdo útil
@@ -14627,7 +14627,7 @@ def gerar_conteudo_completo(
     
     titulos_python = gerar_titulos(
         tema,
-        None,
+        informacoes_blocos,
         mapa_mead
     )
     
@@ -17323,7 +17323,7 @@ def validar_estrutura_pagina(
 
 def gerar_titulos(
     tema,
-    conteudo,
+    blocos_informacoes,
     mapa_mead
 ):
 
