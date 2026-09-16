@@ -18077,25 +18077,25 @@ def salvar_banco(
         return resultado[:3]
     
     def criar_bloco_vazio(numero):
-    
+
         return {
             "id": f"bloco_{numero}",
             "hash": "",
-            "informacoes_relevantes": "",
+            "informacoes_relevantes": [],
             "titulo": "",
-
+    
             "paragrafos_python": [
                 "",
                 "",
                 ""
             ],
-
+    
             "paragrafos_ollama": [
                 "",
                 "",
                 ""
             ],
-
+    
             "paragrafos": [
                 "",
                 "",
@@ -18299,30 +18299,29 @@ def salvar_banco(
             # ------------------------------------------------
             # INFORMAÇÕES RELEVANTES
             # ------------------------------------------------
-    
+            
             info_recebida = dados_bloco.get(
                 "informacoes_relevantes",
-                ""
+                []
             )
-    
+            
             if isinstance(
                 info_recebida,
                 list
             ):
-    
-                info_recebida = "\n\n".join(
-                    str(
-                        item or ""
-                    ).strip()
+            
+                info_recebida = [
+                    item
                     for item in info_recebida
-                    if str(
-                        item or ""
-                    ).strip()
-                )
-    
-            info_recebida = str(
-                info_recebida or ""
-            ).strip()
+                    if isinstance(
+                        item,
+                        dict
+                    )
+                ]
+            
+            else:
+            
+                info_recebida = []
     
             # ------------------------------------------------
             # IMPORTANTE:
