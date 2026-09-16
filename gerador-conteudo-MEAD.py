@@ -1279,9 +1279,11 @@ def montar_pagina_json(
                 )
             )
 
+
             # ------------------------------------------------
-            # Se vier como lista de fragmentos,
-            # transformar em texto mantendo todos.
+            # INFORMACOES_RELEVANTES
+            # Manter os fragmentos como lista de objetos.
+            # Não converter os dicionários em texto.
             # ------------------------------------------------
 
             if isinstance(
@@ -1289,21 +1291,18 @@ def montar_pagina_json(
                 list
             ):
 
-                fragmentos_bloco = "\n\n".join(
-                    str(
-                        item or ""
-                    ).strip()
+                fragmentos_bloco = [
+                    item
                     for item in fragmentos_bloco
-                    if str(
-                        item or ""
-                    ).strip()
-                )
+                    if isinstance(
+                        item,
+                        dict
+                    )
+                ]
 
             else:
 
-                fragmentos_bloco = str(
-                    fragmentos_bloco or ""
-                ).strip()
+                fragmentos_bloco = []
 
             # ------------------------------------------------
             # COPIAR DADOS EXISTENTES DO BLOCO
