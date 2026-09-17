@@ -9834,6 +9834,98 @@ def selecionar_conteudo_editorial(
             resultado[bloco_editorial] = informacoes_bloco
 
     return resultado
+
+
+# ============================================================
+# MAPEAMENTO EDITORIAL → CATEGORIAS DE CONTEÚDO
+# ============================================================
+#
+# Converte as opções editoriais ativadas pelo usuário
+# nas categorias utilizadas pelo mecanismo de pontuação.
+#
+# IMPORTANTE:
+# - O Python continua responsável pela seleção.
+# - O Ollama não participa desta etapa.
+# - Uma categoria pode atender mais de um foco editorial.
+# ============================================================
+
+MAPEAMENTO_EDITORIAL = {
+
+    # --------------------------------------------------------
+    # APRESENTAÇÃO
+    # --------------------------------------------------------
+    "apresentacao": [
+        "definicao",
+        "ativos_narrativos",
+        "duvidas_frequentes"
+    ],
+
+    # --------------------------------------------------------
+    # FUNCIONAMENTO
+    # --------------------------------------------------------
+    "funcionamento": [
+        "definicao",
+        "fabricacao",
+        "materia_prima"
+    ],
+
+    # --------------------------------------------------------
+    # APLICAÇÕES
+    # --------------------------------------------------------
+    "aplicacoes": [
+        "aplicacoes"
+    ],
+
+    # --------------------------------------------------------
+    # CRITÉRIOS
+    # --------------------------------------------------------
+    "criterios": [
+        "vantagens",
+        "manutencao",
+        "duvidas_frequentes"
+    ],
+
+    # --------------------------------------------------------
+    # COMERCIAL
+    #
+    # Não criamos uma categoria "comercial" artificial.
+    # O conteúdo comercial deve ser sustentado por
+    # informações técnicas, aplicações e ativos narrativos.
+    # --------------------------------------------------------
+    "comercial": [
+        "ativos_narrativos",
+        "aplicacoes",
+        "vantagens"
+    ],
+
+    # --------------------------------------------------------
+    # INFORMAÇÃO TÉCNICA
+    # --------------------------------------------------------
+    "informacao_tecnica": [
+        "definicao",
+        "materia_prima",
+        "fabricacao",
+        "manutencao"
+    ],
+
+    # --------------------------------------------------------
+    # INSTALAÇÃO / EXECUÇÃO
+    # --------------------------------------------------------
+    "instalacao_execucao": [
+        "fabricacao",
+        "manutencao",
+        "duvidas_frequentes"
+    ],
+
+    # --------------------------------------------------------
+    # BENEFÍCIOS
+    # --------------------------------------------------------
+    "beneficios": [
+        "beneficios",
+        "vantagens"
+    ]
+}
+
     
     
 # ============================================================
