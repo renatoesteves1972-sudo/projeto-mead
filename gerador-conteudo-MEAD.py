@@ -12042,16 +12042,553 @@ def selecionar_informacoes_relevantes(
     # ========================================================
     # 07. SELECIONAR 15 FRAGMENTOS
     #     3 PARA CADA BLOCO
+    #
+    # SELEÇÃO PROGRESSIVA COM DIVERSIDADE DE FONTES
+    #
+    # Objetivo:
+    #
+    # 1. respeitar a pontuação editorial;
+    # 2. respeitar o objetivo de cada bloco;
+    # 3. evitar repetir a mesma fonte;
+    # 4. evitar repetir o mesmo assunto;
+    # 5. evitar trechos muito semelhantes;
+    # 6. manter preferência por conteúdo técnico;
+    # 7. garantir 3 fragmentos por bloco.
+    #
     # ========================================================
 
     fragmentos_selecionados = []
 
     hashes_selecionados = set()
 
+    fontes_utilizadas = {}
+
     # --------------------------------------------------------
-    # PRIMEIRA PASSAGEM:
-    # GARANTIR 3 FRAGMENTOS POR BLOCO
+    # FUNÇÃO AUXILIAR:
+    # NORMALIZAR PALAVRAS DO FRAGMENTO
     # --------------------------------------------------------
+
+    def obter_palavras_conteudo(
+        texto
+    ):
+
+        texto_normalizado = (
+            normalizar_assunto_texto(
+                texto
+            )
+        )
+
+        palavras = re.findall(
+            r"\b[a-z0-9]{4,}\b",
+            texto_normalizado
+        )
+
+        # ----------------------------------------------------
+        # REMOVER PALAVRAS MUITO GENÉRICAS
+        # ----------------------------------------------------
+
+        palavras_ignoradas = {
+
+            "para",
+            "como",
+            "mais",
+            "menos",
+            "essa",
+            "esse",
+            "estas",
+            "estes",
+            "sobre",
+            "entre",
+            "tambem",
+            "quando",
+            "onde",
+            "sendo",
+            "pode",
+            "podem",
+            "cada",
+            "pela",
+            "pelo",
+            "pelas",
+            "pelos",
+            "uma",
+            "umas",
+            "uns",
+            "dos",
+            "das",
+            "com",
+            "sem",
+            "que",
+            "por",
+            "uma",
+            "seus",
+            "suas"
+
+        }
+
+        palavras = [
+
+            palavra
+
+            for palavra in palavras
+
+            if palavra
+            not in palavras_ignoradas
+
+        ]
+
+        return set(
+            palavras
+        )
+
+    # --------------------------------------------------------
+    # FUNÇÃO AUXILIAR:
+    # MEDIR SEMELHANÇA ENTRE DOIS FRAGMENTOS
+    #
+    # Utilizamos interseção de palavras relevantes.
+    #
+    # Isso evita selecionar:
+    #
+    # PDF A → trecho 1
+    # PDF A → trecho 2
+    #
+    # quando os dois trechos praticamente repetem
+    # a mesma informação.
+    # --------------------------------------------------------
+
+    def calcular_semelhanca_fragmentos(
+        texto_a,
+        texto_b
+    ):
+
+        palavras_a = obter_palavras_conteudo(
+            texto_a
+        )
+
+        palavras_b = obter_palavras_conteudo(
+            texto_b
+        )
+
+        if not palavras_a or not palavras_b:
+
+            return 0.0
+
+        intersecao = (
+            palavras_a
+            &
+            palavras_b
+        )
+
+        menor_conjunto = min(
+            len(palavras_a),
+            len(palavras_b)
+        )
+
+        if menor_conjunto <= 0:
+
+            return 0.0
+
+        return (
+            len(intersecao)
+            /
+            menor_conjunto
+        )
+
+    # --------------------------------------------------------
+    # FUNÇÃO AUXILIAR:
+    # PENALIDADE POR REPETIÇÃO DA FONTE
+    # --------------------------------------------------------
+
+    def calcular_penalidade_fonte(
+        candidato
+    ):
+
+        fonte = candidato.get(
+            "fonte"
+        )
+
+        quantidade = fontes_utilizadas.get(
+            fonte,
+            0
+        )
+
+        if quantidade == 0:
+
+            return 0
+
+        if quantidade == 1:
+
+            return 8
+
+        if quantidade == 2:
+
+            return 18
+
+        return 30
+
+    # --------------------------------------------------------
+    # FUNÇÃO AUXILIAR:
+    # PENALIDADE POR SEMELHANÇA COM O QUE
+    # JÁ FOI SELECIONADO
+    # --------------------------------------------------------
+
+    def calcular_penalidade_semelhanca(
+        candidato
+    ):
+
+        texto_candidato = candidato.get(
+            "texto",
+            ""
+        )
+
+        maior_semelhanca = 0.0
+
+        for selecionado in fragmentos_selecionados:
+
+            semelhanca = (
+                calcular_semelhanca_fragmentos(
+                    texto_candidato,
+                    selecionado.get(
+                        "texto",
+                        ""
+                    )
+                )
+            )
+
+            if semelhanca > maior_semelhanca:
+
+                maior_semelhanca = (
+                    semelhanca
+                )
+
+        # ----------------------------------------------------
+        # PENALIZAÇÃO PROGRESSIVA
+        # ----------------------------------------------------
+
+        if maior_semelhanca >= 0.70:
+
+            return 35
+
+        if maior_semelhanca >= 0.55:
+
+            return 25
+
+        if maior_semelhanca >= 0.45:
+
+            return 15
+
+        if maior_semelhanca >= 0.35:
+
+            return 8
+
+        return 0
+
+    # --------------------------------------------------------
+    # FUNÇÃO AUXILIAR:
+    # PENALIDADE POR REPETIÇÃO DE ASSUNTO
+    #
+    # Não é uma classificação semântica pesada.
+    #
+    # É uma proteção simples para evitar que os 3 trechos
+    # de um bloco fiquem falando essencialmente da mesma
+    # coisa.
+    # --------------------------------------------------------
+
+    def calcular_penalidade_assunto(
+        candidato,
+        chave_bloco
+    ):
+
+        texto_candidato = (
+            normalizar_assunto_texto(
+                candidato.get(
+                    "texto",
+                    ""
+                )
+            )
+        )
+
+        penalidade = 0
+
+        # ----------------------------------------------------
+        # TERMOS PRINCIPAIS DO BLOCO
+        # ----------------------------------------------------
+
+        termos_bloco = set(
+            termos_blocos_normalizados.get(
+                chave_bloco,
+                []
+            )
+        )
+
+        termos_candidato = set()
+
+        for termo in termos_bloco:
+
+            if (
+                termo
+                and
+                termo in texto_candidato
+            ):
+
+                termos_candidato.add(
+                    termo
+                )
+
+        # ----------------------------------------------------
+        # COMPARAR COM OS FRAGMENTOS DO MESMO BLOCO
+        # ----------------------------------------------------
+
+        for selecionado in fragmentos_selecionados:
+
+            if selecionado.get(
+                "bloco_mead"
+            ) != chave_bloco:
+
+                continue
+
+            texto_selecionado = (
+                normalizar_assunto_texto(
+                    selecionado.get(
+                        "texto",
+                        ""
+                    )
+                )
+            )
+
+            termos_repetidos = 0
+
+            for termo in termos_candidato:
+
+                if termo in texto_selecionado:
+
+                    termos_repetidos += 1
+
+            if termos_repetidos >= 4:
+
+                penalidade += 8
+
+            elif termos_repetidos >= 2:
+
+                penalidade += 4
+
+        return penalidade
+
+    # --------------------------------------------------------
+    # FUNÇÃO AUXILIAR:
+    # NOTA FINAL DE DIVERSIDADE
+    # --------------------------------------------------------
+
+    def calcular_nota_selecao(
+        candidato,
+        pontuacao_original,
+        chave_bloco
+    ):
+
+        penalidade_fonte = (
+            calcular_penalidade_fonte(
+                candidato
+            )
+        )
+
+        penalidade_semelhanca = (
+            calcular_penalidade_semelhanca(
+                candidato
+            )
+        )
+
+        penalidade_assunto = (
+            calcular_penalidade_assunto(
+                candidato,
+                chave_bloco
+            )
+        )
+
+        nota_final = (
+            pontuacao_original
+            -
+            penalidade_fonte
+            -
+            penalidade_semelhanca
+            -
+            penalidade_assunto
+        )
+
+        # ----------------------------------------------------
+        # PEQUENO BÔNUS PARA FONTE NOVA
+        #
+        # Apenas reforça a diversidade.
+        # ----------------------------------------------------
+
+        if fontes_utilizadas.get(
+            candidato.get(
+                "fonte"
+            ),
+            0
+        ) == 0:
+
+            nota_final += 5
+
+        # ----------------------------------------------------
+        # PDF CONTINUA SENDO PRIORIDADE TÉCNICA
+        # ----------------------------------------------------
+
+        if candidato.get(
+            "pdf"
+        ):
+
+            nota_final += 1
+
+        return nota_final
+
+    # ========================================================
+    # FUNÇÃO CENTRAL DE ESCOLHA
+    # ========================================================
+
+    def selecionar_melhor_candidato(
+        candidatos_bloco,
+        chave_bloco
+    ):
+
+        melhor_candidato = None
+
+        melhor_nota = None
+
+        melhor_pontuacao_original = None
+
+        for item in candidatos_bloco:
+
+            candidato = item.get(
+                "candidato"
+            )
+
+            if not isinstance(
+                candidato,
+                dict
+            ):
+
+                continue
+
+            hash_trecho = candidato.get(
+                "hash",
+                ""
+            )
+
+            if not hash_trecho:
+
+                hash_trecho = gerar_hash_trecho(
+                    candidato.get(
+                        "texto",
+                        ""
+                    )
+                )
+
+                candidato["hash"] = (
+                    hash_trecho
+                )
+
+            # ------------------------------------------------
+            # NÃO REPETIR O MESMO FRAGMENTO
+            # ------------------------------------------------
+
+            if hash_trecho in hashes_selecionados:
+
+                continue
+
+            pontuacao_original = item.get(
+                "pontuacao",
+                0
+            )
+
+            nota_final = (
+                calcular_nota_selecao(
+                    candidato,
+                    pontuacao_original,
+                    chave_bloco
+                )
+            )
+
+            # ------------------------------------------------
+            # ESCOLHER O MELHOR
+            # ------------------------------------------------
+
+            if (
+                melhor_candidato is None
+                or
+                nota_final > melhor_nota
+                or
+                (
+                    nota_final == melhor_nota
+                    and
+                    pontuacao_original
+                    >
+                    melhor_pontuacao_original
+                )
+            ):
+
+                melhor_candidato = (
+                    candidato
+                )
+
+                melhor_nota = (
+                    nota_final
+                )
+
+                melhor_pontuacao_original = (
+                    pontuacao_original
+                )
+
+        if melhor_candidato is None:
+
+            return None
+
+        # ----------------------------------------------------
+        # GUARDAR INFORMAÇÕES DE AUDITORIA
+        # ----------------------------------------------------
+
+        melhor_candidato[
+            "pontuacao_selecao"
+        ] = melhor_nota
+
+        melhor_candidato[
+            "pontuacao_editorial"
+        ] = melhor_pontuacao_original
+
+        melhor_candidato[
+            "penalidade_fonte"
+        ] = calcular_penalidade_fonte(
+            melhor_candidato
+        )
+
+        melhor_candidato[
+            "penalidade_semelhanca"
+        ] = calcular_penalidade_semelhanca(
+            melhor_candidato
+        )
+
+        melhor_candidato[
+            "penalidade_assunto"
+        ] = calcular_penalidade_assunto(
+            melhor_candidato,
+            chave_bloco
+        )
+
+        return melhor_candidato
+
+    # ========================================================
+    # PRIMEIRA PASSAGEM
+    #
+    # Cada bloco recebe 3 fragmentos.
+    #
+    # A escolha é feita UMA POR VEZ.
+    #
+    # Isso é importante:
+    #
+    # Depois que um fragmento entra no bloco_1,
+    # ele passa a influenciar a escolha do fragmento 2.
+    #
+    # Portanto não selecionamos simplesmente os três
+    # primeiros candidatos do ranking original.
+    # ========================================================
 
     for numero_bloco in range(
         1,
@@ -12062,65 +12599,91 @@ def selecionar_informacoes_relevantes(
             f"bloco_{numero_bloco}"
         )
 
+        candidatos_bloco = (
+            candidatos_por_bloco.get(
+                chave_bloco,
+                []
+            )
+        )
+
         quantidade_bloco = 0
 
-        for item in candidatos_por_bloco[
-            chave_bloco
-        ]:
+        while (
+            quantidade_bloco < 3
+        ):
 
-            candidato = item[
-                "candidato"
-            ]
+            candidato_escolhido = (
+                selecionar_melhor_candidato(
+                    candidatos_bloco,
+                    chave_bloco
+                )
+            )
 
-            hash_trecho = candidato.get(
+            if candidato_escolhido is None:
+
+                break
+
+            hash_trecho = candidato_escolhido.get(
                 "hash",
                 ""
             )
 
-            if not hash_trecho:
+            if (
+                not hash_trecho
+                or
+                hash_trecho
+                in hashes_selecionados
+            ):
 
-                hash_trecho = gerar_hash_trecho(
-                    candidato["texto"]
-                )
-
-                candidato["hash"] = (
-                    hash_trecho
-                )
-
-            if hash_trecho in hashes_selecionados:
-
-                continue
+                break
 
             hashes_selecionados.add(
                 hash_trecho
             )
 
             # ------------------------------------------------
-            # REGISTRAR O BLOCO DE ORIGEM
+            # REGISTRAR BLOCO DE ORIGEM
             # ------------------------------------------------
 
-            candidato[
+            candidato_escolhido[
                 "bloco_mead"
             ] = chave_bloco
 
+            # ------------------------------------------------
+            # REGISTRAR UTILIZAÇÃO DA FONTE
+            # ------------------------------------------------
+
+            fonte = candidato_escolhido.get(
+                "fonte"
+            )
+
+            fontes_utilizadas[
+                fonte
+            ] = (
+                fontes_utilizadas.get(
+                    fonte,
+                    0
+                )
+                + 1
+            )
+
             fragmentos_selecionados.append(
-                candidato
+                candidato_escolhido
             )
 
             quantidade_bloco += 1
 
-            if quantidade_bloco >= 3:
-
-                break
-
-    # --------------------------------------------------------
-    # SEGUNDA PASSAGEM:
-    # SE ALGUM BLOCO NÃO CONSEGUIU 3,
-    # COMPLETAR COM OS MELHORES CANDIDATOS RESTANTES.
+    # ========================================================
+    # SEGUNDA PASSAGEM
     #
-    # Isso evita perder fragmentos quando o patrimônio não
-    # contém material suficiente para determinada finalidade.
-    # --------------------------------------------------------
+    # Se algum bloco não conseguiu 3 fragmentos,
+    # procurar candidatos restantes.
+    #
+    # Agora também respeitamos:
+    # - diversidade de fonte;
+    # - diversidade de conteúdo;
+    # - melhor compatibilidade global.
+    # ========================================================
 
     if len(
         fragmentos_selecionados
@@ -12138,7 +12701,10 @@ def selecionar_informacoes_relevantes(
             if not hash_trecho:
 
                 hash_trecho = gerar_hash_trecho(
-                    candidato["texto"]
+                    candidato.get(
+                        "texto",
+                        ""
+                    )
                 )
 
                 candidato["hash"] = (
@@ -12149,7 +12715,8 @@ def selecionar_informacoes_relevantes(
 
                 continue
 
-            melhor_pontuacao = 0
+            melhor_pontuacao = None
+
             melhor_bloco = ""
 
             for numero_bloco in range(
@@ -12168,7 +12735,13 @@ def selecionar_informacoes_relevantes(
                     )
                 )
 
-                if pontuacao > melhor_pontuacao:
+                if (
+                    melhor_pontuacao is None
+                    or
+                    pontuacao
+                    >
+                    melhor_pontuacao
+                ):
 
                     melhor_pontuacao = (
                         pontuacao
@@ -12178,6 +12751,18 @@ def selecionar_informacoes_relevantes(
                         chave_bloco
                     )
 
+            if melhor_pontuacao is None:
+
+                continue
+
+            nota_complementar = (
+                calcular_nota_selecao(
+                    candidato,
+                    melhor_pontuacao,
+                    melhor_bloco
+                )
+            )
+
             candidatos_complementares.append({
 
                 "candidato":
@@ -12185,6 +12770,9 @@ def selecionar_informacoes_relevantes(
 
                 "pontuacao":
                     melhor_pontuacao,
+
+                "nota":
+                    nota_complementar,
 
                 "bloco":
                     melhor_bloco
@@ -12196,6 +12784,7 @@ def selecionar_informacoes_relevantes(
             candidatos_complementares,
 
             key=lambda item: (
+                item["nota"],
                 item["pontuacao"],
                 1
                 if item["candidato"].get("pdf")
@@ -12232,26 +12821,261 @@ def selecionar_informacoes_relevantes(
 
                 continue
 
+            chave_bloco = item.get(
+                "bloco",
+                ""
+            )
+
+            # ------------------------------------------------
+            # VERIFICAR SE O BLOCO JÁ POSSUI 3
+            # ------------------------------------------------
+
+            quantidade_bloco = sum(
+
+                1
+
+                for fragmento
+                in fragmentos_selecionados
+
+                if fragmento.get(
+                    "bloco_mead"
+                )
+                ==
+                chave_bloco
+
+            )
+
+            if quantidade_bloco >= 3:
+
+                continue
+
             hashes_selecionados.add(
                 hash_trecho
             )
 
             candidato[
                 "bloco_mead"
+            ] = chave_bloco
+
+            fonte = candidato.get(
+                "fonte"
+            )
+
+            fontes_utilizadas[
+                fonte
             ] = (
-                item.get(
-                    "bloco",
-                    ""
+                fontes_utilizadas.get(
+                    fonte,
+                    0
                 )
+                + 1
             )
 
             fragmentos_selecionados.append(
                 candidato
             )
 
-    # --------------------------------------------------------
+    # ========================================================
+    # TERCEIRA PASSAGEM
+    #
+    # Somente se ainda faltarem fragmentos.
+    #
+    # Aqui permitimos maior reutilização de fonte,
+    # porque a prioridade passa a ser completar os
+    # 15 fragmentos sem inventar conteúdo.
+    # ========================================================
+
+    if len(
+        fragmentos_selecionados
+    ) < 15:
+
+        candidatos_finais = []
+
+        for candidato in candidatos:
+
+            hash_trecho = candidato.get(
+                "hash",
+                ""
+            )
+
+            if (
+                not hash_trecho
+                or
+                hash_trecho
+                in hashes_selecionados
+            ):
+
+                continue
+
+            melhor_pontuacao = None
+
+            melhor_bloco = ""
+
+            for numero_bloco in range(
+                1,
+                6
+            ):
+
+                chave_bloco = (
+                    f"bloco_{numero_bloco}"
+                )
+
+                quantidade_bloco = sum(
+
+                    1
+
+                    for fragmento
+                    in fragmentos_selecionados
+
+                    if fragmento.get(
+                        "bloco_mead"
+                    )
+                    ==
+                    chave_bloco
+
+                )
+
+                if quantidade_bloco >= 3:
+
+                    continue
+
+                pontuacao = (
+                    calcular_pontuacao_bloco(
+                        candidato,
+                        chave_bloco
+                    )
+                )
+
+                nota = (
+                    calcular_nota_selecao(
+                        candidato,
+                        pontuacao,
+                        chave_bloco
+                    )
+                )
+
+                if (
+                    melhor_pontuacao is None
+                    or
+                    nota > melhor_pontuacao
+                ):
+
+                    melhor_pontuacao = nota
+
+                    melhor_bloco = (
+                        chave_bloco
+                    )
+
+            if not melhor_bloco:
+
+                continue
+
+            candidatos_finais.append({
+
+                "candidato":
+                    candidato,
+
+                "nota":
+                    melhor_pontuacao,
+
+                "bloco":
+                    melhor_bloco
+
+            })
+
+        candidatos_finais = sorted(
+
+            candidatos_finais,
+
+            key=lambda item: (
+                item["nota"],
+                1
+                if item["candidato"].get("pdf")
+                else 0
+            ),
+
+            reverse=True
+
+        )
+
+        for item in candidatos_finais:
+
+            if len(
+                fragmentos_selecionados
+            ) >= 15:
+
+                break
+
+            candidato = item[
+                "candidato"
+            ]
+
+            hash_trecho = candidato.get(
+                "hash",
+                ""
+            )
+
+            if (
+                not hash_trecho
+                or
+                hash_trecho
+                in hashes_selecionados
+            ):
+
+                continue
+
+            chave_bloco = item[
+                "bloco"
+            ]
+
+            quantidade_bloco = sum(
+
+                1
+
+                for fragmento
+                in fragmentos_selecionados
+
+                if fragmento.get(
+                    "bloco_mead"
+                )
+                ==
+                chave_bloco
+
+            )
+
+            if quantidade_bloco >= 3:
+
+                continue
+
+            hashes_selecionados.add(
+                hash_trecho
+            )
+
+            candidato[
+                "bloco_mead"
+            ] = chave_bloco
+
+            fonte = candidato.get(
+                "fonte"
+            )
+
+            fontes_utilizadas[
+                fonte
+            ] = (
+                fontes_utilizadas.get(
+                    fonte,
+                    0
+                )
+                + 1
+            )
+
+            fragmentos_selecionados.append(
+                candidato
+            )
+
+    # ========================================================
     # CONTROLE FINAL
-    # --------------------------------------------------------
+    # ========================================================
 
     if len(
         fragmentos_selecionados
@@ -12261,23 +13085,116 @@ def selecionar_informacoes_relevantes(
             fragmentos_selecionados[:15]
         )
 
+    # ========================================================
+    # AUDITORIA DA DIVERSIDADE
+    # ========================================================
+
     print()
     print(
         "=============================="
     )
     print(
-        "SELEÇÃO MEAD CONCLUÍDA"
+        "AUDITORIA DE DIVERSIDADE"
     )
     print(
         "=============================="
     )
 
     print(
-        "TOTAL:",
+        "FONTES DISTINTAS:",
         len(
-            fragmentos_selecionados
-        ),
-        "/ 15"
+            fontes_utilizadas
+        )
+    )
+
+    for fonte, quantidade in sorted(
+        fontes_utilizadas.items()
+    ):
+
+        print(
+            "FONTE",
+            fonte,
+            ":",
+            quantidade,
+            "fragmentos"
+        )
+
+    print()
+
+    for numero_bloco in range(
+        1,
+        6
+    ):
+
+        chave_bloco = (
+            f"bloco_{numero_bloco}"
+        )
+
+        print(
+            chave_bloco.upper()
+        )
+
+        fragmentos_bloco = [
+
+            fragmento
+
+            for fragmento
+            in fragmentos_selecionados
+
+            if fragmento.get(
+                "bloco_mead"
+            )
+            ==
+            chave_bloco
+
+        ]
+
+        fontes_bloco = []
+
+        for fragmento in fragmentos_bloco:
+
+            fonte = fragmento.get(
+                "fonte"
+            )
+
+            if fonte not in fontes_bloco:
+
+                fontes_bloco.append(
+                    fonte
+                )
+
+            print(
+                "  FONTE:",
+                fonte,
+                "|",
+                "PALAVRAS:",
+                fragmento.get(
+                    "palavras",
+                    0
+                ),
+                "|",
+                "NOTA:",
+                fragmento.get(
+                    "pontuacao_selecao",
+                    ""
+                )
+            )
+
+        print(
+            "  FONTES DISTINTAS NO BLOCO:",
+            len(
+                fontes_bloco
+            )
+        )
+
+    print()
+
+    # ========================================================
+    # CONTROLE DE DISTRIBUIÇÃO
+    # ========================================================
+
+    print(
+        "DISTRIBUIÇÃO FINAL:"
     )
 
     for numero_bloco in range(
@@ -12310,6 +13227,20 @@ def selecionar_informacoes_relevantes(
             quantidade,
             "fragmentos"
         )
+
+    print()
+
+    print(
+        "SELEÇÃO MEAD CONCLUÍDA"
+    )
+
+    print(
+        "TOTAL:",
+        len(
+            fragmentos_selecionados
+        ),
+        "/ 15"
+    )
 
 
     # ========================================================
