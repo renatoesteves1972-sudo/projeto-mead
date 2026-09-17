@@ -19460,25 +19460,16 @@ def salvar_banco(
         )
     )
     
-    try:
-    
-        tipo_identificado = identificar_tipo_tema(
-            tema_original
-        )
-    
-    except Exception:
-    
-        tipo_identificado = ""
+    # ========================================================
+    # TIPO OFICIAL DA PÁGINA
+    #
+    # O tipo já foi definido no início do processamento.
+    # Não classificar novamente o tema aqui.
+    # ========================================================
     
     dados_tema[
         "tipo"
-    ] = (
-        tipo_identificado
-        or dados_tema.get(
-            "tipo",
-            ""
-        )
-    )
+    ] = tipo
     
     # ========================================================
     # TAGS
