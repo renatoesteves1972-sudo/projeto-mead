@@ -19946,15 +19946,42 @@ def salvar_banco(
             or f"bloco_{numero}"
         ).strip()
     
+        # ----------------------------------------------------
+        # INFORMAÇÕES RELEVANTES
+        #
+        # IMPORTANTE:
+        # Deve permanecer como LISTA no JSON.
+        # Nunca transformar em str() aqui.
+        # ----------------------------------------------------
+    
+        info_bloco = bloco.get(
+            "informacoes_relevantes",
+            []
+        )
+    
+        if not isinstance(
+            info_bloco,
+            list
+        ):
+    
+            info_bloco = []
+    
+        info_bloco = [
+            item
+            for item in info_bloco
+            if isinstance(
+                item,
+                dict
+            )
+        ]
+    
         bloco[
             "informacoes_relevantes"
-        ] = str(
-            bloco.get(
-                "informacoes_relevantes",
-                ""
-            )
-            or ""
-        ).strip()
+        ] = info_bloco
+    
+        # ----------------------------------------------------
+        # TÍTULO
+        # ----------------------------------------------------
     
         bloco[
             "titulo"
@@ -19965,6 +19992,10 @@ def salvar_banco(
             )
             or ""
         ).strip()
+    
+        # ----------------------------------------------------
+        # PARÁGRAFOS
+        # ----------------------------------------------------
     
         paragrafos = bloco.get(
             "paragrafos",
@@ -19999,11 +20030,27 @@ def salvar_banco(
             ]
         )[:3]
     
-        conteudo_hash = (
+        # ----------------------------------------------------
+        # HASH
+        #
+        # informacoes_relevantes é uma LISTA.
+        # Para o hash, transformamos temporariamente
+        # essa lista em JSON.
+        #
+        # Isso NÃO altera o campo original do JSON.
+        # ----------------------------------------------------
+    
+        info_hash = json.dumps(
             bloco.get(
                 "informacoes_relevantes",
-                ""
-            )
+                []
+            ),
+            ensure_ascii=False,
+            sort_keys=True
+        )
+    
+        conteudo_hash = (
+            info_hash
             + "|"
             + bloco.get(
                 "titulo",
