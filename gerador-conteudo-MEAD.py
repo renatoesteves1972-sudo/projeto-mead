@@ -14510,7 +14510,223 @@ def obter_formas_gramaticais_tema(tema):
         "adequado": "adequado"
     }
 
+# ============================================================
+# IDENTIFICAR TIPO DO TEMA
+# ============================================================
+#
+# O Python é responsável por determinar se o tema representa
+# um PRODUTO ou um SERVIÇO.
+#
+# Essa classificação acontece antes da geração dos segmentos.
+#
+# Retorno oficial:
+#     "produto"
+#     "servico"
+#
+# O Ollama NÃO participa desta decisão.
+# ============================================================
 
+def identificar_tipo_tema(
+    tema,
+    textos=None
+):
+
+    tema = str(
+        tema or ""
+    ).strip().casefold()
+
+    # ========================================================
+    # TERMOS QUE INDICAM SERVIÇO
+    # ========================================================
+
+    termos_servico = [
+        "manutenção",
+        "manutencao",
+        "conserto",
+        "reparo",
+        "assistência",
+        "assistencia",
+        "instalação",
+        "instalacao",
+        "montagem",
+        "reforma",
+        "recuperação",
+        "recuperacao",
+        "adequação",
+        "adequacao",
+        "pintura",
+        "inspeção",
+        "inspecao",
+        "calibração",
+        "calibracao",
+        "consultoria",
+        "engenharia",
+        "diagnóstico",
+        "diagnostico",
+        "usinagem",
+        "soldagem",
+        "tratamento",
+        "limpeza",
+        "projeto",
+        "serviço",
+        "servico",
+        "locação",
+        "locacao"
+    ]
+
+    # ========================================================
+    # PRIMEIRA DECISÃO: O PRÓPRIO TEMA
+    # ========================================================
+
+    for termo in termos_servico:
+
+        if termo in tema:
+
+            print()
+            print("======================================")
+            print("TIPO IDENTIFICADO PELO PYTHON")
+            print("======================================")
+            print("TEMA:", tema)
+            print("TIPO: servico")
+            print("EVIDÊNCIA:", termo)
+
+            return "servico"
+
+    # ========================================================
+    # SEGUNDA DECISÃO: PESQUISA REALIZADA
+    #
+    # Se o nome do tema não for suficiente, usamos os textos
+    # já pesquisados pelo Python como evidência complementar.
+    # ========================================================
+
+    texto_pesquisa = ""
+
+    if isinstance(
+        textos,
+        dict
+    ):
+
+        fragmentos = textos.get(
+            "fragmentos",
+            []
+        )
+
+        if isinstance(
+            fragmentos,
+            list
+        ):
+
+            partes = []
+
+            for fragmento in fragmentos[:20]:
+
+                if not isinstance(
+                    fragmento,
+                    dict
+                ):
+                    continue
+
+                texto_fragmento = str(
+                    fragmento.get(
+                        "texto",
+                        ""
+                    ) or ""
+                ).strip()
+
+                if texto_fragmento:
+
+                    partes.append(
+                        texto_fragmento
+                    )
+
+            texto_pesquisa = " ".join(
+                partes
+            ).casefold()
+
+    elif isinstance(
+        textos,
+        list
+    ):
+
+        partes = []
+
+        for item in textos[:20]:
+
+            if isinstance(
+                item,
+                dict
+            ):
+
+                texto_item = str(
+                    item.get(
+                        "texto",
+                        ""
+                    ) or ""
+                ).strip()
+
+            else:
+
+                texto_item = str(
+                    item or ""
+                ).strip()
+
+            if texto_item:
+
+                partes.append(
+                    texto_item
+                )
+
+        texto_pesquisa = " ".join(
+            partes
+        ).casefold()
+
+    # ========================================================
+    # CONTAR EVIDÊNCIAS DE SERVIÇO
+    # ========================================================
+
+    evidencias_servico = 0
+
+    for termo in termos_servico:
+
+        ocorrencias = texto_pesquisa.count(
+            termo
+        )
+
+        if ocorrencias > 0:
+
+            evidencias_servico += 1
+
+    # ========================================================
+    # DECISÃO FINAL
+    #
+    # Se houver várias evidências claras de serviço,
+    # classificamos como serviço.
+    #
+    # Caso contrário, produto.
+    # ========================================================
+
+    if evidencias_servico >= 3:
+
+        tipo = "servico"
+
+    else:
+
+        tipo = "produto"
+
+    print()
+    print("======================================")
+    print("TIPO IDENTIFICADO PELO PYTHON")
+    print("======================================")
+    print("TEMA:", tema)
+    print("TIPO:", tipo)
+    print(
+        "EVIDÊNCIAS DE SERVIÇO:",
+        evidencias_servico
+    )
+
+    return tipo
+    
+    
 # ============================================================
 # GERAR CONTEÚDO COMPLETO
 # ============================================================
@@ -14563,7 +14779,29 @@ def gerar_conteudo_completo(
         len(str(mapa_mead))
     )
     
+    # ========================================================
+    # IDENTIFICAR TIPO DO TEMA
+    # ========================================================
+    #
+    # O Python resolve o tipo no início do processamento.
+    # Essa variável será reutilizada em toda a página.
+    # ========================================================
 
+    tipo = identificar_tipo_tema(
+        tema_base,
+        textos
+    )
+
+    print()
+    print("======================================")
+    print("TIPO OFICIAL DA PÁGINA")
+    print("======================================")
+    print(
+        "TIPO:",
+        tipo
+    )
+    
+    
     # ========================================================
     # RECUPERAR ARQUIVO_ORIGEM DA PRIMEIRA SELEÇÃO
     # ========================================================
@@ -16482,7 +16720,8 @@ PARÁGRAFOS-BASE SELECIONADOS PELO PYTHON
     # ========================================================
     
     lista_segmentos = gerar_segmentos_pagina(
-        tema
+        tema,
+        tipo
     )
     
     if len(lista_segmentos) != 12:
