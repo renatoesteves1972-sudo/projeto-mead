@@ -14514,26 +14514,40 @@ def obter_formas_gramaticais_tema(tema):
 # IDENTIFICAR TIPO DO TEMA
 # ============================================================
 #
-# O Python é responsável por determinar se o tema representa
-# um PRODUTO ou um SERVIÇO.
-#
-# Essa classificação acontece antes da geração dos segmentos.
-#
-# Retorno oficial:
+# O Python determina se o tema representa:
 #     "produto"
 #     "servico"
+#
+# A decisão é baseada no próprio tema.
+# Os textos pesquisados NÃO participam da classificação,
+# pois uma página de produto pode conter informações sobre
+# instalação, manutenção, reparo, operação etc.
 #
 # O Ollama NÃO participa desta decisão.
 # ============================================================
 
 def identificar_tipo_tema(
-    tema,
-    textos=None
+    tema
 ):
 
     tema = str(
         tema or ""
     ).strip().casefold()
+
+    # ========================================================
+    # TEMA VAZIO
+    # ========================================================
+
+    if not tema:
+
+        print()
+        print("======================================")
+        print("TIPO IDENTIFICADO PELO PYTHON")
+        print("======================================")
+        print("TEMA VAZIO")
+        print("TIPO: produto")
+
+        return "produto"
 
     # ========================================================
     # TERMOS QUE INDICAM SERVIÇO
@@ -14560,7 +14574,6 @@ def identificar_tipo_tema(
         "calibração",
         "calibracao",
         "consultoria",
-        "engenharia",
         "diagnóstico",
         "diagnostico",
         "usinagem",
@@ -14575,7 +14588,9 @@ def identificar_tipo_tema(
     ]
 
     # ========================================================
-    # PRIMEIRA DECISÃO: O PRÓPRIO TEMA
+    # DECISÃO OFICIAL
+    #
+    # SOMENTE O TEMA DEFINE O TIPO.
     # ========================================================
 
     for termo in termos_servico:
@@ -14588,144 +14603,26 @@ def identificar_tipo_tema(
             print("======================================")
             print("TEMA:", tema)
             print("TIPO: servico")
-            print("EVIDÊNCIA:", termo)
+            print("CRITÉRIO:", termo)
 
             return "servico"
 
     # ========================================================
-    # SEGUNDA DECISÃO: PESQUISA REALIZADA
+    # PADRÃO
     #
-    # Se o nome do tema não for suficiente, usamos os textos
-    # já pesquisados pelo Python como evidência complementar.
+    # Se o tema não indica explicitamente um serviço,
+    # ele será tratado como produto.
     # ========================================================
-
-    texto_pesquisa = ""
-
-    if isinstance(
-        textos,
-        dict
-    ):
-
-        fragmentos = textos.get(
-            "fragmentos",
-            []
-        )
-
-        if isinstance(
-            fragmentos,
-            list
-        ):
-
-            partes = []
-
-            for fragmento in fragmentos[:20]:
-
-                if not isinstance(
-                    fragmento,
-                    dict
-                ):
-                    continue
-
-                texto_fragmento = str(
-                    fragmento.get(
-                        "texto",
-                        ""
-                    ) or ""
-                ).strip()
-
-                if texto_fragmento:
-
-                    partes.append(
-                        texto_fragmento
-                    )
-
-            texto_pesquisa = " ".join(
-                partes
-            ).casefold()
-
-    elif isinstance(
-        textos,
-        list
-    ):
-
-        partes = []
-
-        for item in textos[:20]:
-
-            if isinstance(
-                item,
-                dict
-            ):
-
-                texto_item = str(
-                    item.get(
-                        "texto",
-                        ""
-                    ) or ""
-                ).strip()
-
-            else:
-
-                texto_item = str(
-                    item or ""
-                ).strip()
-
-            if texto_item:
-
-                partes.append(
-                    texto_item
-                )
-
-        texto_pesquisa = " ".join(
-            partes
-        ).casefold()
-
-    # ========================================================
-    # CONTAR EVIDÊNCIAS DE SERVIÇO
-    # ========================================================
-
-    evidencias_servico = 0
-
-    for termo in termos_servico:
-
-        ocorrencias = texto_pesquisa.count(
-            termo
-        )
-
-        if ocorrencias > 0:
-
-            evidencias_servico += 1
-
-    # ========================================================
-    # DECISÃO FINAL
-    #
-    # Se houver várias evidências claras de serviço,
-    # classificamos como serviço.
-    #
-    # Caso contrário, produto.
-    # ========================================================
-
-    if evidencias_servico >= 3:
-
-        tipo = "servico"
-
-    else:
-
-        tipo = "produto"
 
     print()
     print("======================================")
     print("TIPO IDENTIFICADO PELO PYTHON")
     print("======================================")
     print("TEMA:", tema)
-    print("TIPO:", tipo)
-    print(
-        "EVIDÊNCIAS DE SERVIÇO:",
-        evidencias_servico
-    )
+    print("TIPO: produto")
+    print("CRITÉRIO: tema não identificado como serviço")
 
-    return tipo
-    
+    return "produto"
     
 # ============================================================
 # GERAR CONTEÚDO COMPLETO
@@ -14788,10 +14685,8 @@ def gerar_conteudo_completo(
     # ========================================================
 
     tipo = identificar_tipo_tema(
-        tema_base,
-        textos
+        tema
     )
-
     print()
     print("======================================")
     print("TIPO OFICIAL DA PÁGINA")
