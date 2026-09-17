@@ -15374,6 +15374,30 @@ PARÁGRAFOS-BASE SELECIONADOS PELO PYTHON
         texto_bloco = (
             resultado_bloco.group(1).strip()
         )
+        
+        print("\n========================================")
+        print(f"DEBUG BLOCO {numero_bloco}")
+        print("========================================")
+        
+        print(
+            "CARACTERES texto_bloco:",
+            len(texto_bloco)
+        )
+        
+        print(
+            "PARAGRAFO_1 EXISTE:",
+            "[PARAGRAFO_1]" in texto_bloco
+        )
+        
+        print(
+            "PARAGRAFO_2 EXISTE:",
+            "[PARAGRAFO_2]" in texto_bloco
+        )
+        
+        print(
+            "PARAGRAFO_3 EXISTE:",
+            "[PARAGRAFO_3]" in texto_bloco
+        )
     
         # ====================================================
         # TÍTULO DO BLOCO
