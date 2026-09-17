@@ -14100,17 +14100,21 @@ def selecionar_informacoes_relevantes(
 #
 # REGRA MEAD:
 #
-# - Existe um banco fixo com mais de 20 segmentos.
-# - O tema/produto/serviço aparece obrigatoriamente
-#   em cada segmento.
+# - A origem dos segmentos é exclusivamente a biblioteca fixa.
+# - Produtos usam SEGMENTOS_PRODUTOS + SEGMENTOS_CORINGAS.
+# - Serviços usam SEGMENTOS_SERVICOS + SEGMENTOS_CORINGAS.
+# - O Python substitui [TEMA].
 # - O Python sorteia exatamente 12 segmentos.
 # - Não pode haver repetição dentro da mesma página.
 # - Os checkboxes NÃO participam da criação dos segmentos.
-# - Segmento genérico sem referência ao tema é proibido.
+# - O Ollama NÃO participa da criação dos segmentos.
 #
 # ============================================================
 
-def gerar_segmentos_pagina(tema):
+def gerar_segmentos_pagina(
+    tema,
+    tipo=None
+):
 
     import random
 
@@ -14121,90 +14125,30 @@ def gerar_segmentos_pagina(tema):
     if not tema:
         return []
 
-    # --------------------------------------------------------
-    # BANCO FIXO DE SEGMENTOS
-    # --------------------------------------------------------
-    #
-    # O tema é inserido diretamente em todos os segmentos.
-    # Portanto nenhum segmento pode ficar sem referência
-    # ao produto ou serviço.
-    #
-    # Mais de 20 opções para permitir variação entre páginas.
-    # --------------------------------------------------------
+    # ========================================================
+    # OBTER SEGMENTOS EXCLUSIVAMENTE DA BIBLIOTECA FIXA
+    # ========================================================
 
-    banco_segmentos = [
+    segmentos_validos = gerar_segmentos_validos(
+        tema,
+        tipo
+    )
 
-        f"Aplicações industriais de {tema}",
+    if not isinstance(
+        segmentos_validos,
+        list
+    ):
+        segmentos_validos = []
 
-        f"Funcionamento e características de {tema}",
-
-        f"Critérios técnicos para seleção de {tema}",
-
-        f"Manutenção preventiva de {tema}",
-
-        f"Instalação adequada de {tema}",
-
-        f"Benefícios operacionais de {tema}",
-
-        f"Dimensionamento de {tema} para diferentes sistemas",
-
-        f"Desempenho técnico de {tema}",
-
-        f"Eficiência operacional de {tema}",
-
-        f"Características construtivas de {tema}",
-
-        f"Cuidados na operação de {tema}",
-
-        f"Soluções industriais com {tema}",
-
-        f"Aplicações de {tema} em processos industriais",
-
-        f"Segurança na operação de {tema}",
-
-        f"Diagnóstico de problemas em {tema}",
-
-        f"Inspeção e conservação de {tema}",
-
-        f"Escolha de {tema} conforme a aplicação",
-
-        f"Condições de operação de {tema}",
-
-        f"Vantagens técnicas de {tema}",
-
-        f"Integração de {tema} em sistemas industriais",
-
-        f"Cuidados durante a instalação de {tema}",
-
-        f"Procedimentos de manutenção de {tema}",
-
-        f"Especificação técnica de {tema}",
-
-        f"Confiabilidade operacional de {tema}",
-
-        f"Desempenho de {tema} em diferentes aplicações",
-
-        f"Aplicação de {tema} em sistemas industriais",
-
-        f"Operação adequada de {tema}",
-
-        f"Seleção de {tema} para processos industriais",
-
-        f"Manutenção e conservação de {tema}",
-
-        f"Aspectos técnicos de {tema}"
-
-    ]
-
-    # --------------------------------------------------------
+    # ========================================================
     # LIMPAR DUPLICIDADES
-    # --------------------------------------------------------
+    # ========================================================
 
-    segmentos_validos = []
+    segmentos_unicos = []
 
     vistos = set()
 
-    for segmento in banco_segmentos:
+    for segmento in segmentos_validos:
 
         segmento = str(
             segmento or ""
@@ -14220,206 +14164,134 @@ def gerar_segmentos_pagina(tema):
 
         vistos.add(chave)
 
-        segmentos_validos.append(
+        segmentos_unicos.append(
             segmento
         )
 
-    # --------------------------------------------------------
-    # GARANTIR QUANTIDADE MÍNIMA
-    # --------------------------------------------------------
-
-    if len(segmentos_validos) < 20:
-
-        print()
-        print(
-            "❌ ERRO: banco de segmentos possui menos "
-            "de 20 opções."
-        )
-
-        return []
-        
-        
     # ========================================================
-    # GERAR SEGMENTOS VÁLIDOS PELO PYTHON
-    # ========================================================
-    
-    def gerar_segmentos_validos(
-        tema,
-        tipo
-    ):
-    
-        tema = str(
-            tema or ""
-        ).strip()
-    
-        if not tema:
-            return []
-    
-        tipo_normalizado = str(
-            tipo or ""
-        ).strip().casefold()
-    
-        # ----------------------------------------------------
-        # Escolher a biblioteca
-        # ----------------------------------------------------
-    
-        if tipo_normalizado == "servico":
-    
-            modelos = (
-                SEGMENTOS_SERVICOS
-                + SEGMENTOS_CORINGAS
-            )
-    
-        else:
-    
-            modelos = (
-                SEGMENTOS_PRODUTOS
-                + SEGMENTOS_CORINGAS
-            )
-    
-        # ----------------------------------------------------
-        # Substituir [TEMA]
-        # ----------------------------------------------------
-    
-        segmentos = []
-    
-        for modelo in modelos:
-    
-            segmento = modelo.replace(
-                "[TEMA]",
-                tema
-            ).strip()
-    
-            if not segmento:
-                continue
-    
-            segmentos.append(
-                segmento
-            )
-    
-        # ----------------------------------------------------
-        # Remover duplicados
-        # ----------------------------------------------------
-    
-        segmentos_validos = list(
-            dict.fromkeys(
-                segmentos
-            )
-        )
-    
-        return segmentos_validos    
-
-    # --------------------------------------------------------
-    # FILTRAR SEGMENTOS QUE REFERENCIAM O TEMA
-    # --------------------------------------------------------
-    
-    tema_normalizado = tema.casefold().strip()
-    
-    segmentos_com_tema = []
-    
-    for segmento in segmentos_validos:
-    
-        if tema_normalizado in segmento.casefold():
-    
-            segmentos_com_tema.append(segmento)
-    
-        else:
-    
-            print()
-            print(
-                "⚠️ SEGMENTO REJEITADO POR NÃO "
-                "REFERENCIAR O TEMA:"
-            )
-            print(segmento)
-    
-    
-    # --------------------------------------------------------
     # SEGURANÇA
-    # --------------------------------------------------------
-    
-    if len(segmentos_com_tema) < 12:
-    
+    # ========================================================
+
+    if len(segmentos_unicos) < 12:
+
         print()
         print(
-            "❌ ERRO: não foi possível encontrar "
-            "12 segmentos que referenciem o tema."
+            "❌ ERRO: biblioteca fixa possui menos "
+            "de 12 segmentos válidos."
         )
-    
+
         print(
             f"TEMA: {tema}"
         )
-    
+
         print(
-            f"SEGMENTOS COM TEMA: "
+            f"SEGMENTOS DISPONÍVEIS: "
+            f"{len(segmentos_unicos)}"
+        )
+
+        return []
+
+    # ========================================================
+    # GARANTIR QUE TODOS REFERENCIAM O TEMA
+    # ========================================================
+
+    tema_normalizado = tema.casefold()
+
+    segmentos_com_tema = []
+
+    for segmento in segmentos_unicos:
+
+        if tema_normalizado in segmento.casefold():
+
+            segmentos_com_tema.append(
+                segmento
+            )
+
+    # ========================================================
+    # SEGURANÇA FINAL
+    # ========================================================
+
+    if len(segmentos_com_tema) < 12:
+
+        print()
+        print(
+            "❌ ERRO: biblioteca fixa não possui "
+            "12 segmentos com referência ao tema."
+        )
+
+        print(
+            f"TEMA: {tema}"
+        )
+
+        print(
+            f"SEGMENTOS VÁLIDOS: "
             f"{len(segmentos_com_tema)}"
         )
-    
+
         return []
-    
-    
-    # --------------------------------------------------------
+
+    # ========================================================
     # SORTEAR EXATAMENTE 12
-    # --------------------------------------------------------
-    #
-    # Como todos os segmentos já foram validados,
-    # random.sample() garante 12 diferentes.
-    # --------------------------------------------------------
-    
+    # ========================================================
+
     segmentos_finais = random.sample(
         segmentos_com_tema,
         12
     )
-    
-    
-    # --------------------------------------------------------
-    # LOG
-    # --------------------------------------------------------
-    
+
+    # ========================================================
+    # AUDITORIA
+    # ========================================================
+
     print()
     print(
         "=========================================="
     )
-    
+
     print(
         "SEGMENTOS DA PÁGINA"
     )
-    
+
     print(
         "=========================================="
     )
-    
+
     print(
         f"TEMA: {tema}"
     )
-    
+
     print(
-        f"BANCO DISPONÍVEL: "
-        f"{len(segmentos_validos)}"
+        f"TIPO: {tipo or 'não informado'}"
     )
-    
+
+    print(
+        f"BANCO FIXO DISPONÍVEL: "
+        f"{len(segmentos_unicos)}"
+    )
+
     print(
         f"SEGMENTOS COM TEMA: "
         f"{len(segmentos_com_tema)}"
     )
-    
+
     print(
         "SEGMENTOS SORTEADOS: 12"
     )
-    
+
     for numero, segmento in enumerate(
         segmentos_finais,
         start=1
     ):
-    
+
         print(
             f"SEGMENTO_{numero}: "
             f"{segmento}"
         )
-    
+
     print(
         "=========================================="
     )
-    
+
     return segmentos_finais
 
 
