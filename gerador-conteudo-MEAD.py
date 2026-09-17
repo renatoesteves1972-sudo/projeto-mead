@@ -18202,19 +18202,40 @@ def salvar_banco(
             or ""
         ).strip()
     
-        # ----------------------------------------------------
-        # INFORMAÇÕES RELEVANTES
-        # ----------------------------------------------------
     
-        alvo[
-            "informacoes_relevantes"
-        ] = str(
-            alvo.get(
-                "informacoes_relevantes",
-                ""
-            )
-            or ""
-        ).strip()
+        # ------------------------------------------------
+        # INFORMAÇÕES RELEVANTES
+        # ------------------------------------------------
+        
+        info_recebida = dados_bloco.get(
+            "informacoes_relevantes",
+            []
+        )
+        
+        if isinstance(
+            info_recebida,
+            list
+        ):
+        
+            info_recebida = [
+                item
+                for item in info_recebida
+                if isinstance(
+                    item,
+                    dict
+                )
+            ]
+        
+        else:
+        
+            info_recebida = []
+        
+        if info_recebida:
+        
+            alvo[
+                "informacoes_relevantes"
+            ] = info_recebida
+            
     
         # ----------------------------------------------------
         # TÍTULO
