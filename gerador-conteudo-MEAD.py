@@ -15648,66 +15648,43 @@ PARÁGRAFOS-BASE SELECIONADOS PELO PYTHON
 
 
     # --------------------------------------------------------
-    # MONTAR OS 12 SEGMENTOS
+    # GERAR SEGMENTOS PELO PYTHON
     # --------------------------------------------------------
 
-    if tema_eh_servico:
+    lista_segmentos = gerar_segmentos_pagina(
+        tema
+    )
 
-        segmentos_base = [
-            tema_base,
-            f"{tema_base} industrial",
-            f"{tema_base} preventiva",
-            f"{tema_base} corretiva",
-            f"{tema_base} técnica",
-            f"{tema_base} especializada",
-            f"{tema_base} para equipamentos industriais",
-            f"{tema_base} para sistemas industriais",
-            f"{tema_base} para processos industriais",
-            f"assistência técnica em {tema_base}",
-            f"diagnóstico e {tema_base}",
-            f"orçamento de {tema_base}"
-        ]
+    if not isinstance(
+        lista_segmentos,
+        list
+    ):
 
-    else:
+        lista_segmentos = []
 
-        segmentos_base = [
-            tema_base,
-            f"{tema_base} industrial",
-            f"{tema_base} para sistemas industriais",
-            f"{tema_base} para processos industriais",
-            f"{tema_base} para aplicações industriais",
-            f"{tema_base} para transferência de fluidos",
-            f"{tema_base} para sistemas hidráulicos",
-            f"{tema_base} para diferentes aplicações",
-            f"aplicações de {tema_base}",
-            f"manutenção de {tema_base}",
-            f"assistência técnica para {tema_base}",
-            f"orçamento de {tema_base}"
-        ]
+    lista_segmentos = [
 
-    lista_segmentos = []
-
-    for segmento in segmentos_base:
-
-        segmento = re.sub(
+        re.sub(
             r"\s+",
             " ",
             str(segmento).strip()
         )
 
-        if not segmento:
-            continue
+        for segmento in lista_segmentos
 
-        lista_segmentos.append(
-            segmento
-        )
+        if str(
+            segmento or ""
+        ).strip()
+    ]
 
-    # Garantia estrutural: exatamente 12 segmentos
     lista_segmentos = remover_duplicados(
         lista_segmentos
     ) if "remover_duplicados" in locals() else lista_segmentos
 
+    # Garantia estrutural: máximo de 12 segmentos
     lista_segmentos = lista_segmentos[:12]
+
+
 
 
     # ========================================================
@@ -18341,11 +18318,12 @@ def salvar_banco(
                     "titulo"
                 ] = titulo_recebido
     
+
             # ------------------------------------------------
             # INFORMAÇÕES RELEVANTES
             # ------------------------------------------------
             
-            info_recebida = dados_bloco.get(
+            info_recebida = bloco.get(
                 "informacoes_relevantes",
                 []
             )
@@ -18355,7 +18333,9 @@ def salvar_banco(
                 list
             ):
             
-                info_recebida = [
+                bloco[
+                    "informacoes_relevantes"
+                ] = [
                     item
                     for item in info_recebida
                     if isinstance(
@@ -18366,7 +18346,11 @@ def salvar_banco(
             
             else:
             
-                info_recebida = []
+                bloco[
+                    "informacoes_relevantes"
+                ] = []
+    
+
     
             # ------------------------------------------------
             # IMPORTANTE:
