@@ -16986,14 +16986,18 @@ PARÁGRAFOS-BASE SELECIONADOS PELO PYTHON
     #
     # ========================================================
 
+
     salvar_banco(
         tema,
         "informacoes_relevantes",
         contexto,
         blocos=blocos_informacoes,
         tags=lista_tags,
-        segmentos=lista_segmentos
+        segmentos=lista_segmentos,
+        tipo=tipo
     )
+
+
 
     print()
     print("======================================")
@@ -18540,6 +18544,7 @@ def gerar_titulos(
 # SALVAR BANCO
 # ============================================================
     
+
 def salvar_banco(
     tema,
     categoria,
@@ -18550,8 +18555,11 @@ def salvar_banco(
     segmentos=None,
     tags=None,
     trechos_utilizados=None,
-    grupo_principal_projeto=None
+    grupo_principal_projeto=None,
+    tipo=None
 ):
+
+
     """
     Persiste a página no formato oficial do conteudo-site.json.
     
@@ -26929,10 +26937,12 @@ def gerar_material_interface():
                     and conteudo_completo.strip()
                 ):
 
+
                     salvar_banco(
                         tema,
                         "conteudo_completo",
-                        conteudo_completo
+                        conteudo_completo,
+                        tipo=tipo
                     )
 
                     print()
