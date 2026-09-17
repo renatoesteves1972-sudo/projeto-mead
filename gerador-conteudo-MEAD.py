@@ -18319,37 +18319,6 @@ def salvar_banco(
                 ] = titulo_recebido
     
 
-            # ------------------------------------------------
-            # INFORMAÇÕES RELEVANTES
-            # ------------------------------------------------
-            
-            info_recebida = bloco.get(
-                "informacoes_relevantes",
-                []
-            )
-            
-            if isinstance(
-                info_recebida,
-                list
-            ):
-            
-                bloco[
-                    "informacoes_relevantes"
-                ] = [
-                    item
-                    for item in info_recebida
-                    if isinstance(
-                        item,
-                        dict
-                    )
-                ]
-            
-            else:
-            
-                bloco[
-                    "informacoes_relevantes"
-                ] = []
-    
 
     
             # ------------------------------------------------
