@@ -9639,7 +9639,6 @@ URL: {fonte["url"]}
         partes
     )[:limite]
 
-
 # ============================================================
 # CRIAR ESTRUTURA DO NOVO JSON DA PÁGINA
 # ============================================================
@@ -9756,13 +9755,6 @@ def criar_estrutura_json_pagina(tema):
 
                 # Frase de impacto criada pelo Python
                 "subtitulo":
-                    "",
-
-                "descricao":
-                    "",
-
-                # Subtítulo que aparece antes dos segmentos
-                "subtitulo_listas":
                     "",
 
                 # ==================================================
@@ -9964,6 +9956,13 @@ def criar_estrutura_json_pagina(tema):
                             ""
                         ]
                 },
+
+                # ==================================================
+                # SUBTÍTULO DOS SEGMENTOS
+                # ==================================================
+
+                "subtitulo_segmentos":
+                    "",
 
                 # ==================================================
                 # SEGMENTOS GERADOS PELO PYTHON
