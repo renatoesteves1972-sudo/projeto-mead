@@ -10504,24 +10504,436 @@ def selecionar_informacoes_relevantes(
     # ========================================================
     # 04. PREPARAR CANDIDATOS
     # ========================================================
-
-    candidatos = []
-
-
-    # --------------------------------------------------------
+    #
+    # REGRA:
+    #
+    # O Python deve entregar ao Ollama fragmentos editoriais
+    # utilizáveis.
+    #
+    # Não basta penalizar índice, comentários, menus ou tabelas.
+    # Esses fragmentos devem ser retirados ANTES da pontuação.
     #
     # Cada candidato terá entre 50 e 60 palavras.
     #
-    # Frases pequenas serão acumuladas até formar um fragmento
-    # de pelo menos 50 palavras, sem ultrapassar 60.
-    #
-    # Frases grandes serão divididas em partes de no máximo
-    # 60 palavras.
-    #
-    # --------------------------------------------------------
+    # ========================================================
+
+    candidatos = []
 
     MIN_PALAVRAS_FRAGMENTO = 50
     MAX_PALAVRAS_FRAGMENTO = 60
+
+
+    # ========================================================
+    # FILTRO ESTRUTURAL DO FRAGMENTO
+    # ========================================================
+
+    def fragmento_eh_editorialmente_valido(
+        texto
+    ):
+
+        texto_original = str(
+            texto or ""
+        ).strip()
+
+        if not texto_original:
+            return False
+
+        texto_normalizado = (
+            normalizar_assunto_texto(
+                texto_original
+            )
+        )
+
+        # ----------------------------------------------------
+        # 01. MARCADORES DE COMENTÁRIOS / REDES SOCIAIS
+        # ----------------------------------------------------
+
+        marcadores_comentarios = [
+
+            "comments others also viewed",
+            "others also viewed",
+            "curtir",
+            "comentar",
+            "comentarios",
+            "comentários",
+            "responder",
+            "seguidores",
+            "linkedin",
+            "facebook",
+            "instagram",
+            "twitter",
+            "postado por",
+            "posted by",
+            "like",
+            "share"
+
+        ]
+
+        for marcador in marcadores_comentarios:
+
+            if marcador in texto_normalizado:
+
+                return False
+
+
+        # ----------------------------------------------------
+        # 02. MARCADORES DE MENU / NAVEGAÇÃO
+        # ----------------------------------------------------
+
+        marcadores_navegacao = [
+
+            "home",
+            "inicio",
+            "menu",
+            "contato",
+            "login",
+            "cadastro",
+            "entrar",
+            "siga-nos",
+            "compartilhe",
+            "politica de privacidade",
+            "política de privacidade",
+            "cookies",
+            "fale conosco"
+
+        ]
+
+        ocorrencias_navegacao = 0
+
+        for marcador in marcadores_navegacao:
+
+            if marcador in texto_normalizado:
+
+                ocorrencias_navegacao += 1
+
+        if ocorrencias_navegacao >= 2:
+
+            return False
+
+
+        # ----------------------------------------------------
+        # 03. MARCADORES DE ÍNDICE / SUMÁRIO
+        # ----------------------------------------------------
+
+        marcadores_indice = [
+
+            "sumario",
+            "sumário",
+            "indice",
+            "índice",
+            "conteudo",
+            "conteúdo",
+            "capitulo",
+            "capítulo",
+            "secao",
+            "seção",
+            "anexos",
+            "referencias",
+            "referências"
+
+        ]
+
+        ocorrencias_indice = 0
+
+        for marcador in marcadores_indice:
+
+            if marcador in texto_normalizado:
+
+                ocorrencias_indice += 1
+
+        if ocorrencias_indice >= 2:
+
+            return False
+
+
+        # ----------------------------------------------------
+        # 04. ESTRUTURA DE SUMÁRIO / NUMERAÇÃO
+        # ----------------------------------------------------
+
+        padroes_indice = [
+
+            r"\b\d+\.\d+\.",
+            r"\b\d+\.\d+\.\d+\.",
+            r"\b\d+\)\s*[-–]",
+            r"\b\d+\.\s*[-–]"
+
+        ]
+
+        ocorrencias_padroes_indice = 0
+
+        for padrao in padroes_indice:
+
+            ocorrencias_padroes_indice += len(
+                re.findall(
+                    padrao,
+                    texto_original
+                )
+            )
+
+        if ocorrencias_padroes_indice >= 2:
+
+            return False
+
+
+        # ----------------------------------------------------
+        # 05. BULLETS / LISTAS EXTRAÍDAS
+        # ----------------------------------------------------
+
+        marcadores_lista = [
+
+            "○",
+            "●",
+            "■",
+            "□",
+            "▪",
+            "•",
+            "►",
+            "◆"
+
+        ]
+
+        ocorrencias_lista = 0
+
+        for marcador in marcadores_lista:
+
+            ocorrencias_lista += (
+                texto_original.count(
+                    marcador
+                )
+            )
+
+        if ocorrencias_lista >= 2:
+
+            return False
+
+
+        # ----------------------------------------------------
+        # 06. FRAGMENTO COM ESTRUTURA DE TABELA
+        #
+        # Exemplo do problema atual:
+        #
+        # rpm Tamanhos Vazão Elevação Temperatura Rotação
+        # Tipo 2 até 65 até 110m³/h...
+        #
+        # Muitos números + muitos rótulos técnicos isolados
+        # normalmente indicam tabela mal extraída.
+        # ----------------------------------------------------
+
+        quantidade_numeros = len(
+            re.findall(
+                r"\b\d+(?:[.,]\d+)?\b",
+                texto_original
+            )
+        )
+
+        marcadores_tabela = [
+
+            "tamanhos",
+            "vazao",
+            "vazão",
+            "elevacao",
+            "elevação",
+            "temperatura",
+            "rotacao",
+            "rotação",
+            "tipo",
+            "rpm",
+            "pressao",
+            "pressão",
+            "potencia",
+            "potência"
+
+        ]
+
+        marcadores_tabela_encontrados = 0
+
+        for marcador in marcadores_tabela:
+
+            if marcador in texto_normalizado:
+
+                marcadores_tabela_encontrados += 1
+
+        if (
+            quantidade_numeros >= 8
+            and
+            marcadores_tabela_encontrados >= 3
+        ):
+
+            return False
+
+
+        # ----------------------------------------------------
+        # 07. TEXTO COM CARACTERES CORROMPIDOS
+        # ----------------------------------------------------
+
+        if (
+            "\x00" in texto_original
+            or
+            "\x03" in texto_original
+            or
+            "\ufffd" in texto_original
+        ):
+
+            return False
+
+
+        # ----------------------------------------------------
+        # 08. TEXTO PRECISA TER ESTRUTURA DE PROSA
+        # ----------------------------------------------------
+
+        palavras = re.findall(
+            r"\S+",
+            texto_original
+        )
+
+        if len(palavras) < MIN_PALAVRAS_FRAGMENTO:
+
+            return False
+
+        if len(palavras) > MAX_PALAVRAS_FRAGMENTO:
+
+            return False
+
+
+        # ----------------------------------------------------
+        # 09. FRASES
+        #
+        # Um fragmento editorial deve conter pelo menos
+        # duas frases ou uma frase realmente desenvolvida.
+        # ----------------------------------------------------
+
+        frases = re.split(
+            r"(?<=[.!?])\s+",
+            texto_original
+        )
+
+        frases = [
+
+            frase.strip()
+
+            for frase in frases
+
+            if frase.strip()
+
+        ]
+
+        if not frases:
+
+            return False
+
+        quantidade_frases = len(
+            frases
+        )
+
+        if quantidade_frases == 1:
+
+            palavras_primeira_frase = len(
+                re.findall(
+                    r"\S+",
+                    frases[0]
+                )
+            )
+
+            if palavras_primeira_frase < 18:
+
+                return False
+
+
+        # ----------------------------------------------------
+        # 10. PROTEGER CONTRA EXCESSO DE TEXTO EM MAIÚSCULAS
+        #
+        # Evita cabeçalhos, índices e extrações de PDF.
+        # ----------------------------------------------------
+
+        letras = re.findall(
+            r"[A-Za-zÀ-ÿ]",
+            texto_original
+        )
+
+        if letras:
+
+            letras_maiusculas = [
+
+                letra
+
+                for letra
+                in letras
+
+                if letra.isupper()
+
+            ]
+
+            proporcao_maiusculas = (
+                len(letras_maiusculas)
+                /
+                len(letras)
+            )
+
+            if (
+                proporcao_maiusculas > 0.55
+                and
+                len(letras) > 40
+            ):
+
+                return False
+
+
+        # ----------------------------------------------------
+        # 11. EXCESSO DE SEPARADORES
+        #
+        # Evita listas/tabelas concatenadas.
+        # ----------------------------------------------------
+
+        separadores = len(
+            re.findall(
+                r"[|;•○●■□▪►◆]",
+                texto_original
+            )
+        )
+
+        if separadores >= 5:
+
+            return False
+
+
+        # ----------------------------------------------------
+        # 12. TEXTO MUITO FRAGMENTADO
+        # ----------------------------------------------------
+
+        palavras_muito_curtas = sum(
+
+            1
+
+            for palavra
+            in palavras
+
+            if len(
+                re.sub(
+                    r"[^\wÀ-ÿ]",
+                    "",
+                    palavra
+                )
+            ) <= 2
+
+        )
+
+        if (
+            len(palavras) >= 50
+            and
+            palavras_muito_curtas
+            >
+            len(palavras) * 0.35
+        ):
+
+            return False
+
+
+        return True
+
+
+    # ========================================================
+    # CONSTRUIR FRAGMENTOS
+    # ========================================================
 
     for fonte in fontes:
 
@@ -10536,6 +10948,7 @@ def selecionar_informacoes_relevantes(
         if not texto:
             continue
 
+
         # ----------------------------------------------------
         # SEPARAR O TEXTO EM FRASES
         # ----------------------------------------------------
@@ -10549,22 +10962,113 @@ def selecionar_informacoes_relevantes(
 
             frase.strip()
 
-            for frase in frases
+            for frase
+            in frases
 
             if frase.strip()
 
         ]
 
+
         # ----------------------------------------------------
-        # ACUMULADOR DO FRAGMENTO
+        # ACUMULADOR
         # ----------------------------------------------------
 
         acumulado = []
 
         palavras_acumuladas = 0
 
+
         # ----------------------------------------------------
-        # PROCESSAR CADA FRASE
+        # FUNÇÃO LOCAL PARA CRIAR CANDIDATO
+        # ----------------------------------------------------
+
+        def adicionar_candidato(
+            texto_fragmento
+        ):
+
+            texto_fragmento = str(
+                texto_fragmento or ""
+            ).strip()
+
+            if not texto_fragmento:
+                return
+
+            quantidade_palavras = len(
+                re.findall(
+                    r"\S+",
+                    texto_fragmento
+                )
+            )
+
+            if (
+                quantidade_palavras
+                < MIN_PALAVRAS_FRAGMENTO
+                or
+                quantidade_palavras
+                > MAX_PALAVRAS_FRAGMENTO
+            ):
+
+                return
+
+
+            # ------------------------------------------------
+            # FILTRO ESTRUTURAL
+            # ------------------------------------------------
+
+            if not fragmento_eh_editorialmente_valido(
+                texto_fragmento
+            ):
+
+                print()
+                print(
+                    "FRAGMENTO DESCARTADO "
+                    "POR QUALIDADE ESTRUTURAL"
+                )
+
+                print(
+                    "FONTE:",
+                    fonte["indice"]
+                )
+
+                print(
+                    "PALAVRAS:",
+                    quantidade_palavras
+                )
+
+                print(
+                    "TRECHO:",
+                    texto_fragmento[:300]
+                )
+
+                return
+
+
+            candidatos.append({
+
+                "texto":
+                    texto_fragmento,
+
+                "fonte":
+                    fonte["indice"],
+
+                "url":
+                    fonte["url"],
+
+                "tipo":
+                    fonte["tipo"],
+
+                "pdf":
+                    fonte["eh_pdf"],
+
+                "palavras":
+                    quantidade_palavras
+
+            })
+
+
+        # ----------------------------------------------------
+        # PROCESSAR FRASES
         # ----------------------------------------------------
 
         for frase in frases:
@@ -10577,20 +11081,17 @@ def selecionar_informacoes_relevantes(
             if not palavras_frase:
                 continue
 
+
             # ------------------------------------------------
-            # FRASE PEQUENA:
-            # PODE SER ACUMULADA
+            # FRASE PEQUENA OU MÉDIA
             # ------------------------------------------------
 
             if len(palavras_frase) <= MAX_PALAVRAS_FRAGMENTO:
 
-                # --------------------------------------------
-                # SE A FRASE COUBER NO FRAGMENTO ATUAL
-                # --------------------------------------------
-
                 if (
                     palavras_acumuladas
-                    + len(palavras_frase)
+                    +
+                    len(palavras_frase)
                     <= MAX_PALAVRAS_FRAGMENTO
                 ):
 
@@ -10598,58 +11099,20 @@ def selecionar_informacoes_relevantes(
                         frase
                     )
 
-                    palavras_acumuladas += len(
-                        palavras_frase
+                    palavras_acumuladas += (
+                        len(palavras_frase)
                     )
-
-                    # ----------------------------------------
-                    # SE JÁ ATINGIU O MÍNIMO,
-                    # FECHAR O FRAGMENTO
-                    # ----------------------------------------
 
                     if (
                         palavras_acumuladas
                         >= MIN_PALAVRAS_FRAGMENTO
                     ):
 
-                        fragmento = " ".join(
-                            acumulado
-                        ).strip()
-
-                        palavras_fragmento = len(
-                            re.findall(
-                                r"\S+",
-                                fragmento
+                        adicionar_candidato(
+                            " ".join(
+                                acumulado
                             )
                         )
-
-                        if (
-                            MIN_PALAVRAS_FRAGMENTO
-                            <= palavras_fragmento
-                            <= MAX_PALAVRAS_FRAGMENTO
-                        ):
-
-                            candidatos.append({
-
-                                "texto":
-                                    fragmento,
-
-                                "fonte":
-                                    fonte["indice"],
-
-                                "url":
-                                    fonte["url"],
-
-                                "tipo":
-                                    fonte["tipo"],
-
-                                "pdf":
-                                    fonte["eh_pdf"],
-
-                                "palavras":
-                                    palavras_fragmento
-
-                            })
 
                         acumulado = []
 
@@ -10657,258 +11120,127 @@ def selecionar_informacoes_relevantes(
 
                 else:
 
-                    # ----------------------------------------
-                    # A NOVA FRASE NÃO CABE.
-                    #
-                    # SE O ACUMULADO JÁ TEM 50 OU MAIS,
-                    # FECHAR O FRAGMENTO.
-                    # ----------------------------------------
-
                     if (
                         acumulado
-                        and palavras_acumuladas
+                        and
+                        palavras_acumuladas
                         >= MIN_PALAVRAS_FRAGMENTO
                     ):
 
-                        fragmento = " ".join(
-                            acumulado
-                        ).strip()
-
-                        palavras_fragmento = len(
-                            re.findall(
-                                r"\S+",
-                                fragmento
+                        adicionar_candidato(
+                            " ".join(
+                                acumulado
                             )
                         )
-
-                        if (
-                            MIN_PALAVRAS_FRAGMENTO
-                            <= palavras_fragmento
-                            <= MAX_PALAVRAS_FRAGMENTO
-                        ):
-
-                            candidatos.append({
-
-                                "texto":
-                                    fragmento,
-
-                                "fonte":
-                                    fonte["indice"],
-
-                                "url":
-                                    fonte["url"],
-
-                                "tipo":
-                                    fonte["tipo"],
-
-                                "pdf":
-                                    fonte["eh_pdf"],
-
-                                "palavras":
-                                    palavras_fragmento
-
-                            })
-
-                    # ----------------------------------------
-                    # COMEÇAR NOVO FRAGMENTO
-                    # ----------------------------------------
 
                     acumulado = [
                         frase
                     ]
 
-                    palavras_acumuladas = len(
-                        palavras_frase
+                    palavras_acumuladas = (
+                        len(palavras_frase)
                     )
 
+
             # ------------------------------------------------
-            # FRASE GRANDE:
-            # DIVIDIR EM PARTES DE 60 PALAVRAS
+            # FRASE GRANDE
             # ------------------------------------------------
 
             else:
 
-                # --------------------------------------------
-                # PRIMEIRO FECHAR O ACUMULADO EXISTENTE
-                # --------------------------------------------
-
                 if (
                     acumulado
-                    and palavras_acumuladas
+                    and
+                    palavras_acumuladas
                     >= MIN_PALAVRAS_FRAGMENTO
                 ):
 
-                    fragmento = " ".join(
-                        acumulado
-                    ).strip()
-
-                    palavras_fragmento = len(
-                        re.findall(
-                            r"\S+",
-                            fragmento
+                    adicionar_candidato(
+                        " ".join(
+                            acumulado
                         )
                     )
 
-                    if (
-                        MIN_PALAVRAS_FRAGMENTO
-                        <= palavras_fragmento
-                        <= MAX_PALAVRAS_FRAGMENTO
-                    ):
+                acumulado = []
 
-                        candidatos.append({
+                palavras_acumuladas = 0
 
-                            "texto":
-                                fragmento,
-
-                            "fonte":
-                                fonte["indice"],
-
-                            "url":
-                                fonte["url"],
-
-                            "tipo":
-                                fonte["tipo"],
-
-                            "pdf":
-                                fonte["eh_pdf"],
-
-                            "palavras":
-                                palavras_fragmento
-
-                        })
-
-                    acumulado = []
-
-                    palavras_acumuladas = 0
 
                 # --------------------------------------------
-                # QUEBRAR A FRASE GRANDE
-                # EM PARTES DE ATÉ 60 PALAVRAS
+                # DIVIDIR FRASE GRANDE
                 # --------------------------------------------
 
-                for inicio in range(
-                    0,
-                    len(palavras_frase),
-                    MAX_PALAVRAS_FRAGMENTO
-                ):
+                partes = [
 
-                    parte = palavras_frase[
-                        inicio:
-                        inicio
-                        + MAX_PALAVRAS_FRAGMENTO
-                    ]
+                    palavras_frase[inicio:
+                                   inicio
+                                   + MAX_PALAVRAS_FRAGMENTO]
+
+                    for inicio
+                    in range(
+                        0,
+                        len(palavras_frase),
+                        MAX_PALAVRAS_FRAGMENTO
+                    )
+
+                ]
+
+                for parte in partes:
 
                     if not parte:
                         continue
 
-                    fragmento = " ".join(
-                        parte
-                    ).strip()
-
-                    palavras_fragmento = len(
+                    quantidade = len(
                         parte
                     )
 
-                    # ----------------------------------------
-                    # PARTES COM 50 A 60 PALAVRAS
-                    # ----------------------------------------
-
                     if (
                         MIN_PALAVRAS_FRAGMENTO
-                        <= palavras_fragmento
+                        <= quantidade
                         <= MAX_PALAVRAS_FRAGMENTO
                     ):
 
-                        candidatos.append({
-
-                            "texto":
-                                fragmento,
-
-                            "fonte":
-                                fonte["indice"],
-
-                            "url":
-                                fonte["url"],
-
-                            "tipo":
-                                fonte["tipo"],
-
-                            "pdf":
-                                fonte["eh_pdf"],
-
-                            "palavras":
-                                palavras_fragmento
-
-                        })
-
-                    # ----------------------------------------
-                    # PARTE FINAL COM MENOS DE 50 PALAVRAS:
-                    # GUARDAR PARA TENTAR COMPLETAR COM
-                    # A PRÓXIMA FRASE
-                    # ----------------------------------------
+                        adicionar_candidato(
+                            " ".join(
+                                parte
+                            )
+                        )
 
                     elif (
-                        palavras_fragmento
-                        < MIN_PALAVRAS_FRAGMENTO
+                        quantidade
+                        <
+                        MIN_PALAVRAS_FRAGMENTO
                     ):
 
                         acumulado = [
-                            fragmento
+                            " ".join(
+                                parte
+                            )
                         ]
 
                         palavras_acumuladas = (
-                            palavras_fragmento
+                            quantidade
                         )
 
+
         # ----------------------------------------------------
-        # ÚLTIMO FRAGMENTO DA FONTE
+        # ÚLTIMO FRAGMENTO
         # ----------------------------------------------------
 
         if (
             acumulado
-            and MIN_PALAVRAS_FRAGMENTO
+            and
+            MIN_PALAVRAS_FRAGMENTO
             <= palavras_acumuladas
             <= MAX_PALAVRAS_FRAGMENTO
         ):
 
-            fragmento = " ".join(
-                acumulado
-            ).strip()
-
-            palavras_fragmento = len(
-                re.findall(
-                    r"\S+",
-                    fragmento
+            adicionar_candidato(
+                " ".join(
+                    acumulado
                 )
             )
 
-            if (
-                MIN_PALAVRAS_FRAGMENTO
-                <= palavras_fragmento
-                <= MAX_PALAVRAS_FRAGMENTO
-            ):
-
-                candidatos.append({
-
-                    "texto":
-                        fragmento,
-
-                    "fonte":
-                        fonte["indice"],
-
-                    "url":
-                        fonte["url"],
-
-                    "tipo":
-                        fonte["tipo"],
-
-                    "pdf":
-                        fonte["eh_pdf"],
-
-                    "palavras":
-                        palavras_fragmento
-
-                })
 
     print()
     print("==============================")
@@ -10919,66 +11251,6 @@ def selecionar_informacoes_relevantes(
         "TOTAL DE CANDIDATOS:",
         len(candidatos)
     )
-
-    # --------------------------------------------------------
-    # VERIFICAÇÃO DE SEGURANÇA
-    # --------------------------------------------------------
-    #
-    # Esta verificação é feita antes da remoção de duplicados.
-    #
-    # Nenhum candidato fora da faixa de 50 a 60 palavras
-    # poderá seguir para a etapa seguinte.
-    #
-    # --------------------------------------------------------
-
-    candidatos_controlados = []
-
-    for candidato in candidatos:
-
-        quantidade_palavras = len(
-            re.findall(
-                r"\S+",
-                candidato.get(
-                    "texto",
-                    ""
-                )
-            )
-        )
-
-        if (
-            quantidade_palavras
-            < MIN_PALAVRAS_FRAGMENTO
-            or quantidade_palavras
-            > MAX_PALAVRAS_FRAGMENTO
-        ):
-
-            print(
-                "FRAGMENTO DESCARTADO POR TAMANHO:",
-                quantidade_palavras,
-                "palavras | FONTE:",
-                candidato.get(
-                    "fonte",
-                    ""
-                )
-            )
-
-            continue
-
-        candidato["palavras"] = (
-            quantidade_palavras
-        )
-
-        candidatos_controlados.append(
-            candidato
-        )
-
-    candidatos = candidatos_controlados
-
-    print(
-        "CANDIDATOS APÓS CONTROLE:",
-        len(candidatos)
-    )
-
 
 
     # ========================================================
