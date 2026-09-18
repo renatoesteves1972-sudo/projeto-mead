@@ -16627,6 +16627,12 @@ def gerar_conteudo_completo(
         "subtitulo",
         ""
     )
+
+    subtitulo_listas = titulos_python.get(
+        "subtitulo_listas",
+        ""
+    )
+    
     
     # ============================================================
     # ASSOCIAR OS TÍTULOS AOS BLOCOS
@@ -19967,7 +19973,9 @@ def salvar_banco(
     tags=None,
     trechos_utilizados=None,
     grupo_principal_projeto=None,
-    tipo=None
+    tipo=None,
+    subtitulo=None,
+    subtitulo_listas=None
 ):
 
 
@@ -20882,13 +20890,24 @@ def salvar_banco(
     # ========================================================
     # TIPO OFICIAL DA PÁGINA
     #
-    # O tipo já foi definido no início do processamento.
-    # Não classificar novamente o tema aqui.
+    # Só altera quando esta chamada realmente recebeu
+    # um tipo válido.
+    #
+    # Chamadas posteriores, como mapa_mead, não podem
+    # apagar o tipo já existente.
     # ========================================================
     
-    dados_tema[
-        "tipo"
-    ] = tipo
+    if tipo is not None:
+    
+        tipo_recebido = str(
+            tipo or ""
+        ).strip()
+    
+        if tipo_recebido:
+    
+            dados_tema[
+                "tipo"
+            ] = tipo_recebido
     
     # ========================================================
     # TAGS
@@ -21463,18 +21482,35 @@ def salvar_banco(
                 or ""
             ).strip()
             
-            pagina[
+
+            # ====================================================
+            # SUBTÍTULO DAS LISTAS
+            # ====================================================
+
+            if subtitulo_listas is not None:
+
+                subtitulo_listas_recebido = str(
+                    subtitulo_listas or ""
+                ).strip()
+
+                if subtitulo_listas_recebido:
+
+                    pagina[
+                        "subtitulo_listas"
+                    ] = subtitulo_listas_recebido
+
+            elif pagina_recebida.get(
                 "subtitulo_listas"
-            ] = str(
-                pagina_recebida.get(
-                    "subtitulo_listas",
-                    pagina.get(
-                        "subtitulo_listas",
-                        ""
+            ):
+
+                pagina[
+                    "subtitulo_listas"
+                ] = str(
+                    pagina_recebida.get(
+                        "subtitulo_listas"
                     )
-                )
-                or ""
-            ).strip()
+                    or ""
+                ).strip()
             
     
             # ====================================================
@@ -21528,17 +21564,19 @@ def salvar_banco(
                     "titulo"
                 ] = tema_original
     
-            pagina[
-                "subtitulo"
-            ] = str(
-                pagina_recebida.get(
+            if subtitulo is not None:
+                subtitulo_recebido = str(
+                    subtitulo or ""
+                ).strip()
+            
+                if subtitulo_recebido:
+                    pagina["subtitulo"] = subtitulo_recebido
+            
+            pagina["subtitulo"] = str(
+                pagina.get(
                     "subtitulo",
-                    pagina.get(
-                        "subtitulo",
-                        ""
-                    )
-                )
-                or ""
+                    ""
+                ) or ""
             ).strip()
     
             pagina[
@@ -21676,7 +21714,24 @@ def salvar_banco(
                 ).strip()
     
                 break
-    
+                
+        # ========================================================
+        # PRESERVAR SUBTÍTULO
+        # ========================================================
+        
+        if subtitulo is not None:
+        
+            subtitulo_recebido = str(
+                subtitulo or ""
+            ).strip()
+        
+            if subtitulo_recebido:
+        
+                pagina[
+                    "subtitulo"
+                ] = subtitulo_recebido
+                
+        
         # ----------------------------------------------------
         # BLOCOS 1 A 5
         # ----------------------------------------------------
