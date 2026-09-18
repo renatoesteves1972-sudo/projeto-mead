@@ -18848,7 +18848,7 @@ Retorne somente o parágrafo editorial.
         
         subtitulo=subtitulo,
 
-        subtitulo_listas=subtitulo_listas
+        subtitulo_listas=subtitulo_listas,
     )
 
 
