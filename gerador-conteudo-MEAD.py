@@ -18910,7 +18910,7 @@ def obter_contexto_banco(
     )
 
     return contexto[:limite]
-
+    
 
 # ============================================================
 # NORMALIZAR IDENTIDADE DO TEMA
@@ -18922,12 +18922,16 @@ def normalizar_tema_chave(tema):
     Cria uma identidade técnica normalizada do tema.
 
     IMPORTANTE:
-    - NÃO altera o tema original.
-    - Remove acentos somente para comparação de chaves.
-    - Converte para minúsculas.
+    - NÃO altera a acentuação do tema.
+    - Preserva exatamente os caracteres originais.
+    - Converte para minúsculas apenas para comparação.
     - Remove espaços duplicados.
     - Deve ser usada apenas para identificação,
       comparação e controle de duplicidade.
+
+    A remoção de acentos NÃO deve ocorrer aqui.
+    Ela deve existir somente na rotina responsável
+    pela criação do nome do arquivo/slug.
     """
 
     if tema is None:
@@ -18940,22 +18944,11 @@ def normalizar_tema_chave(tema):
     if not texto:
         return ""
 
-    texto = unicodedata.normalize(
-        "NFD",
-        texto
-    )
-
-    texto = "".join(
-        caractere
-        for caractere in texto
-        if unicodedata.category(caractere) != "Mn"
-    )
-
-    texto = texto.casefold()
-
     texto = " ".join(
         texto.split()
     )
+
+    texto = texto.casefold()
 
     return texto
 
