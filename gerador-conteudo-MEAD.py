@@ -10488,6 +10488,50 @@ def selecionar_informacoes_relevantes(
         assuntos
     )
 
+
+    # --------------------------------------------------------
+    # NORMALIZAÇÃO INTERNA PARA COMPARAÇÃO
+    # --------------------------------------------------------
+    #
+    # IMPORTANTE:
+    # Esta normalização é usada somente para:
+    # - comparação
+    # - pontuação
+    # - identificação de termos
+    # - validação interna
+    #
+    # NÃO altera:
+    # - tema original
+    # - palavra-chave gravada
+    # - JSON
+    # - textos dos fragmentos
+    # - conteúdo enviado ao Ollama
+    # - nome da página
+    #
+    # A remoção de acentos aqui é exclusivamente interna.
+    # --------------------------------------------------------
+
+    def normalizar_assunto_texto(
+        valor
+    ):
+
+        valor = str(
+            valor or ""
+        ).lower()
+
+        substituicoes = str.maketrans(
+
+            "áàãâäéèêëíìîïóòõôöúùûüç",
+
+            "aaaaaeeeeiiiiooooouuuuc"
+
+        )
+
+        return valor.translate(
+            substituicoes
+        )
+        
+        
     # ========================================================
     # 03. PREPARAR MAPA MEAD
     # ========================================================
@@ -11432,30 +11476,6 @@ def selecionar_informacoes_relevantes(
             "problemas", "como", "quando", "por que"
         ]
     }
-
-    # --------------------------------------------------------
-    # NORMALIZAÇÃO
-    # --------------------------------------------------------
-
-    def normalizar_assunto_texto(
-        valor
-    ):
-
-        valor = str(
-            valor or ""
-        ).lower()
-
-        substituicoes = str.maketrans(
-
-            "áàãâäéèêëíìîïóòõôöúùûüç",
-
-            "aaaaaeeeeiiiiooooouuuuc"
-
-        )
-
-        return valor.translate(
-            substituicoes
-        )
 
     assuntos_normalizados = []
 
