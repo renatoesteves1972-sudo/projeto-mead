@@ -18911,7 +18911,8 @@ def obter_contexto_banco(
 
     return contexto[:limite]
     
-
+    
+    
 # ============================================================
 # NORMALIZAR IDENTIDADE DO TEMA
 # ============================================================
