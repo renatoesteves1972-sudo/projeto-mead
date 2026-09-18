@@ -10967,414 +10967,606 @@ def selecionar_informacoes_relevantes(
         ):
             return False    
 
-        # ====================================================
-        # FILTRO DE IDENTIDADE COMERCIAL / PRODUTO
-        # ====================================================
-        #
-        # Descarta completamente o fragmento quando ele
-        # contém nome de empresa, fabricante, marca, modelo,
-        # código de produto ou identificação comercial.
-        #
-        # O fragmento é descartado inteiro.
-        # Não removemos apenas o nome comercial.
-        # ====================================================
 
-        if not fragmento_eh_comercialmente_limpo(
-            texto_original
+        # ========================================================
+        #
+        # Descarta o fragmento inteiro quando houver:
+        # - nome explícito de empresa/fabricante/marca;
+        # - identificação comercial;
+        # - código de produto/modelo;
+        # - SKU / MPN / part number;
+        # - número de série;
+        # - CNPJ;
+        # - telefone/e-mail/site;
+        # - linguagem claramente comercial.
+        #
+        # IMPORTANTE:
+        # - não remove palavras do fragmento;
+        # - não altera acentuação;
+        # - não altera o texto original;
+        # - apenas decide se o fragmento pode ou não ser utilizado.
+        # ========================================================
+        
+        def fragmento_eh_comercialmente_limpo(
+            texto
         ):
-            return False
-
-        texto_normalizado = (
-            normalizar_assunto_texto(
-                texto_original
-            )
-        )
-
-        # ----------------------------------------------------
-        # 01. MARCADORES DE COMENTÁRIOS / REDES SOCIAIS
-        # ----------------------------------------------------
-
-        marcadores_comentarios = [
-
-            "comments others also viewed",
-            "others also viewed",
-            "curtir",
-            "comentar",
-            "comentarios",
-            "comentários",
-            "responder",
-            "seguidores",
-            "linkedin",
-            "facebook",
-            "instagram",
-            "twitter",
-            "postado por",
-            "posted by",
-            "like",
-            "share"
-
-        ]
-
-        for marcador in marcadores_comentarios:
-
-            if marcador in texto_normalizado:
-
+        
+            texto = str(
+                texto or ""
+            ).strip()
+        
+            if not texto:
                 return False
-
-
-        # ----------------------------------------------------
-        # 02. MARCADORES DE MENU / NAVEGAÇÃO
-        # ----------------------------------------------------
-
-        marcadores_navegacao = [
-
-            "home",
-            "inicio",
-            "menu",
-            "contato",
-            "login",
-            "cadastro",
-            "entrar",
-            "siga-nos",
-            "compartilhe",
-            "politica de privacidade",
-            "política de privacidade",
-            "cookies",
-            "fale conosco"
-
-        ]
-
-        ocorrencias_navegacao = 0
-
-        for marcador in marcadores_navegacao:
-
-            if marcador in texto_normalizado:
-
-                ocorrencias_navegacao += 1
-
-        if ocorrencias_navegacao >= 2:
-
-            return False
-
-
-        # ----------------------------------------------------
-        # 03. MARCADORES DE ÍNDICE / SUMÁRIO
-        # ----------------------------------------------------
-
-        marcadores_indice = [
-
-            "sumario",
-            "sumário",
-            "indice",
-            "índice",
-            "conteudo",
-            "conteúdo",
-            "capitulo",
-            "capítulo",
-            "secao",
-            "seção",
-            "anexos",
-            "referencias",
-            "referências"
-
-        ]
-
-        ocorrencias_indice = 0
-
-        for marcador in marcadores_indice:
-
-            if marcador in texto_normalizado:
-
-                ocorrencias_indice += 1
-
-        if ocorrencias_indice >= 2:
-
-            return False
-
-
-        # ----------------------------------------------------
-        # 04. ESTRUTURA DE SUMÁRIO / NUMERAÇÃO
-        # ----------------------------------------------------
-
-        padroes_indice = [
-
-            r"\b\d+\.\d+\.",
-            r"\b\d+\.\d+\.\d+\.",
-            r"\b\d+\)\s*[-–]",
-            r"\b\d+\.\s*[-–]"
-
-        ]
-
-        ocorrencias_padroes_indice = 0
-
-        for padrao in padroes_indice:
-
-            ocorrencias_padroes_indice += len(
-                re.findall(
-                    padrao,
-                    texto_original
+        
+            texto_normalizado = (
+                normalizar_assunto_texto(
+                    texto
                 )
             )
-
-        if ocorrencias_padroes_indice >= 2:
-
-            return False
-
-
-        # ----------------------------------------------------
-        # 05. BULLETS / LISTAS EXTRAÍDAS
-        # ----------------------------------------------------
-
-        marcadores_lista = [
-
-            "○",
-            "●",
-            "■",
-            "□",
-            "▪",
-            "•",
-            "►",
-            "◆"
-
-        ]
-
-        ocorrencias_lista = 0
-
-        for marcador in marcadores_lista:
-
-            ocorrencias_lista += (
-                texto_original.count(
-                    marcador
-                )
-            )
-
-        if ocorrencias_lista >= 2:
-
-            return False
-
-
-        # ----------------------------------------------------
-        # 06. FRAGMENTO COM ESTRUTURA DE TABELA
-        #
-        # Exemplo do problema atual:
-        #
-        # rpm Tamanhos Vazão Elevação Temperatura Rotação
-        # Tipo 2 até 65 até 110m³/h...
-        #
-        # Muitos números + muitos rótulos técnicos isolados
-        # normalmente indicam tabela mal extraída.
-        # ----------------------------------------------------
-
-        quantidade_numeros = len(
-            re.findall(
-                r"\b\d+(?:[.,]\d+)?\b",
-                texto_original
-            )
-        )
-
-        marcadores_tabela = [
-
-            "tamanhos",
-            "vazao",
-            "vazão",
-            "elevacao",
-            "elevação",
-            "temperatura",
-            "rotacao",
-            "rotação",
-            "tipo",
-            "rpm",
-            "pressao",
-            "pressão",
-            "potencia",
-            "potência"
-
-        ]
-
-        marcadores_tabela_encontrados = 0
-
-        for marcador in marcadores_tabela:
-
-            if marcador in texto_normalizado:
-
-                marcadores_tabela_encontrados += 1
-
-        if (
-            quantidade_numeros >= 8
-            and
-            marcadores_tabela_encontrados >= 3
-        ):
-
-            return False
-
-
-        # ----------------------------------------------------
-        # 07. TEXTO COM CARACTERES CORROMPIDOS
-        # ----------------------------------------------------
-
-        if (
-            "\x00" in texto_original
-            or
-            "\x03" in texto_original
-            or
-            "\ufffd" in texto_original
-        ):
-
-            return False
-
-
-        # ----------------------------------------------------
-        # 08. TEXTO PRECISA TER ESTRUTURA DE PROSA
-        # ----------------------------------------------------
-
-        palavras = re.findall(
-            r"\S+",
-            texto_original
-        )
-
-        if len(palavras) < MIN_PALAVRAS_FRAGMENTO:
-
-            return False
-
-        if len(palavras) > MAX_PALAVRAS_FRAGMENTO:
-
-            return False
-
-
-        # ----------------------------------------------------
-        # 09. FRASES
-        #
-        # Um fragmento editorial deve conter pelo menos
-        # duas frases ou uma frase realmente desenvolvida.
-        # ----------------------------------------------------
-
-        frases = re.split(
-            r"(?<=[.!?])\s+",
-            texto_original
-        )
-
-        frases = [
-
-            frase.strip()
-
-            for frase in frases
-
-            if frase.strip()
-
-        ]
-
-        if not frases:
-
-            return False
-
-        quantidade_frases = len(
-            frases
-        )
-
-        if quantidade_frases == 1:
-
-            palavras_primeira_frase = len(
-                re.findall(
-                    r"\S+",
-                    frases[0]
-                )
-            )
-
-            if palavras_primeira_frase < 18:
-
-                return False
-
-
-        # ----------------------------------------------------
-        # 10. PROTEGER CONTRA EXCESSO DE TEXTO EM MAIÚSCULAS
-        #
-        # Evita cabeçalhos, índices e extrações de PDF.
-        # ----------------------------------------------------
-
-        letras = re.findall(
-            r"[A-Za-zÀ-ÿ]",
-            texto_original
-        )
-
-        if letras:
-
-            letras_maiusculas = [
-
-                letra
-
-                for letra
-                in letras
-
-                if letra.isupper()
-
-            ]
-
-            proporcao_maiusculas = (
-                len(letras_maiusculas)
-                /
-                len(letras)
-            )
-
-            if (
-                proporcao_maiusculas > 0.55
-                and
-                len(letras) > 40
+        
+            # ====================================================
+            # 01. URL / DOMÍNIO / E-MAIL
+            # ====================================================
+        
+            if re.search(
+                r"(https?://|www\.)\S+",
+                texto,
+                re.IGNORECASE
             ):
-
                 return False
-
-
-        # ----------------------------------------------------
-        # 11. EXCESSO DE SEPARADORES
-        #
-        # Evita listas/tabelas concatenadas.
-        # ----------------------------------------------------
-
-        separadores = len(
-            re.findall(
-                r"[|;•○●■□▪►◆]",
-                texto_original
+        
+            if re.search(
+                r"\b[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}\b",
+                texto,
+                re.IGNORECASE
+            ):
+                return False
+        
+            # ====================================================
+            # 02. CNPJ
+            # ====================================================
+        
+            if re.search(
+                r"\b\d{2}\.?\d{3}\.?\d{3}/?\d{4}-?\d{2}\b",
+                texto
+            ):
+                return False
+        
+            # ====================================================
+            # 03. TELEFONE
+            # ====================================================
+        
+            if re.search(
+                r"(?<!\d)"
+                r"(?:\+?55[\s.-]*)?"
+                r"\(?\d{2}\)?[\s.-]*"
+                r"\d{4,5}[\s.-]*\d{4}"
+                r"(?!\d)",
+                texto
+            ):
+                return False
+        
+            # ====================================================
+            # 04. IDENTIFICADORES COMERCIAIS EXPLÍCITOS
+            # ====================================================
+        
+            padroes_identificadores = [
+        
+                r"\bsku\b",
+        
+                r"\bmpn\b",
+        
+                r"\bpart[\s-]*number\b",
+        
+                r"\bpart[\s-]*no\.?\b",
+        
+                r"\bpart[\s-]*n[oº°]?\b",
+        
+                r"\bserial[\s-]*number\b",
+        
+                r"\bn[uú]mero[\s-]*de[\s-]*s[eé]rie\b",
+        
+                r"\bc[oó]digo[\s-]*(?:do|de)?[\s-]*produto\b",
+        
+                r"\bc[oó]igo[\s-]*comercial\b",
+        
+                r"\brefer[eê]ncia[\s-]*(?:do|de)?[\s-]*produto\b",
+        
+                r"\bref\.?[\s-]*(?:do|de)?[\s-]*produto\b",
+        
+                r"\bmodelo[\s-]*(?:do|de)?[\s-]*produto\b",
+        
+                r"\bn[uú]mero[\s-]*(?:do|de)?[\s-]*modelo\b"
+            ]
+        
+            for padrao in padroes_identificadores:
+        
+                if re.search(
+                    padrao,
+                    texto_normalizado,
+                    re.IGNORECASE
+                ):
+                    return False
+        
+            # ====================================================
+            # 05. CÓDIGOS ALFANUMÉRICOS
+            # ====================================================
+            #
+            # Aqui NÃO devemos bloquear qualquer combinação
+            # de letras e números.
+            #
+            # Exemplos técnicos que podem aparecer:
+            # DN100
+            # PN16
+            # IP68
+            # NBR 5648
+            # ASTM A53
+            # ISO 9001
+            # 304L
+            #
+            # O código só será considerado comercial quando
+            # houver indício suficiente de identificação de
+            # produto/modelo.
+            # ====================================================
+        
+            padroes_codigo_comercial = [
+        
+                # Ex.: modelo X100, X-100, ABC-123
+                r"\b(?:modelo|mod\.?)\s*[:\-]?\s*[A-Z]{1,8}[-_/]?\d[A-Z0-9-_/]*\b",
+        
+                # Ex.: código ABC123
+                r"\b(?:c[oó]digo|cod\.?)\s*[:\-]?\s*[A-Z0-9][A-Z0-9._/-]{2,}\b",
+        
+                # Ex.: referência ABC-123
+                r"\b(?:refer[eê]ncia|ref\.?)\s*[:\-]?\s*[A-Z0-9][A-Z0-9._/-]{2,}\b",
+        
+                # Ex.: produto ABC123
+                r"\bproduto\s+[A-Z]{1,8}[-_/]?\d[A-Z0-9-_/]*\b",
+        
+                # Ex.: série ABC123
+                r"\b(?:s[eé]rie|serial)\s*[:\-]?\s*[A-Z0-9][A-Z0-9._/-]{2,}\b"
+            ]
+        
+            for padrao in padroes_codigo_comercial:
+        
+                if re.search(
+                    padrao,
+                    texto,
+                    re.IGNORECASE
+                ):
+                    return False
+        
+            # ====================================================
+            # 06. CÓDIGOS ALFANUMÉRICOS ISOLADOS
+            # ====================================================
+            #
+            # Detectamos combinações suspeitas, mas permitimos
+            # códigos técnicos conhecidos.
+            # ====================================================
+        
+            codigos_tecnicos_permitidos = {
+                "pvc",
+                "pead",
+                "cpvc",
+                "ppr",
+                "nbr",
+                "iso",
+                "ansi",
+                "astm",
+                "din",
+                "api",
+                "rpm",
+                "ip",
+                "dn",
+                "pn",
+                "mca",
+                "kw",
+                "cv",
+                "hp"
+            }
+        
+            padrao_codigo_alfanumerico = re.compile(
+                r"(?<![A-Za-z0-9])"
+                r"[A-Za-z]{1,8}"
+                r"(?:[-_/]?[A-Za-z0-9]{1,12}){1,4}"
+                r"(?![A-Za-z0-9])"
             )
-        )
-
-        if separadores >= 5:
-
-            return False
-
-
-        # ----------------------------------------------------
-        # 12. TEXTO MUITO FRAGMENTADO
-        # ----------------------------------------------------
-
-        palavras_muito_curtas = sum(
-
-            1
-
-            for palavra
-            in palavras
-
-            if len(
-                re.sub(
-                    r"[^\wÀ-ÿ]",
-                    "",
-                    palavra
+        
+            ocorrencias_codigo = (
+                padrao_codigo_alfanumerico.findall(
+                    texto
                 )
-            ) <= 2
-
-        )
-
-        if (
-            len(palavras) >= 50
-            and
-            palavras_muito_curtas
-            >
-            len(palavras) * 0.35
-        ):
-
-            return False
-
-
-        return True
+            )
+        
+            codigos_suspeitos = []
+        
+            for codigo in ocorrencias_codigo:
+        
+                codigo_limpo = (
+                    str(codigo or "")
+                    .strip()
+                    .casefold()
+                )
+        
+                if not codigo_limpo:
+                    continue
+        
+                # ----------------------------------------------
+                # Ignora palavras puramente alfabéticas normais
+                # ----------------------------------------------
+        
+                if re.fullmatch(
+                    r"[A-Za-z]{2,20}",
+                    codigo_limpo
+                ):
+                    continue
+        
+                # ----------------------------------------------
+                # Ignora códigos técnicos conhecidos
+                # ----------------------------------------------
+        
+                codigo_base = re.sub(
+                    r"[^a-z0-9]",
+                    "",
+                    codigo_limpo
+                )
+        
+                if codigo_base in codigos_tecnicos_permitidos:
+                    continue
+        
+                # ----------------------------------------------
+                # Mantém códigos técnicos conhecidos seguidos
+                # de números.
+                #
+                # Exemplos:
+                # DN100
+                # PN16
+                # IP68
+                # ----------------------------------------------
+        
+                prefixo_tecnico = re.match(
+                    r"^([a-z]+)",
+                    codigo_limpo
+                )
+        
+                if prefixo_tecnico:
+        
+                    prefixo = (
+                        prefixo_tecnico.group(1)
+                        .casefold()
+                    )
+        
+                    if prefixo in codigos_tecnicos_permitidos:
+                        continue
+        
+                # ----------------------------------------------
+                # Código com letras + números
+                # ----------------------------------------------
+        
+                if re.search(
+                    r"[A-Za-z]",
+                    codigo
+                ) and re.search(
+                    r"\d",
+                    codigo
+                ):
+                    codigos_suspeitos.append(
+                        codigo
+                    )
+        
+            # ----------------------------------------------
+            # Dois ou mais códigos suspeitos no mesmo
+            # fragmento indicam forte possibilidade de
+            # catálogo/modelagem comercial.
+            # ----------------------------------------------
+        
+            if len(codigos_suspeitos) >= 2:
+        
+                return False
+        
+            # ----------------------------------------------
+            # Um código suspeito somente é descartado quando
+            # aparece próximo de contexto comercial.
+            # ----------------------------------------------
+        
+            if len(codigos_suspeitos) == 1:
+        
+                contexto_codigo = [
+        
+                    "modelo",
+        
+                    "codigo",
+        
+                    "código",
+        
+                    "referencia",
+        
+                    "referência",
+        
+                    "serie",
+        
+                    "série",
+        
+                    "item",
+        
+                    "produto",
+        
+                    "catalogo",
+        
+                    "catálogo",
+        
+                    "part number",
+        
+                    "part no",
+        
+                    "serial",
+        
+                    "sku",
+        
+                    "mpn"
+                ]
+        
+                if any(
+                    termo in texto_normalizado
+                    for termo in contexto_codigo
+                ):
+                    return False
+        
+            # ====================================================
+            # 07. CONTEXTO EXPLÍCITO DE EMPRESA / FABRICANTE
+            # ====================================================
+        
+            padroes_empresa = [
+        
+                r"\bfabricad[oa]\s+pel[ao]\b",
+        
+                r"\bproduzid[oa]\s+pel[ao]\b",
+        
+                r"\bfornecid[oa]\s+pel[ao]\b",
+        
+                r"\bcomercializad[oa]\s+pel[ao]\b",
+        
+                r"\bdistribu[ií]d[oa]\s+pel[ao]\b",
+        
+                r"\bvendid[oa]\s+pel[ao]\b",
+        
+                r"\bfabricante\s*:",
+        
+                r"\bfornecedor\s*:",
+        
+                r"\bempresa\s*:",
+        
+                r"\bmarca\s*:",
+        
+                r"\bmodelo\s*:",
+        
+                r"\bfabricante\s+[\w.-]+",
+        
+                r"\bfornecedor\s+[\w.-]+",
+        
+                r"\bmarca\s+[\w.-]+",
+        
+                r"\bfabricante\s+da\b",
+        
+                r"\bfabricante\s+do\b",
+        
+                r"\bfabricante\s+de\b",
+        
+                r"\bfornecedor\s+da\b",
+        
+                r"\bfornecedor\s+do\b",
+        
+                r"\bfornecedor\s+de\b",
+        
+                r"\bltda\.?\b",
+        
+                r"\bepp\b",
+        
+                r"\bs\.?a\.?\b",
+        
+                r"\bs/a\b",
+        
+                r"\binc\.?\b",
+        
+                r"\bcorp\.?\b",
+        
+                r"\bllc\b"
+            ]
+        
+            for padrao in padroes_empresa:
+        
+                if re.search(
+                    padrao,
+                    texto_normalizado,
+                    re.IGNORECASE
+                ):
+                    return False
+        
+            # ====================================================
+            # 08. CONTEXTO COMERCIAL DE EMPRESA
+            # ====================================================
+            #
+            # Detecta frases do tipo:
+            #
+            # "A empresa X fornece..."
+            # "A fabricante X produz..."
+            # "A marca X desenvolve..."
+            #
+            # Sem bloquear automaticamente qualquer palavra
+            # que possa ser nome próprio.
+            # ====================================================
+        
+            padroes_empresa_contextual = [
+        
+                r"\ba\s+empresa\s+[A-ZÀ-Ý][\wÀ-ÿ.-]+",
+        
+                r"\bo\s+fabricante\s+[A-ZÀ-Ý][\wÀ-ÿ.-]+",
+        
+                r"\ba\s+fabricante\s+[A-ZÀ-Ý][\wÀ-ÿ.-]+",
+        
+                r"\ba\s+marca\s+[A-ZÀ-Ý][\wÀ-ÿ.-]+",
+        
+                r"\bo\s+fornecedor\s+[A-ZÀ-Ý][\wÀ-ÿ.-]+",
+        
+                r"\ba\s+fornecedora\s+[A-ZÀ-Ý][\wÀ-ÿ.-]+"
+            ]
+        
+            for padrao in padroes_empresa_contextual:
+        
+                if re.search(
+                    padrao,
+                    texto,
+                    re.IGNORECASE
+                ):
+        
+                    return False
+        
+            # ====================================================
+            # 09. SÍMBOLOS DE MARCA
+            # ====================================================
+        
+            if "®" in texto:
+                return False
+        
+            if "™" in texto:
+                return False
+        
+            # ====================================================
+            # 10. LINGUAGEM DE CATÁLOGO / VENDA
+            # ====================================================
+        
+            marcadores_catalogo = [
+        
+                "consulte o catalogo",
+        
+                "consulte o catálogo",
+        
+                "entre em contato",
+        
+                "fale conosco",
+        
+                "solicite um orcamento",
+        
+                "solicite um orçamento",
+        
+                "peca seu orcamento",
+        
+                "peça seu orçamento",
+        
+                "compre agora",
+        
+                "adquira agora",
+        
+                "saiba mais",
+        
+                "clique aqui",
+        
+                "disponivel para compra",
+        
+                "disponível para compra",
+        
+                "preco sob consulta",
+        
+                "preço sob consulta",
+        
+                "cotacao sob consulta",
+        
+                "cotação sob consulta",
+        
+                "solicite uma cotacao",
+        
+                "solicite uma cotação",
+        
+                "faca sua cotacao",
+        
+                "faça sua cotação"
+            ]
+        
+            for marcador in marcadores_catalogo:
+        
+                if marcador in texto_normalizado:
+        
+                    return False
+        
+            # ====================================================
+            # 11. CABEÇALHOS COMERCIAIS
+            # ====================================================
+        
+            cabecalhos_comerciais = [
+        
+                "por que escolher",
+        
+                "porque escolher",
+        
+                "why choose",
+        
+                "our products",
+        
+                "our product",
+        
+                "nossos produtos",
+        
+                "nossa empresa",
+        
+                "sobre nossa empresa",
+        
+                "conheca nossa empresa",
+        
+                "conheça nossa empresa",
+        
+                "fale com nossa equipe",
+        
+                "nossa linha de produtos",
+        
+                "linha de produtos"
+            ]
+        
+            for marcador in cabecalhos_comerciais:
+        
+                if marcador in texto_normalizado:
+        
+                    return False
+        
+            # ====================================================
+            # 12. MARCADORES COMERCIAIS EM INGLÊS
+            # ====================================================
+        
+            marcadores_comerciais_ingles = [
+        
+                "manufacturer",
+        
+                "supplier",
+        
+                "manufacturer's",
+        
+                "product code",
+        
+                "model number",
+        
+                "part number",
+        
+                "serial number",
+        
+                "catalog",
+        
+                "catalogue",
+        
+                "sku",
+        
+                "mpn"
+            ]
+        
+            for marcador in marcadores_comerciais_ingles:
+        
+                if marcador in texto_normalizado:
+        
+                    return False
+        
+            # ====================================================
+            # 13. RESULTADO
+            # ====================================================
+        
+            return True
 
 
     # ========================================================
