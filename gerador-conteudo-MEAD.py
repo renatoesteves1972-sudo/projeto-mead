@@ -18935,7 +18935,7 @@ Retorne somente o parágrafo editorial.
         
         subtitulo=subtitulo,
 
-        subtitulo_listas=subtitulo_listas,
+        subtitulo_segmentos=subtitulo_segmentos,
     )
 
 
@@ -19942,13 +19942,13 @@ def gerar_titulos(
     )
 
     # ========================================================
-    # 04. SUBTÍTULO DAS LISTAS
+    # 04. SUBTÍTULO DOS SEGMENTOS
     #
     # Segundo subtítulo.
     # Também criado exclusivamente pelo Python.
     # ========================================================
 
-    subtitulo_listas = (
+    subtitulo_segmentos = (
         f"Principais aplicações de {tema}"
     )
 
@@ -19991,8 +19991,8 @@ def gerar_titulos(
         "subtitulo":
             subtitulo,
 
-        "subtitulo_listas":
-            subtitulo_listas,
+        "subtitulo_segmentos":
+            subtitulo_segmentos,
 
         "bloco_1":
             bloco_1,
@@ -20031,8 +20031,8 @@ def gerar_titulos(
     )
 
     print(
-        "SUBTÍTULO LISTAS:",
-        subtitulo_listas
+        "SUBTÍTULO SEGMENTOS:",
+        subtitulo_segmentos
     )
 
     for numero in range(1, 6):
@@ -20066,7 +20066,7 @@ def salvar_banco(
     grupo_principal_projeto=None,
     tipo=None,
     subtitulo=None,
-    subtitulo_listas=None
+    subtitulo_segmentos=None
 ):
 
 
@@ -21606,34 +21606,33 @@ def salvar_banco(
     
     
             # ====================================================
-            # SUBTÍTULO DAS LISTAS
+            # SUBTÍTULO DOS SEGMENTOS
             # ====================================================
-    
-            if subtitulo_listas is not None:
-    
-                subtitulo_listas_recebido = str(
-                    subtitulo_listas or ""
+
+            if subtitulo_segmentos is not None:
+
+                subtitulo_segmentos_recebido = str(
+                    subtitulo_segmentos or ""
                 ).strip()
-    
-                if subtitulo_listas_recebido:
-    
+
+                if subtitulo_segmentos_recebido:
+
                     pagina[
-                        "subtitulo_listas"
-                    ] = subtitulo_listas_recebido
-    
+                        "subtitulo_segmentos"
+                    ] = subtitulo_segmentos_recebido
+
             elif pagina_recebida.get(
-                "subtitulo_listas"
+                "subtitulo_segmentos"
             ):
-    
+
                 pagina[
-                    "subtitulo_listas"
+                    "subtitulo_segmentos"
                 ] = str(
                     pagina_recebida.get(
-                        "subtitulo_listas"
+                        "subtitulo_segmentos"
                     )
-                        or ""
+                    or ""
                 ).strip()
-    
     
             # ====================================================
             # H1 E TÍTULO
@@ -21691,23 +21690,7 @@ def salvar_banco(
                 ] = tema_original
     
     
-            # ====================================================
-            # DESCRIÇÃO
-            # ====================================================
-    
-            pagina[
-                "descricao"
-            ] = str(
-                pagina_recebida.get(
-                    "descricao",
-                    pagina.get(
-                        "descricao",
-                        ""
-                    )
-                )
-                or ""
-            ).strip()
-    
+   
     
             # ====================================================
             # BLOCOS RECEBIDOS DENTRO DA PÁGINA
@@ -22606,10 +22589,10 @@ def salvar_banco(
     ).strip()
     
     pagina[
-        "descricao"
+        "subtitulo_segmentos"
     ] = str(
         pagina.get(
-            "descricao",
+            "subtitulo_segmentos",
             ""
         )
         or ""
@@ -23062,42 +23045,42 @@ def salvar_banco(
     # ========================================================
     # MONTAR PÁGINA FINAL
     # ========================================================
-    
+
     pagina_final = {
-    
+
         "tema":
             pagina.get(
                 "tema",
                 tema_original
             ),
-    
+
         "arquivo_origem":
             pagina.get(
                 "arquivo_origem",
                 ""
             ),
-    
+
         "h1":
             pagina.get(
                 "h1",
                 tema_original
             ),
-    
+
         "titulo":
             pagina.get(
                 "titulo",
                 tema_original
             ),
-    
+
         "subtitulo":
             pagina.get(
                 "subtitulo",
                 ""
             ),
-    
-        "descricao":
+
+        "subtitulo_segmentos":
             pagina.get(
-                "descricao",
+                "subtitulo_segmentos",
                 ""
             )
     }
@@ -24279,19 +24262,19 @@ def montar_pagina_json(
         ][
             "informacoes_relevantes"
         ] = informacoes_bloco
-
+        
+        
         # ========================================================
         # DADOS GERAIS DA PÁGINA
         # ========================================================
-        
+
         dados_gerais = [
             "tema",
             "arquivo_origem",
             "h1",
             "titulo",
             "subtitulo",
-            "subtitulo_listas",
-            "descricao"
+            "subtitulo_segmentos"
         ]
         
         for campo in dados_gerais:
