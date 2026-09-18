@@ -21446,6 +21446,7 @@ def salvar_banco(
                 dados_bloco_final
             )
     
+    
     # ========================================================
     # CATEGORIA: PÁGINA
     # ========================================================
@@ -21481,37 +21482,67 @@ def salvar_banco(
                 )
                 or ""
             ).strip()
-            
-
+    
+    
+            # ====================================================
+            # SUBTÍTULO
+            # ====================================================
+    
+            if subtitulo is not None:
+    
+                subtitulo_recebido = str(
+                    subtitulo or ""
+                ).strip()
+    
+                if subtitulo_recebido:
+    
+                    pagina[
+                        "subtitulo"
+                    ] = subtitulo_recebido
+    
+            elif pagina_recebida.get(
+                "subtitulo"
+            ):
+    
+                pagina[
+                    "subtitulo"
+                ] = str(
+                    pagina_recebida.get(
+                        "subtitulo"
+                    )
+                    or ""
+                ).strip()
+    
+    
             # ====================================================
             # SUBTÍTULO DAS LISTAS
             # ====================================================
-
+    
             if subtitulo_listas is not None:
-
+    
                 subtitulo_listas_recebido = str(
                     subtitulo_listas or ""
                 ).strip()
-
+    
                 if subtitulo_listas_recebido:
-
+    
                     pagina[
                         "subtitulo_listas"
                     ] = subtitulo_listas_recebido
-
+    
             elif pagina_recebida.get(
                 "subtitulo_listas"
             ):
-
+    
                 pagina[
                     "subtitulo_listas"
                 ] = str(
                     pagina_recebida.get(
                         "subtitulo_listas"
                     )
-                    or ""
+                        or ""
                 ).strip()
-            
+    
     
             # ====================================================
             # H1 E TÍTULO
@@ -21538,6 +21569,7 @@ def salvar_banco(
             ).strip()
             
             if h1_recebido:
+    
                 pagina[
                     "h1"
                 ] = h1_recebido
@@ -21546,12 +21578,14 @@ def salvar_banco(
                 "h1",
                 ""
             ):
+    
                 pagina[
                     "h1"
                 ] = tema_original
             
             
             if titulo_recebido:
+    
                 pagina[
                     "titulo"
                 ] = titulo_recebido
@@ -21560,24 +21594,15 @@ def salvar_banco(
                 "titulo",
                 ""
             ):
+    
                 pagina[
                     "titulo"
                 ] = tema_original
     
-            if subtitulo is not None:
-                subtitulo_recebido = str(
-                    subtitulo or ""
-                ).strip()
-            
-                if subtitulo_recebido:
-                    pagina["subtitulo"] = subtitulo_recebido
-            
-            pagina["subtitulo"] = str(
-                pagina.get(
-                    "subtitulo",
-                    ""
-                ) or ""
-            ).strip()
+    
+            # ====================================================
+            # DESCRIÇÃO
+            # ====================================================
     
             pagina[
                 "descricao"
@@ -21591,6 +21616,11 @@ def salvar_banco(
                 )
                 or ""
             ).strip()
+    
+    
+            # ====================================================
+            # BLOCOS RECEBIDOS DENTRO DA PÁGINA
+            # ====================================================
     
             blocos_recebidos = pagina_recebida.get(
                 "blocos",
@@ -21628,6 +21658,11 @@ def salvar_banco(
                         numero,
                         bloco
                     )
+    
+    
+            # ====================================================
+            # SEGMENTOS RECEBIDOS
+            # ====================================================
     
             segmentos_recebidos = (
                 pagina_recebida.get(
