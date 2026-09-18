@@ -9566,6 +9566,10 @@ def criar_estrutura_json_pagina(tema):
 
         tema: {
 
+            # ====================================================
+            # IDENTIFICAÇÃO
+            # ====================================================
+
             "tema":
                 "",
 
@@ -9574,6 +9578,10 @@ def criar_estrutura_json_pagina(tema):
 
             "grupo_principal_projeto":
                 "",
+
+            # ====================================================
+            # SEGMENTOS / FONTES / REFERÊNCIAS
+            # ====================================================
 
             "segmentos_textuais":
                 [],
@@ -9587,14 +9595,26 @@ def criar_estrutura_json_pagina(tema):
             "trechos_utilizados":
                 [],
 
+            # ====================================================
+            # CLASSIFICAÇÃO
+            # ====================================================
+
             "grupo":
                 "",
 
             "tipo":
                 "",
 
+            # ====================================================
+            # TAGS
+            # ====================================================
+
             "tags":
                 [],
+
+            # ====================================================
+            # CONTROLE DE REPETIÇÕES
+            # ====================================================
 
             "controle_repeticoes": {
 
@@ -9611,6 +9631,10 @@ def criar_estrutura_json_pagina(tema):
                     60
             },
 
+            # ====================================================
+            # MAPA MEAD
+            # ====================================================
+
             "mapa_mead": {
 
                 "status":
@@ -9620,7 +9644,15 @@ def criar_estrutura_json_pagina(tema):
                     ""
             },
 
+            # ====================================================
+            # PÁGINA
+            # ====================================================
+
             "pagina": {
+
+                # ==================================================
+                # IDENTIFICAÇÃO DA PÁGINA
+                # ==================================================
 
                 "tema":
                     "",
@@ -9634,11 +9666,20 @@ def criar_estrutura_json_pagina(tema):
                 "titulo":
                     "",
 
+                # Frase de impacto criada pelo Python
                 "subtitulo":
                     "",
 
                 "descricao":
                     "",
+
+                # Subtítulo que aparece antes dos segmentos
+                "subtitulo_listas":
+                    "",
+
+                # ==================================================
+                # BLOCO 1
+                # ==================================================
 
                 "bloco_1": {
 
@@ -9649,10 +9690,24 @@ def criar_estrutura_json_pagina(tema):
                         "",
 
                     "informacoes_relevantes":
-                        "",
+                        [],
 
                     "titulo":
                         "",
+
+                    "paragrafos_python":
+                        [
+                            "",
+                            "",
+                            ""
+                        ],
+
+                    "paragrafos_ollama":
+                        [
+                            "",
+                            "",
+                            ""
+                        ],
 
                     "paragrafos":
                         [
@@ -9661,6 +9716,10 @@ def criar_estrutura_json_pagina(tema):
                             ""
                         ]
                 },
+
+                # ==================================================
+                # BLOCO 2
+                # ==================================================
 
                 "bloco_2": {
 
@@ -9671,10 +9730,24 @@ def criar_estrutura_json_pagina(tema):
                         "",
 
                     "informacoes_relevantes":
-                        "",
+                        [],
 
                     "titulo":
                         "",
+
+                    "paragrafos_python":
+                        [
+                            "",
+                            "",
+                            ""
+                        ],
+
+                    "paragrafos_ollama":
+                        [
+                            "",
+                            "",
+                            ""
+                        ],
 
                     "paragrafos":
                         [
@@ -9683,6 +9756,10 @@ def criar_estrutura_json_pagina(tema):
                             ""
                         ]
                 },
+
+                # ==================================================
+                # BLOCO 3
+                # ==================================================
 
                 "bloco_3": {
 
@@ -9693,10 +9770,24 @@ def criar_estrutura_json_pagina(tema):
                         "",
 
                     "informacoes_relevantes":
-                        "",
+                        [],
 
                     "titulo":
                         "",
+
+                    "paragrafos_python":
+                        [
+                            "",
+                            "",
+                            ""
+                        ],
+
+                    "paragrafos_ollama":
+                        [
+                            "",
+                            "",
+                            ""
+                        ],
 
                     "paragrafos":
                         [
@@ -9705,6 +9796,10 @@ def criar_estrutura_json_pagina(tema):
                             ""
                         ]
                 },
+
+                # ==================================================
+                # BLOCO 4
+                # ==================================================
 
                 "bloco_4": {
 
@@ -9715,10 +9810,24 @@ def criar_estrutura_json_pagina(tema):
                         "",
 
                     "informacoes_relevantes":
-                        "",
+                        [],
 
                     "titulo":
                         "",
+
+                    "paragrafos_python":
+                        [
+                            "",
+                            "",
+                            ""
+                        ],
+
+                    "paragrafos_ollama":
+                        [
+                            "",
+                            "",
+                            ""
+                        ],
 
                     "paragrafos":
                         [
@@ -9727,6 +9836,10 @@ def criar_estrutura_json_pagina(tema):
                             ""
                         ]
                 },
+
+                # ==================================================
+                # BLOCO 5
+                # ==================================================
 
                 "bloco_5": {
 
@@ -9737,10 +9850,24 @@ def criar_estrutura_json_pagina(tema):
                         "",
 
                     "informacoes_relevantes":
-                        "",
+                        [],
 
                     "titulo":
                         "",
+
+                    "paragrafos_python":
+                        [
+                            "",
+                            "",
+                            ""
+                        ],
+
+                    "paragrafos_ollama":
+                        [
+                            "",
+                            "",
+                            ""
+                        ],
 
                     "paragrafos":
                         [
@@ -9750,21 +9877,16 @@ def criar_estrutura_json_pagina(tema):
                         ]
                 },
 
-                "segmentos_listas": {
+                # ==================================================
+                # SEGMENTOS GERADOS PELO PYTHON
+                # ==================================================
 
-                    "segmento_1": [],
-                    "segmento_2": [],
-                    "segmento_3": [],
-                    "segmento_4": [],
-                    "segmento_5": [],
-                    "segmento_6": [],
-                    "segmento_7": [],
-                    "segmento_8": [],
-                    "segmento_9": [],
-                    "segmento_10": [],
-                    "segmento_11": [],
-                    "segmento_12": []
-                },
+                "segmentos_listas":
+                    {},
+
+                # ==================================================
+                # POSICIONAMENTO DOS SEGMENTOS
+                # ==================================================
 
                 "posicionamento_listas": {
 
@@ -9772,58 +9894,113 @@ def criar_estrutura_json_pagina(tema):
                         None
                 },
 
+                # ==================================================
+                # IMAGENS
+                # ==================================================
+
                 "imagens": {
 
                     "imagem_1": {
-                        "url": "",
-                        "arquivo": "",
-                        "alt": "",
-                        "descricao": ""
+
+                        "url":
+                            "",
+
+                        "arquivo":
+                            "",
+
+                        "alt":
+                            "",
+
+                        "descricao":
+                            ""
                     },
 
                     "imagem_2": {
-                        "url": "",
-                        "arquivo": "",
-                        "alt": "",
-                        "descricao": ""
+
+                        "url":
+                            "",
+
+                        "arquivo":
+                            "",
+
+                        "alt":
+                            "",
+
+                        "descricao":
+                            ""
                     },
 
                     "imagem_3": {
-                        "url": "",
-                        "arquivo": "",
-                        "alt": "",
-                        "descricao": ""
+
+                        "url":
+                            "",
+
+                        "arquivo":
+                            "",
+
+                        "alt":
+                            "",
+
+                        "descricao":
+                            ""
                     },
 
                     "imagem_4": {
-                        "url": "",
-                        "arquivo": "",
-                        "alt": "",
-                        "descricao": ""
+
+                        "url":
+                            "",
+
+                        "arquivo":
+                            "",
+
+                        "alt":
+                            "",
+
+                        "descricao":
+                            ""
                     },
 
                     "imagem_5": {
-                        "url": "",
-                        "arquivo": "",
-                        "alt": "",
-                        "descricao": ""
+
+                        "url":
+                            "",
+
+                        "arquivo":
+                            "",
+
+                        "alt":
+                            "",
+
+                        "descricao":
+                            ""
                     },
 
                     "imagem_6": {
-                        "url": "",
-                        "arquivo": "",
-                        "alt": "",
-                        "descricao": ""
+
+                        "url":
+                            "",
+
+                        "arquivo":
+                            "",
+
+                        "alt":
+                            "",
+
+                        "descricao":
+                            ""
                     }
                 },
+
+                # ==================================================
+                # CONTROLE DA PÁGINA
+                # ==================================================
 
                 "caracteres":
                     0,
 
                 "status":
                     "em_construcao"
-            },
-
+            }
         }
     }
 
@@ -16204,444 +16381,964 @@ PARÁGRAFOS-BASE SELECIONADOS PELO PYTHON
     print("=" * 60)
     
     
-    # ============================================================
-    # 12. CHAMADA OLLAMA
-    # ============================================================
-    
-    print()
-    print("=" * 60)
-    print("ENVIANDO SOMENTE OS 15 FRAGMENTOS PARA O OLLAMA")
-    print("=" * 60)
-    
-    inicio_ollama = time.time()
-    
-    try:
-    
-        resposta = requests.post(
-    
-            "http://localhost:11434/api/generate",
-    
-            json={
-    
-                "model":
-                    "qwen2.5:3b",
-    
-                "prompt":
-                    prompt,
-    
-                "stream":
-                    False,
-    
-                "think":
-                    False,
-    
-                "options": {
-    
-                    "num_predict":
-                        5000,
-    
-                    "num_ctx":
-                        8192,
-    
-                    "temperature":
-                        0.2,
-    
-                    "top_p":
-                        0.9,
-    
-                    "repeat_penalty":
-                        1.05
-    
-                }
-    
-            },
-    
-            timeout=(
-                30,
-                900
-            )
-    
-        )
-    
-    except requests.exceptions.Timeout:
-    
-        print()
-        print("=" * 60)
-        print("TIMEOUT OLLAMA")
-        print("=" * 60)
-    
-        print(
-            "A IA demorou mais de 900 segundos."
-        )
-    
-        return None
-    
-    except requests.exceptions.ConnectionError as erro:
-    
-        print()
-        print("=" * 60)
-        print("ERRO DE CONEXÃO COM OLLAMA")
-        print("=" * 60)
-    
-        print(
-            repr(erro)
-        )
-    
-        return None
-    
-    except Exception as erro:
-    
-        print()
-        print("=" * 60)
-        print("ERRO NA CHAMADA OLLAMA")
-        print("=" * 60)
-    
-        print(
-            repr(erro)
-        )
-    
-        return None
-    
-    
-    fim_ollama = time.time()
-    
-    
-    # ============================================================
-    # RESPOSTA
-    # ============================================================
-    
-    print()
-    print("=" * 60)
-    print("OLLAMA RESPONDEU")
-    print("=" * 60)
-    
-    print(
-        "STATUS:",
-        resposta.status_code
-    )
-    
-    print(
-        "TEMPO:",
-        round(
-            fim_ollama - inicio_ollama,
-            2
-        ),
-        "segundos"
-    )
-    
-    
-    if resposta.status_code != 200:
-    
-        print(
-            "ERRO HTTP:",
-            resposta.text[:1000]
-        )
-    
-        return None
-    
-    
-    try:
-    
-        dados_ollama = resposta.json()
-    
-    except Exception as erro:
-    
-        print(
-            "ERRO AO LER RESPOSTA JSON:",
-            repr(erro)
-        )
-    
-        print(
-            resposta.text[:1000]
-        )
-    
-        return None
-    
-    
-    conteudo_bruto = str(
-        dados_ollama.get(
-            "response",
-            ""
-        )
-        or ""
-    ).strip()
-    
-    
-    print(
-        "CARACTERES RETORNADOS:",
-        len(conteudo_bruto)
-    )
-    
-    
-    if not conteudo_bruto:
-    
-        print(
-            "OLLAMA RETORNOU VAZIO"
-        )
-    
-        return None
-    
-    
-    print()
-    print("=" * 60)
-    print("RESPOSTA BRUTA DO OLLAMA")
-    print("=" * 60)
-    
-    print(
-        conteudo_bruto
-    )
-    
-    print("=" * 60)
 
-    # ========================================================
-    # 14. FUNÇÃO AUXILIAR PARA EXTRAIR MARCADORES
-    # ========================================================
-    
-    def extrair_marcador(
-        texto,
-        marcador
-    ):
-    
-        padrao = (
-            r"\["
-            + re.escape(marcador)
-            + r"\]"
-            r"(.*?)"
-            r"\[/"
-            + re.escape(marcador)
-            + r"\]"
-        )
-    
-        resultado = re.search(
-            padrao,
-            texto,
-            re.IGNORECASE |
-            re.DOTALL
-        )
-    
-        if not resultado:
-    
-            return ""
-    
-        return resultado.group(
-            1
-        ).strip()
-    
-    # ========================================================
-    # 15 / 16
-    # ========================================================
-    
-    # ========================================================
-    # EXTRAIR BLOCOS E PARÁGRAFOS
+    # ============================================================
+    # 11. PROCESSAMENTO DOS FRAGMENTOS — OLLAMA
+    # ============================================================
     #
-    # TÍTULO, SUBTÍTULO E TÍTULOS DOS BLOCOS
-    # JÁ FORAM DEFINIDOS PELO PYTHON.
-    # ========================================================
-    
-    h1 = titulos_python.get(
-        "h1",
-        ""
-    )
-    
-    titulo = titulos_python.get(
-        "title",
-        ""
-    )
-    
-    subtitulo = titulos_python.get(
-        "subtitulo",
-        ""
-    )
-    
-    blocos = []
-    
-    for numero_bloco in range(1, total_blocos + 1):
-    
-        marcador_inicio = (
-            f"[BLOCO_{numero_bloco}]"
-        )
-    
-        if numero_bloco < total_blocos:
-    
-            marcador_proximo = (
-                f"[BLOCO_{numero_bloco + 1}]"
-            )
-    
-            padrao_bloco = (
-                re.escape(marcador_inicio)
-                + r"(.*?)"
-                + re.escape(marcador_proximo)
-            )
-    
-        else:
-    
-            padrao_bloco = (
-                re.escape(marcador_inicio)
-                + r"(.*)$"
-            )
-    
-        resultado_bloco = re.search(
-            padrao_bloco,
-            str(conteudo_bruto),
-            re.IGNORECASE | re.DOTALL
-        )
-    
-        if not resultado_bloco:
-            continue
-    
-        texto_bloco = (
-            resultado_bloco.group(1).strip()
-        )
-        
-        print("\n========================================")
-        print(f"DEBUG BLOCO {numero_bloco}")
-        print("========================================")
-        
+    # RESPONSABILIDADE DO PYTHON:
+    #
+    # - selecionar as informações relevantes;
+    # - organizar os 5 blocos;
+    # - definir H1;
+    # - definir título;
+    # - definir subtítulo;
+    # - definir títulos dos blocos;
+    # - manter os fragmentos originais;
+    # - gerar os parágrafos-base;
+    # - enviar UM fragmento por vez ao Ollama.
+    #
+    # RESPONSABILIDADE DO OLLAMA:
+    #
+    # - transformar UM fragmento selecionado em UM parágrafo;
+    # - não pesquisar;
+    # - não inventar informações;
+    # - não criar títulos;
+    # - não criar subtítulos;
+    # - não criar tags;
+    # - não criar segmentos.
+    #
+    # FLUXO:
+    #
+    # BLOCO 1
+    #   fragmento 1 -> Ollama -> salva imediatamente
+    #   fragmento 2 -> Ollama -> salva imediatamente
+    #   fragmento 3 -> Ollama -> salva imediatamente
+    #
+    # BLOCO 2
+    #   fragmento 1 -> Ollama -> salva imediatamente
+    #   fragmento 2 -> Ollama -> salva imediatamente
+    #   fragmento 3 -> Ollama -> salva imediatamente
+    #
+    # ...
+    #
+    # BLOCO 5
+    #   fragmento 1 -> Ollama -> salva imediatamente
+    #   fragmento 2 -> Ollama -> salva imediatamente
+    #   fragmento 3 -> Ollama -> salva imediatamente
+    #
+    # ============================================================
+
+    print()
+    print("=" * 60)
+    print("PROCESSAMENTO INDIVIDUAL DOS FRAGMENTOS PELO OLLAMA")
+    print("=" * 60)
+
+
+    # ============================================================
+    # GARANTIR ESTRUTURA DOS 5 BLOCOS
+    # ============================================================
+
+    if not isinstance(
+        informacoes_blocos,
+        dict
+    ):
+
+        print()
         print(
-            "CARACTERES texto_bloco:",
-            len(texto_bloco)
-        )
-        
-        print(
-            "PARAGRAFO_1 EXISTE:",
-            "[PARAGRAFO_1]" in texto_bloco
-        )
-        
-        print(
-            "PARAGRAFO_2 EXISTE:",
-            "[PARAGRAFO_2]" in texto_bloco
-        )
-        
-        print(
-            "PARAGRAFO_3 EXISTE:",
-            "[PARAGRAFO_3]" in texto_bloco
-        )
-    
-        # ====================================================
-        # TÍTULO DO BLOCO
-        #
-        # NÃO VEM MAIS DO OLLAMA.
-        # ====================================================
-    
-        titulo_bloco = titulos_python.get(
-            f"bloco_{numero_bloco}",
-            ""
-        )
-    
-        # ----------------------------------------------------
-        # EXTRAIR OS 3 PARÁGRAFOS
-        #
-        # OLLAMA:
-        #
-        # [PARAGRAFO_1]
-        # texto do parágrafo
-        # [/PARAGRAFO_1]
-        #
-        # [PARAGRAFO_2]
-        # texto do parágrafo
-        # [/PARAGRAFO_2]
-        #
-        # [PARAGRAFO_3]
-        # texto do parágrafo
-        # [/PARAGRAFO_3]
-        # ----------------------------------------------------
-        
-        padrao_paragrafo = (
-            r"\[PARAGRAFO_(\d+)\]"
-            r"(.*?)"
-            r"\[/PARAGRAFO_\1\]"
-        )
-        
-        resultados = re.findall(
-            padrao_paragrafo,
-            texto_bloco,
-            re.IGNORECASE | re.DOTALL
-        )
-        
-        paragrafos = [
-            texto.strip()
-            for numero, texto in resultados
-            if texto.strip()
-        ]
-        
-        # ----------------------------------------------------
-        # GARANTIR NO MÁXIMO 3 PARÁGRAFOS
-        # ----------------------------------------------------
-        
-        paragrafos = paragrafos[:paragrafos_por_bloco]
-        
-        conteudo_bloco = "\n\n".join(
-            paragrafos
+            "❌ ERRO: informacoes_blocos não é um dicionário."
         )
 
-        # ========================================================
-        # PRESERVAR OS DADOS DO PYTHON NO BLOCO FINAL
-        # ========================================================
+        return None
 
-        chave_bloco = f"bloco_{numero_bloco}"
 
-        dados_base_bloco = (
-            blocos_informacoes.get(
+    # ============================================================
+    # PROCESSAR CADA BLOCO
+    # ============================================================
+
+    for numero_bloco in range(
+        1,
+        total_blocos + 1
+    ):
+
+        chave_bloco = (
+            f"bloco_{numero_bloco}"
+        )
+
+        dados_bloco = (
+            informacoes_blocos.get(
                 chave_bloco,
                 {}
             )
         )
 
         if not isinstance(
-            dados_base_bloco,
+            dados_bloco,
             dict
         ):
-            dados_base_bloco = {}
 
-        paragrafos_python_bloco = (
-            dados_base_bloco.get(
-                "paragrafos_python",
-                []
+            print()
+            print(
+                f"❌ ERRO: {chave_bloco} não possui estrutura válida."
             )
-        )
 
-        if not isinstance(
-            paragrafos_python_bloco,
-            list
-        ):
-            paragrafos_python_bloco = []
+            return None
 
-        paragrafos_python_bloco = [
-            str(paragrafo or "").strip()
-            for paragrafo in paragrafos_python_bloco[:3]
-            if str(paragrafo or "").strip()
-        ]
 
-        # --------------------------------------------------------
-        # OLLAMA = PARÁGRAFOS FINAIS
-        # --------------------------------------------------------
+        # ========================================================
+        # INFORMAÇÕES RELEVANTES
+        # ========================================================
 
-        paragrafos_ollama_bloco = [
-            str(paragrafo or "").strip()
-            for paragrafo in paragrafos[:3]
-            if str(paragrafo or "").strip()
-        ]
-
-        # --------------------------------------------------------
-        # INFORMAÇÕES RELEVANTES DO PYTHON
-        # --------------------------------------------------------
-
-        informacoes_relevantes_bloco = (
-            dados_base_bloco.get(
+        informacoes_relevantes = (
+            dados_bloco.get(
                 "informacoes_relevantes",
                 []
             )
         )
 
         if not isinstance(
-            informacoes_relevantes_bloco,
+            informacoes_relevantes,
             list
         ):
-            informacoes_relevantes_bloco = []
 
-        # --------------------------------------------------------
-        # BLOCO FINAL
-        # --------------------------------------------------------
+            print()
+            print(
+                f"❌ ERRO: {chave_bloco} possui "
+                "informacoes_relevantes inválidas."
+            )
+
+            return None
+
+
+        # ========================================================
+        # O BLOCO PRECISA POSSUIR EXATAMENTE 3 FRAGMENTOS
+        # ========================================================
+
+        if len(informacoes_relevantes) != 3:
+
+            print()
+            print("=" * 60)
+            print(
+                f"❌ ERRO NO {chave_bloco}"
+            )
+            print("=" * 60)
+
+            print(
+                "FRAGMENTOS ENCONTRADOS:",
+                len(informacoes_relevantes)
+            )
+
+            print(
+                "FRAGMENTOS NECESSÁRIOS:",
+                3
+            )
+
+            return None
+
+
+        # ========================================================
+        # GARANTIR LISTAS DE PARÁGRAFOS
+        # ========================================================
+
+        paragrafos_python = (
+            dados_bloco.get(
+                "paragrafos_python",
+                []
+            )
+        )
+
+        if not isinstance(
+            paragrafos_python,
+            list
+        ):
+
+            paragrafos_python = []
+
+
+        paragrafos_python = (
+            paragrafos_python
+            + [
+                "",
+                "",
+                ""
+            ]
+        )[:3]
+
+
+        paragrafos_ollama = (
+            dados_bloco.get(
+                "paragrafos_ollama",
+                []
+            )
+        )
+
+        if not isinstance(
+            paragrafos_ollama,
+            list
+        ):
+
+            paragrafos_ollama = []
+
+
+        paragrafos_ollama = (
+            paragrafos_ollama
+            + [
+                "",
+                "",
+                ""
+            ]
+        )[:3]
+
+
+        paragrafos_finais = (
+            dados_bloco.get(
+                "paragrafos",
+                []
+            )
+        )
+
+        if not isinstance(
+            paragrafos_finais,
+            list
+        ):
+
+            paragrafos_finais = []
+
+
+        paragrafos_finais = (
+            paragrafos_finais
+            + [
+                "",
+                "",
+                ""
+            ]
+        )[:3]
+
+
+        # ========================================================
+        # TÍTULO DO BLOCO
+        #
+        # O TÍTULO CONTINUA SENDO DO PYTHON.
+        # ========================================================
+
+        titulo_bloco = titulos_python.get(
+            chave_bloco,
+            ""
+        )
+
+        titulo_bloco = str(
+            titulo_bloco or ""
+        ).strip()
+
+
+        # ========================================================
+        # HASH ORIGINAL
+        # ========================================================
+
+        hash_bloco = str(
+            dados_bloco.get(
+                "hash",
+                ""
+            )
+            or ""
+        ).strip()
+
+
+        # ========================================================
+        # PROCESSAR OS 3 FRAGMENTOS
+        # ========================================================
+
+        for indice_fragmento in range(
+            3
+        ):
+
+            fragmento = (
+                informacoes_relevantes[
+                    indice_fragmento
+                ]
+            )
+
+
+            # ====================================================
+            # VALIDAR OBJETO DO FRAGMENTO
+            # ====================================================
+
+            if not isinstance(
+                fragmento,
+                dict
+            ):
+
+                print()
+                print(
+                    f"❌ ERRO: fragmento "
+                    f"{indice_fragmento + 1} do "
+                    f"{chave_bloco} não é um objeto."
+                )
+
+                return None
+
+
+            # ====================================================
+            # TEXTO ORIGINAL SELECIONADO PELO PYTHON
+            # ====================================================
+
+            texto_fragmento = str(
+                fragmento.get(
+                    "texto",
+                    ""
+                )
+                or ""
+            ).strip()
+
+
+            if not texto_fragmento:
+
+                print()
+                print(
+                    f"❌ ERRO: fragmento "
+                    f"{indice_fragmento + 1} do "
+                    f"{chave_bloco} está vazio."
+                )
+
+                return None
+
+
+            # ====================================================
+            # IDENTIFICAÇÃO
+            # ====================================================
+
+            numero_fragmento = (
+                indice_fragmento + 1
+            )
+
+            id_fragmento = str(
+                fragmento.get(
+                    "id",
+                    ""
+                )
+                or ""
+            ).strip()
+
+
+            print()
+            print("=" * 60)
+            print(
+                f"OLLAMA — {chave_bloco.upper()} "
+                f"— FRAGMENTO {numero_fragmento}/3"
+            )
+            print("=" * 60)
+
+            print(
+                "ID FRAGMENTO:",
+                id_fragmento
+            )
+
+            print(
+                "CARACTERES:",
+                len(texto_fragmento)
+            )
+
+            print(
+                "PALAVRAS:",
+                len(
+                    texto_fragmento.split()
+                )
+            )
+
+
+            # ====================================================
+            # PROMPT INDIVIDUAL
+            # ====================================================
+
+            prompt_fragmento = f"""
+Você é um redator técnico.
+
+Sua função nesta etapa é transformar SOMENTE o
+fragmento selecionado pelo Python em UM único
+parágrafo editorial.
+
+============================================================
+TEMA
+============================================================
+
+{tema}
+
+============================================================
+BLOCO
+============================================================
+
+{chave_bloco}
+
+============================================================
+FRAGMENTO SELECIONADO PELO PYTHON
+============================================================
+
+{texto_fragmento}
+
+============================================================
+REGRAS OBRIGATÓRIAS
+============================================================
+
+1. Use somente as informações presentes no fragmento.
+
+2. Não pesquise informações externas.
+
+3. Não use conhecimento externo para complementar
+   o texto.
+
+4. Não invente informações.
+
+5. Não invente:
+   - clientes;
+   - empresas;
+   - marcas;
+   - fabricantes;
+   - anos;
+   - certificações;
+   - normas;
+   - números;
+   - métricas;
+   - capacidades;
+   - especificações;
+   - aplicações;
+   - resultados;
+   - depoimentos.
+
+6. Preserve o sentido factual do fragmento.
+
+7. Pode reorganizar a redação para deixá-la natural.
+
+8. Pode corrigir problemas de redação do fragmento.
+
+9. Não altere fatos presentes no fragmento.
+
+10. Não crie informações que não estejam sustentadas
+    pelo fragmento.
+
+11. Não crie título.
+
+12. Não crie subtítulo.
+
+13. Não crie lista.
+
+14. Não use marcadores.
+
+15. Não escreva explicações sobre o processo.
+
+16. Retorne SOMENTE o parágrafo final.
+
+17. O texto deve ser natural e técnico.
+
+18. Procure produzir aproximadamente 60 a 70 palavras,
+    sem inventar conteúdo apenas para atingir quantidade.
+
+============================================================
+RESPOSTA
+============================================================
+
+Retorne somente o parágrafo editorial.
+"""
+
+
+            # ====================================================
+            # CHAMADA INDIVIDUAL AO OLLAMA
+            # ====================================================
+
+            inicio_ollama = time.time()
+
+
+            try:
+
+                resposta = requests.post(
+
+                    "http://localhost:11434/api/generate",
+
+                    json={
+
+                        "model":
+                            "qwen2.5:3b",
+
+                        "prompt":
+                            prompt_fragmento,
+
+                        "stream":
+                            False,
+
+                        "think":
+                            False,
+
+                        "options": {
+
+                            "num_predict":
+                                700,
+
+                            "num_ctx":
+                                8192,
+
+                            "temperature":
+                                0.2,
+
+                            "top_p":
+                                0.9,
+
+                            "repeat_penalty":
+                                1.05
+                        }
+                    },
+
+                    timeout=(
+                        30,
+                        900
+                    )
+                )
+
+
+            except requests.exceptions.Timeout:
+
+                print()
+                print("=" * 60)
+                print("❌ TIMEOUT OLLAMA")
+                print("=" * 60)
+
+                print(
+                    "Bloco:",
+                    chave_bloco
+                )
+
+                print(
+                    "Fragmento:",
+                    numero_fragmento
+                )
+
+                print(
+                    "A IA demorou mais de 900 segundos."
+                )
+
+                return None
+
+
+            except requests.exceptions.ConnectionError as erro:
+
+                print()
+                print("=" * 60)
+                print("❌ ERRO DE CONEXÃO COM OLLAMA")
+                print("=" * 60)
+
+                print(
+                    repr(erro)
+                )
+
+                return None
+
+
+            except Exception as erro:
+
+                print()
+                print("=" * 60)
+                print("❌ ERRO NA CHAMADA OLLAMA")
+                print("=" * 60)
+
+                print(
+                    repr(erro)
+                )
+
+                return None
+
+
+            fim_ollama = time.time()
+
+
+            # ====================================================
+            # STATUS DA RESPOSTA
+            # ====================================================
+
+            print()
+            print(
+                "STATUS HTTP:",
+                resposta.status_code
+            )
+
+            print(
+                "TEMPO:",
+                round(
+                    fim_ollama - inicio_ollama,
+                    2
+                ),
+                "segundos"
+            )
+
+
+            if resposta.status_code != 200:
+
+                print(
+                    "❌ ERRO HTTP:",
+                    resposta.text[:1000]
+                )
+
+                return None
+
+
+            # ====================================================
+            # LER JSON DO OLLAMA
+            # ====================================================
+
+            try:
+
+                dados_ollama = (
+                    resposta.json()
+                )
+
+            except Exception as erro:
+
+                print(
+                    "❌ ERRO AO LER JSON DO OLLAMA:",
+                    repr(erro)
+                )
+
+                print(
+                    resposta.text[:1000]
+                )
+
+                return None
+
+
+            # ====================================================
+            # PEGAR RESPOSTA
+            # ====================================================
+
+            resultado_ollama = str(
+
+                dados_ollama.get(
+                    "response",
+                    ""
+                )
+                or ""
+
+            ).strip()
+
+
+            print(
+                "CARACTERES RETORNADOS:",
+                len(resultado_ollama)
+            )
+
+
+            if not resultado_ollama:
+
+                print()
+                print(
+                    "❌ OLLAMA RETORNOU VAZIO."
+                )
+
+                return None
+
+
+            # ====================================================
+            # LIMPEZA MÍNIMA
+            #
+            # OLLAMA NÃO DEVE RETORNAR MARCADORES,
+            # MAS SE RETORNAR, REMOVEMOS SOMENTE OS
+            # MARCADORES EXTERNOS.
+            # ====================================================
+
+            resultado_ollama = re.sub(
+                r"^\s*\[PARAGRAFO_\d+\]\s*",
+                "",
+                resultado_ollama,
+                flags=re.IGNORECASE
+            )
+
+            resultado_ollama = re.sub(
+                r"\s*\[/PARAGRAFO_\d+\]\s*$",
+                "",
+                resultado_ollama,
+                flags=re.IGNORECASE
+            )
+
+            resultado_ollama = resultado_ollama.strip()
+
+
+            if not resultado_ollama:
+
+                print(
+                    "❌ RESULTADO VAZIO APÓS LIMPEZA."
+                )
+
+                return None
+
+
+            # ====================================================
+            # GUARDAR RESULTADO EM MEMÓRIA
+            # ====================================================
+
+            paragrafos_ollama[
+                indice_fragmento
+            ] = resultado_ollama
+
+
+            # ====================================================
+            # PARÁGRAFO OFICIAL
+            #
+            # Neste momento o resultado do Ollama passa
+            # para o campo oficial "paragrafos".
+            # ====================================================
+
+            paragrafos_finais[
+                indice_fragmento
+            ] = resultado_ollama
+
+
+            # ====================================================
+            # GUARDAR IMEDIATAMENTE NO BLOCO
+            # ====================================================
+
+            dados_bloco[
+                "paragrafos_python"
+            ] = paragrafos_python
+
+
+            dados_bloco[
+                "paragrafos_ollama"
+            ] = paragrafos_ollama
+
+
+            dados_bloco[
+                "paragrafos"
+            ] = paragrafos_finais
+
+
+            dados_bloco[
+                "titulo"
+            ] = titulo_bloco
+
+
+            dados_bloco[
+                "hash"
+            ] = hash_bloco
+
+
+            # ====================================================
+            # SALVAR IMEDIATAMENTE
+            #
+            # NÃO ESPERAMOS OS 15 PARÁGRAFOS.
+            #
+            # Cada resposta bem-sucedida já vai para o JSON.
+            # ====================================================
+
+            bloco_para_salvar = {
+
+                "numero":
+                    numero_bloco,
+
+                "id":
+                    chave_bloco,
+
+                "hash":
+                    hash_bloco,
+
+                "titulo":
+                    titulo_bloco,
+
+                "informacoes_relevantes":
+                    informacoes_relevantes,
+
+                "paragrafos_python":
+                    paragrafos_python,
+
+                "paragrafos_ollama":
+                    paragrafos_ollama,
+
+                "paragrafos":
+                    paragrafos_finais
+            }
+
+
+            salvar_banco(
+
+                tema,
+
+                "informacoes_relevantes",
+
+                contexto,
+
+                blocos=[
+                    bloco_para_salvar
+                ],
+
+                tipo=tipo
+            )
+
+
+            # ====================================================
+            # LOG DE CONFIRMAÇÃO
+            # ====================================================
+
+            print()
+            print(
+                "✅ FRAGMENTO PROCESSADO E SALVO"
+            )
+
+            print(
+                "BLOCO:",
+                numero_bloco
+            )
+
+            print(
+                "FRAGMENTO:",
+                numero_fragmento
+            )
+
+            print(
+                "PALAVRAS:",
+                len(
+                    resultado_ollama.split()
+                )
+            )
+
+            print(
+                "TOTAL OLLAMA SALVOS NO BLOCO:",
+                len([
+                    item
+                    for item in paragrafos_ollama
+                    if str(item or "").strip()
+                ])
+            )
+
+            print("=" * 60)
+
+
+        # ========================================================
+        # ATUALIZAR O DICIONÁRIO DO BLOCO
+        # ========================================================
+
+        informacoes_blocos[
+            chave_bloco
+        ] = dados_bloco
+
+
+    # ============================================================
+    # VALIDAR OS 5 BLOCOS
+    # ============================================================
+
+    print()
+    print("=" * 60)
+    print("VALIDAÇÃO FINAL DO OLLAMA")
+    print("=" * 60)
+
+
+    total_paragrafos_ollama = 0
+
+
+    for numero_bloco in range(
+        1,
+        total_blocos + 1
+    ):
+
+        chave_bloco = (
+            f"bloco_{numero_bloco}"
+        )
+
+        dados_bloco = (
+            informacoes_blocos.get(
+                chave_bloco,
+                {}
+            )
+        )
+
+        paragrafos_ollama = (
+            dados_bloco.get(
+                "paragrafos_ollama",
+                []
+            )
+            if isinstance(
+                dados_bloco,
+                dict
+            )
+            else []
+        )
+
+        quantidade = len([
+            item
+            for item in paragrafos_ollama
+            if str(item or "").strip()
+        ])
+
+
+        print(
+            chave_bloco + ":",
+            quantidade,
+            "/ 3"
+        )
+
+
+        total_paragrafos_ollama += (
+            quantidade
+        )
+
+
+    print()
+    print(
+        "TOTAL PARÁGRAFOS OLLAMA:",
+        total_paragrafos_ollama,
+        "/",
+        total_blocos * 3
+    )
+
+
+    if total_paragrafos_ollama != (
+        total_blocos * 3
+    ):
+
+        print()
+        print(
+            "❌ A PÁGINA NÃO ESTÁ COMPLETA."
+        )
+
+        print(
+            "O processamento será interrompido."
+        )
+
+        return None
+
+
+    print()
+    print(
+        "✅ OS 15 PARÁGRAFOS FORAM PROCESSADOS."
+    )
+
+    print("=" * 60)
+
+
+    # ============================================================
+    # MONTAR LISTA FINAL DOS BLOCOS
+    # ============================================================
+
+    blocos = []
+
+
+    for numero_bloco in range(
+        1,
+        total_blocos + 1
+    ):
+
+        chave_bloco = (
+            f"bloco_{numero_bloco}"
+        )
+
+        dados_bloco = (
+            informacoes_blocos.get(
+                chave_bloco,
+                {}
+            )
+        )
+
+        if not isinstance(
+            dados_bloco,
+            dict
+        ):
+
+            continue
+
 
         blocos.append({
 
@@ -16652,42 +17349,86 @@ PARÁGRAFOS-BASE SELECIONADOS PELO PYTHON
                 chave_bloco,
 
             "titulo":
-                titulo_bloco,
+                str(
+                    dados_bloco.get(
+                        "titulo",
+                        titulos_python.get(
+                            chave_bloco,
+                            ""
+                        )
+                    )
+                    or ""
+                ).strip(),
 
             "hash":
-                dados_base_bloco.get(
-                    "hash",
-                    ""
-                ),
+                str(
+                    dados_bloco.get(
+                        "hash",
+                        ""
+                    )
+                    or ""
+                ).strip(),
 
             "informacoes_relevantes":
-                informacoes_relevantes_bloco,
-
-            # ================================================
-            # ANTES — PYTHON
-            # ================================================
+                dados_bloco.get(
+                    "informacoes_relevantes",
+                    []
+                ),
 
             "paragrafos_python":
-                paragrafos_python_bloco,
-
-            # ================================================
-            # DEPOIS — OLLAMA
-            # ================================================
+                dados_bloco.get(
+                    "paragrafos_python",
+                    []
+                ),
 
             "paragrafos_ollama":
-                paragrafos_ollama_bloco,
-
-            # ================================================
-            # CAMPO OFICIAL / COMPATIBILIDADE
-            # ================================================
+                dados_bloco.get(
+                    "paragrafos_ollama",
+                    []
+                ),
 
             "paragrafos":
-                paragrafos_ollama_bloco,
-
-            "conteudo":
-                conteudo_bloco
+                dados_bloco.get(
+                    "paragrafos",
+                    []
+                )
         })
-    
+
+
+    # ============================================================
+    # CONTROLE FINAL
+    # ============================================================
+
+    print()
+    print("=" * 60)
+    print("ESTRUTURA FINAL DOS BLOCOS")
+    print("=" * 60)
+
+    print(
+        "BLOCOS:",
+        len(blocos)
+    )
+
+    print(
+        "PARÁGRAFOS:",
+        sum(
+            len(
+                [
+                    p
+                    for p in bloco.get(
+                        "paragrafos",
+                        []
+                    )
+                    if str(p or "").strip()
+                ]
+            )
+            for bloco in blocos
+        )
+    )
+
+    print("=" * 60)
+
+
 
 
     # ========================================================
@@ -16755,7 +17496,7 @@ PARÁGRAFOS-BASE SELECIONADOS PELO PYTHON
 
     tags_fixas = (
         TAGS_FIXAS_SERVICOS
-        if tema_eh_servico
+        if tipo == "servico"
         else TAGS_FIXAS_PRODUTOS
     )
 
@@ -16772,7 +17513,7 @@ PARÁGRAFOS-BASE SELECIONADOS PELO PYTHON
     # Servem apenas para completar as 30 tags quando necessário.
     # --------------------------------------------------------
 
-    if tema_eh_servico:
+    if tipo == "servico":
 
         tags_base_adicionais = [
             f"{tema_base} industrial",
@@ -16949,7 +17690,7 @@ PARÁGRAFOS-BASE SELECIONADOS PELO PYTHON
 
     print(
         "TIPO:",
-        "SERVIÇO" if tema_eh_servico else "PRODUTO"
+        "SERVIÇO" if tipo == "servico" else "PRODUTO"
     )
 
     print(
@@ -18376,10 +19117,6 @@ def validar_estrutura_pagina(
 
 
 
-# ============================================================
-# GERAR TÍTULOS
-# ============================================================
-
 def gerar_titulos(
     tema,
     blocos_informacoes,
@@ -18388,15 +19125,18 @@ def gerar_titulos(
 
     print()
     print("==============================")
-    print("GERANDO TÍTULOS")
+    print("GERANDO TÍTULOS PELO PYTHON")
     print("==============================")
 
     tema = str(
         tema or ""
     ).strip()
 
+    if not tema:
+        return {}
+
     # ========================================================
-    # 01. TÍTULO PRINCIPAL
+    # 01. H1
     # ========================================================
 
     h1 = tema
@@ -18411,59 +19151,84 @@ def gerar_titulos(
     )
 
     # ========================================================
-    # 03. SUBTÍTULO
+    # 03. SUBTÍTULO DE IMPACTO
+    #
+    # Criado exclusivamente pelo Python.
+    # O Ollama NÃO participa.
     # ========================================================
 
     subtitulo = (
-        "Informações técnicas, aplicações, características "
-        "e orientações sobre "
-        + tema
+        f"Soluções técnicas para aplicações, "
+        f"desempenho e confiabilidade em {tema}"
     )
 
     # ========================================================
-    # 04. TÍTULOS DOS 5 BLOCOS
+    # 04. SUBTÍTULO DAS LISTAS
+    #
+    # Segundo subtítulo.
+    # Também criado exclusivamente pelo Python.
     # ========================================================
 
-    bloco_1 = f"O que é {tema} e como funciona"
-
-    bloco_2 = f"Características e aplicações de {tema}"
-
-    bloco_3 = f"Vantagens e diferenciais de {tema}"
-
-    bloco_4 = f"Aspectos técnicos e cuidados com {tema}"
-
-    bloco_5 = f"Escolha, fornecimento e suporte para {tema}"
+    subtitulo_listas = (
+        f"Principais aplicações de {tema}"
+    )
 
     # ========================================================
-    # 05. RETORNO
+    # 05. TÍTULOS DOS 5 BLOCOS
+    # ========================================================
+
+    bloco_1 = (
+        f"O que é {tema} e como funciona"
+    )
+
+    bloco_2 = (
+        f"Características e aplicações de {tema}"
+    )
+
+    bloco_3 = (
+        f"Vantagens e diferenciais de {tema}"
+    )
+
+    bloco_4 = (
+        f"Aspectos técnicos e cuidados com {tema}"
+    )
+
+    bloco_5 = (
+        f"Escolha, fornecimento e suporte para {tema}"
+    )
+
+    # ========================================================
+    # 06. RESULTADO
     # ========================================================
 
     resultado = {
 
         "h1":
-        h1,
+            h1,
 
         "title":
-        title,
+            title,
 
         "subtitulo":
-        subtitulo,
+            subtitulo,
+
+        "subtitulo_listas":
+            subtitulo_listas,
 
         "bloco_1":
-        bloco_1,
+            bloco_1,
 
         "bloco_2":
-        bloco_2,
+            bloco_2,
 
         "bloco_3":
-        bloco_3,
+            bloco_3,
 
         "bloco_4":
-        bloco_4,
+            bloco_4,
 
         "bloco_5":
-        bloco_5
-
+            bloco_5
     }
 
     print()
@@ -18482,88 +19247,26 @@ def gerar_titulos(
     )
 
     print(
-        "SUBTÍTULO:",
+        "SUBTÍTULO IMPACTO:",
         subtitulo
     )
 
     print(
-        "BLOCO 1:",
-        bloco_1
+        "SUBTÍTULO LISTAS:",
+        subtitulo_listas
     )
 
-    print(
-        "BLOCO 2:",
-        bloco_2
-    )
+    for numero in range(1, 6):
 
-    print(
-        "BLOCO 3:",
-        bloco_3
-    )
-
-    print(
-        "BLOCO 4:",
-        bloco_4
-    )
-
-    print(
-        "BLOCO 5:",
-        bloco_5
-    )
-
-    return resultado
-    
-    # ========================================================
-    # DEBUG — PARÁGRAFOS-BASE QUE SERÃO GRAVADOS NO JSON
-    # ========================================================
-
-    print()
-    print("==============================")
-    print("PARÁGRAFOS PYTHON PARA GRAVAÇÃO JSON")
-    print("==============================")
-
-    total_python_json = 0
-
-    for numero_bloco in range(1, 6):
-
-        chave_bloco = f"bloco_{numero_bloco}"
-
-        paragrafos_python = (
-            blocos[
-                chave_bloco
-            ].get(
-                "paragrafos_python",
-                []
+        print(
+            f"BLOCO {numero}:",
+            resultado.get(
+                f"bloco_{numero}",
+                ""
             )
         )
 
-        print()
-        print(chave_bloco)
-
-        for indice, paragrafo in enumerate(
-            paragrafos_python,
-            start=1
-        ):
-
-            texto = str(
-                paragrafo
-            ).strip()
-
-            if texto:
-
-                total_python_json += 1
-
-                print(
-                    f"  PARÁGRAFO {indice}: "
-                    f"{len(texto.split())} palavras"
-                )
-
-    print()
-    print(
-        "TOTAL PARÁGRAFOS PYTHON PARA JSON:",
-        total_python_json
-    )
-    
+    return resultado
     
 
 # ============================================================
@@ -20072,6 +20775,19 @@ def salvar_banco(
                     "arquivo_origem",
                     pagina.get(
                         "arquivo_origem",
+                        ""
+                    )
+                )
+                or ""
+            ).strip()
+            
+            pagina[
+                "subtitulo_listas"
+            ] = str(
+                pagina_recebida.get(
+                    "subtitulo_listas",
+                    pagina.get(
+                        "subtitulo_listas",
                         ""
                     )
                 )
