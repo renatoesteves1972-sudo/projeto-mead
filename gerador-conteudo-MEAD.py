@@ -10945,14 +10945,14 @@ def selecionar_informacoes_relevantes(
     def fragmento_eh_editorialmente_valido(
         texto
     ):
-
+    
         texto_original = str(
             texto or ""
         ).strip()
-
+    
         if not texto_original:
             return False
-            
+    
         # ----------------------------------------------------
         # IDENTIDADE COMERCIAL / PRODUTO
         # ----------------------------------------------------
@@ -10961,11 +10961,13 @@ def selecionar_informacoes_relevantes(
         # código, referência ou identificação comercial,
         # ele não entra na seleção.
         # ----------------------------------------------------
-
+    
         if not fragmento_eh_comercialmente_limpo(
             texto_original
         ):
-            return False    
+            return False
+    
+        return True
 
 
 
