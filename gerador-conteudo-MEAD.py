@@ -10807,7 +10807,6 @@ def selecionar_informacoes_relevantes(
 
             r"\bltda\.?\b",
             r"\bltda\b",
-            r"\bme\.?\b",
             r"\bepp\b",
             r"\bs\.?a\.?\b",
             r"\bs/a\b",
@@ -10953,6 +10952,20 @@ def selecionar_informacoes_relevantes(
 
         if not texto_original:
             return False
+            
+        # ----------------------------------------------------
+        # IDENTIDADE COMERCIAL / PRODUTO
+        # ----------------------------------------------------
+        #
+        # Se o fragmento contém empresa, marca, modelo,
+        # código, referência ou identificação comercial,
+        # ele não entra na seleção.
+        # ----------------------------------------------------
+
+        if not fragmento_eh_comercialmente_limpo(
+            texto_original
+        ):
+            return False    
 
         # ====================================================
         # FILTRO DE IDENTIDADE COMERCIAL / PRODUTO
@@ -13423,6 +13436,15 @@ def selecionar_informacoes_relevantes(
 
         if not texto:
             return False
+            
+        # ----------------------------------------------------
+        # IDENTIDADE COMERCIAL / PRODUTO
+        # ----------------------------------------------------
+
+        if not fragmento_eh_comercialmente_limpo(
+            texto
+        ):
+            return False    
 
         # ----------------------------------------------------
         # QUANTIDADE DE PALAVRAS
