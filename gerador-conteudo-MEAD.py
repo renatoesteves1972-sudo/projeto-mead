@@ -18845,6 +18845,10 @@ Retorne somente o parágrafo editorial.
             else "",
     
         tipo=tipo
+        
+        subtitulo=subtitulo,
+
+        subtitulo_listas=subtitulo_listas
     )
 
 
