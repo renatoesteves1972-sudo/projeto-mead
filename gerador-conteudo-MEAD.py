@@ -18932,7 +18932,7 @@ Retorne somente o parágrafo editorial.
             if "entrada_grupo" in globals()
             else "",
     
-        tipo=tipo
+        tipo=tipo,
         
         subtitulo=subtitulo,
 
@@ -24059,151 +24059,227 @@ def montar_pagina_json(
         # Preservar obrigatoriamente como LISTA DE OBJETOS.
         # Não converter os objetos para string.
         # ========================================================
-        
+
         informacoes_bloco = bloco.get(
             "informacoes_relevantes",
             []
         )
-        
+
         if not isinstance(
             informacoes_bloco,
             list
         ):
+
             informacoes_bloco = []
-        
+
         informacoes_relevantes_finais = []
-        
+
         for fragmento in informacoes_bloco:
-        
+
             if not isinstance(
                 fragmento,
                 dict
             ):
+
                 continue
-        
+
             fragmento_final = dict(
                 fragmento
             )
-        
+
+            # ------------------------------------------------
+            # ID
+            # ------------------------------------------------
+
             if "id" in fragmento_final:
-                fragmento_final["id"] = str(
+
+                fragmento_final[
+                    "id"
+                ] = str(
                     fragmento_final.get(
                         "id"
                     )
                     or ""
                 ).strip()
-        
+
+            # ------------------------------------------------
+            # HASH
+            # ------------------------------------------------
+
             if "hash" in fragmento_final:
-                fragmento_final["hash"] = str(
+
+                fragmento_final[
+                    "hash"
+                ] = str(
                     fragmento_final.get(
                         "hash"
                     )
                     or ""
                 ).strip()
-        
+
+            # ------------------------------------------------
+            # TEXTO
+            # ------------------------------------------------
+
             if "texto" in fragmento_final:
-                fragmento_final["texto"] = str(
+
+                fragmento_final[
+                    "texto"
+                ] = str(
                     fragmento_final.get(
                         "texto"
                     )
                     or ""
                 ).strip()
-        
+
+            # ------------------------------------------------
+            # URL
+            # ------------------------------------------------
+
             if "url" in fragmento_final:
-                fragmento_final["url"] = str(
+
+                fragmento_final[
+                    "url"
+                ] = str(
                     fragmento_final.get(
                         "url"
                     )
                     or ""
                 ).strip()
-        
+
+            # ------------------------------------------------
+            # TIPO
+            # ------------------------------------------------
+
             if "tipo" in fragmento_final:
-                fragmento_final["tipo"] = str(
+
+                fragmento_final[
+                    "tipo"
+                ] = str(
                     fragmento_final.get(
                         "tipo"
                     )
                     or ""
                 ).strip()
-        
+
+            # ------------------------------------------------
+            # PDF
+            # ------------------------------------------------
+
             if "pdf" in fragmento_final:
-                fragmento_final["pdf"] = bool(
+
+                fragmento_final[
+                    "pdf"
+                ] = bool(
                     fragmento_final.get(
                         "pdf"
                     )
                 )
-        
+
+            # ------------------------------------------------
+            # PALAVRAS
+            # ------------------------------------------------
+
             if "palavras" in fragmento_final:
+
                 try:
-                    fragmento_final["palavras"] = int(
+
+                    fragmento_final[
+                        "palavras"
+                    ] = int(
                         fragmento_final.get(
                             "palavras"
                         )
                         or 0
                     )
+
                 except (
                     TypeError,
                     ValueError
                 ):
-                    fragmento_final["palavras"] = 0
-        
+
+                    fragmento_final[
+                        "palavras"
+                    ] = 0
+
+            # ------------------------------------------------
+            # FONTE
+            # ------------------------------------------------
+
             if "fonte" in fragmento_final:
+
                 try:
-                    fragmento_final["fonte"] = int(
+
+                    fragmento_final[
+                        "fonte"
+                    ] = int(
                         fragmento_final.get(
                             "fonte"
                         )
                         or 0
                     )
+
                 except (
                     TypeError,
                     ValueError
                 ):
-                    fragmento_final["fonte"] = 0
-        
+
+                    fragmento_final[
+                        "fonte"
+                    ] = 0
+
+            # ------------------------------------------------
+            # ADICIONAR FRAGMENTO
+            # ------------------------------------------------
+
             informacoes_relevantes_finais.append(
                 fragmento_final
             )
-        
+
+        # ========================================================
+        # RESULTADO FINAL
+        # ========================================================
+
         informacoes_bloco = (
             informacoes_relevantes_finais
         )
 
-            # -----------------------------------------------
-            # GARANTIR BLOCO
-            # -----------------------------------------------
+        # ========================================================
+        # GARANTIR BLOCO
+        # ========================================================
 
-            if chave_bloco not in pagina:
-
-                pagina[
-                    chave_bloco
-                ] = {
-
-                    "id":
-                        chave_bloco,
-
-                    "hash":
-                        "",
-
-                    "informacoes_relevantes":
-                        "",
-
-                    "titulo":
-                        "",
-
-                    "paragrafos":
-                        []
-                }
-
-            # -----------------------------------------------
-            # GRAVAR INFORMAÇÕES RELEVANTES
-            # DIRETAMENTE NO BLOCO
-            # -----------------------------------------------
+        if chave_bloco not in pagina:
 
             pagina[
                 chave_bloco
-            ][
-                "informacoes_relevantes"
-            ] = informacoes_bloco
+            ] = {
+
+                "id":
+                    chave_bloco,
+
+                "hash":
+                    "",
+
+                "informacoes_relevantes":
+                    [],
+
+                "titulo":
+                    "",
+
+                "paragrafos":
+                    []
+            }
+
+        # ========================================================
+        # GRAVAR INFORMAÇÕES RELEVANTES
+        # DIRETAMENTE NO BLOCO
+        # ========================================================
+
+        pagina[
+            chave_bloco
+        ][
+            "informacoes_relevantes"
+        ] = informacoes_bloco
 
         # ========================================================
         # DADOS GERAIS DA PÁGINA
