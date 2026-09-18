@@ -12980,397 +12980,369 @@ def selecionar_informacoes_relevantes(
         return nota_final
         
         
-        # ========================================================
-        # VALIDAÇÃO ESTRUTURAL DO CANDIDATO
-        # ========================================================
-        #
-        # A pontuação decide QUEM DEVE SER TENTADO PRIMEIRO.
-        #
-        # Esta função decide se o trecho pode realmente ser usado.
+    # ========================================================
+    # VALIDAÇÃO ESTRUTURAL DO CANDIDATO
+    # ========================================================
+    #
+    # A pontuação decide QUEM DEVE SER TENTADO PRIMEIRO.
+    #
+    # Esta função decide se o trecho pode realmente ser usado.
+    #
+    # NÃO cria nova pontuação.
+    # NÃO substitui a pontuação editorial.
+    #
+    # Apenas elimina lixo estrutural evidente.
+    # ========================================================
+
+    def candidato_eh_utilizavel(
+        candidato
+    ):
+
+        if not isinstance(
+            candidato,
+            dict
+        ):
+            return False
+
+        texto = str(
+            candidato.get(
+                "texto",
+                ""
+            )
+            or ""
+        ).strip()
+
+        if not texto:
+            return False
+
+        # ----------------------------------------------------
+        # QUANTIDADE DE PALAVRAS
+        # ----------------------------------------------------
+
+        palavras = texto.split()
+
+        if len(palavras) < 35:
+            return False
+
+        # ----------------------------------------------------
+        # CARACTERES CORROMPIDOS
+        # ----------------------------------------------------
+
+        if (
+            "\x00" in texto
+            or
+            "\x03" in texto
+            or
+            "\ufffd" in texto
+        ):
+            return False
+
+        # ----------------------------------------------------
+        # NORMALIZAÇÃO LOCAL
         #
         # IMPORTANTE:
-        # NÃO cria uma nova pontuação.
-        # NÃO substitui calcular_pontuacao_bloco().
-        #
-        # Ela apenas elimina lixo estrutural evidente.
-        #
-        # ========================================================
-    
-        def candidato_eh_utilizavel(
-            candidato
+        # não depender de normalizar_assunto_texto()
+        # para evitar problema de escopo.
+        # ----------------------------------------------------
+
+        texto_normalizado = (
+            " ".join(
+                texto.casefold().split()
+            )
+        )
+
+        if not texto_normalizado:
+            return False
+
+        # ----------------------------------------------------
+        # REDES SOCIAIS / COMENTÁRIOS
+        # ----------------------------------------------------
+
+        marcadores_social = [
+
+            "comments",
+            "comment",
+            "others also viewed",
+            "curtir",
+            "comentar",
+            "comentarios",
+            "comentários",
+            "responder",
+            "seguidores",
+            "linkedin",
+            "facebook",
+            "instagram",
+            "twitter",
+            "postado por"
+
+        ]
+
+        ocorrencias_social = sum(
+
+            1
+
+            for marcador
+            in marcadores_social
+
+            if marcador
+            in texto_normalizado
+
+        )
+
+        if ocorrencias_social >= 2:
+            return False
+
+        # ----------------------------------------------------
+        # NAVEGAÇÃO / MENU
+        # ----------------------------------------------------
+
+        marcadores_navegacao = [
+
+            "home",
+            "inicio",
+            "menu",
+            "contato",
+            "login",
+            "cadastro",
+            "entrar",
+            "cookies",
+            "politica de privacidade",
+            "política de privacidade",
+            "siga-nos",
+            "compartilhe"
+
+        ]
+
+        ocorrencias_navegacao = sum(
+
+            1
+
+            for marcador
+            in marcadores_navegacao
+
+            if marcador
+            in texto_normalizado
+
+        )
+
+        if ocorrencias_navegacao >= 2:
+            return False
+
+        # ----------------------------------------------------
+        # ÍNDICE / SUMÁRIO
+        # ----------------------------------------------------
+
+        marcadores_indice = [
+
+            "sumario",
+            "sumário",
+            "indice",
+            "índice",
+            "capitulo",
+            "capítulo",
+            "referencias",
+            "referências",
+            "secao",
+            "seção"
+
+        ]
+
+        ocorrencias_indice = sum(
+
+            1
+
+            for marcador
+            in marcadores_indice
+
+            if marcador
+            in texto_normalizado
+
+        )
+
+        if ocorrencias_indice >= 2:
+            return False
+
+        # ----------------------------------------------------
+        # ESTRUTURA DE ÍNDICE
+        # ----------------------------------------------------
+
+        ocorrencias_numeracao = len(
+
+            re.findall(
+                r"\b\d+\.\d+(?:\.\d+)*\.?\b",
+                texto
+            )
+
+        )
+
+        if ocorrencias_numeracao >= 3:
+            return False
+
+        # ----------------------------------------------------
+        # LISTAS / TABELAS
+        # ----------------------------------------------------
+
+        quantidade_numeros = len(
+
+            re.findall(
+                r"\b\d+(?:[.,]\d+)?\b",
+                texto
+            )
+
+        )
+
+        marcadores_tabela = [
+
+            "tamanho",
+            "tamanhos",
+            "vazao",
+            "vazão",
+            "pressao",
+            "pressão",
+            "temperatura",
+            "rotacao",
+            "rotação",
+            "rpm",
+            "peso",
+            "dimensao",
+            "dimensão",
+            "modelo",
+            "codigo",
+            "código"
+
+        ]
+
+        ocorrencias_tabela = sum(
+
+            1
+
+            for marcador
+            in marcadores_tabela
+
+            if marcador
+            in texto_normalizado
+
+        )
+
+        if (
+            quantidade_numeros >= 8
+            and
+            ocorrencias_tabela >= 3
         ):
-    
-            if not isinstance(
-                candidato,
-                dict
-            ):
-                return False
-    
-            texto = str(
-                candidato.get(
-                    "texto",
-                    ""
-                )
-                or ""
-            ).strip()
-    
-            if not texto:
-                return False
-    
-            # ----------------------------------------------------
-            # QUANTIDADE DE PALAVRAS
-            # ----------------------------------------------------
-            #
-            # O trecho precisa possuir conteúdo suficiente para
-            # virar um parágrafo.
-            #
-            # Não exigimos exatamente 50-60 aqui.
-            # A pontuação já considera tamanho.
-            #
-            # O objetivo é eliminar trechos muito pequenos.
-            # ----------------------------------------------------
-    
-            palavras = texto.split()
-    
-            if len(palavras) < 35:
-                return False
-    
-            # ----------------------------------------------------
-            # CARACTERES CORROMPIDOS
-            # ----------------------------------------------------
-    
-            if (
-                "\x00" in texto
-                or
-                "\x03" in texto
-                or
-                "\ufffd" in texto
-            ):
-                return False
-    
-            texto_normalizado = (
-                normalizar_assunto_texto(
-                    texto
-                )
+            return False
+
+        # ----------------------------------------------------
+        # EXCESSO DE SEPARADORES
+        # ----------------------------------------------------
+
+        separadores = len(
+
+            re.findall(
+                r"[|;]{4,}",
+                texto
             )
-    
-            if not texto_normalizado:
-                return False
-    
-            # ----------------------------------------------------
-            # REDES SOCIAIS / COMENTÁRIOS
-            # ----------------------------------------------------
-    
-            marcadores_social = [
-    
-                "comments",
-                "comment",
-                "others also viewed",
-                "curtir",
-                "comentar",
-                "comentarios",
-                "comentários",
-                "responder",
-                "seguidores",
-                "linkedin",
-                "facebook",
-                "instagram",
-                "twitter",
-                "postado por"
-    
-            ]
-    
-            ocorrencias_social = sum(
-    
+
+        )
+
+        if separadores > 0:
+            return False
+
+        # ----------------------------------------------------
+        # EXCESSO DE LETRAS MAIÚSCULAS
+        # ----------------------------------------------------
+
+        letras = [
+
+            caractere
+
+            for caractere
+            in texto
+
+            if caractere.isalpha()
+
+        ]
+
+        if len(letras) >= 30:
+
+            maiusculas = sum(
+
                 1
-    
-                for marcador
-                in marcadores_social
-    
-                if marcador
-                in texto_normalizado
-    
-            )
-    
-            if ocorrencias_social >= 2:
-                return False
-    
-            # ----------------------------------------------------
-            # NAVEGAÇÃO / MENU
-            # ----------------------------------------------------
-    
-            marcadores_navegacao = [
-    
-                "home",
-                "inicio",
-                "menu",
-                "contato",
-                "login",
-                "cadastro",
-                "entrar",
-                "cookies",
-                "politica de privacidade",
-                "política de privacidade",
-                "siga-nos",
-                "compartilhe"
-    
-            ]
-    
-            ocorrencias_navegacao = sum(
-    
-                1
-    
-                for marcador
-                in marcadores_navegacao
-    
-                if marcador
-                in texto_normalizado
-    
-            )
-    
-            if ocorrencias_navegacao >= 2:
-                return False
-    
-            # ----------------------------------------------------
-            # ÍNDICE / SUMÁRIO
-            # ----------------------------------------------------
-    
-            marcadores_indice = [
-    
-                "sumario",
-                "sumário",
-                "indice",
-                "índice",
-                "capitulo",
-                "capítulo",
-                "referencias",
-                "referências",
-                "secao",
-                "seção"
-    
-            ]
-    
-            ocorrencias_indice = sum(
-    
-                1
-    
-                for marcador
-                in marcadores_indice
-    
-                if marcador
-                in texto_normalizado
-    
-            )
-    
-            # Um único termo pode aparecer naturalmente.
-            # Vários marcadores indicam forte chance de índice.
-    
-            if ocorrencias_indice >= 2:
-                return False
-    
-            # ----------------------------------------------------
-            # ESTRUTURA DE ÍNDICE
-            # ----------------------------------------------------
-    
-            ocorrencias_numeracao = len(
-    
-                re.findall(
-    
-                    r"\b\d+\.\d+(?:\.\d+)*\.?\b",
-    
-                    texto
-    
-                )
-    
-            )
-    
-            if ocorrencias_numeracao >= 3:
-                return False
-    
-            # ----------------------------------------------------
-            # LISTAS / TABELAS
-            # ----------------------------------------------------
-    
-            quantidade_numeros = len(
-    
-                re.findall(
-    
-                    r"\b\d+(?:[.,]\d+)?\b",
-    
-                    texto
-    
-                )
-    
-            )
-    
-            marcadores_tabela = [
-    
-                "tamanho",
-                "tamanhos",
-                "vazao",
-                "vazão",
-                "pressao",
-                "pressão",
-                "temperatura",
-                "rotacao",
-                "rotação",
-                "rpm",
-                "peso",
-                "dimensao",
-                "dimensão",
-                "modelo",
-                "codigo",
-                "código"
-    
-            ]
-    
-            ocorrencias_tabela = sum(
-    
-                1
-    
-                for marcador
-                in marcadores_tabela
-    
-                if marcador
-                in texto_normalizado
-    
-            )
-    
-            if (
-                quantidade_numeros >= 8
-                and
-                ocorrencias_tabela >= 3
-            ):
-                return False
-    
-            # ----------------------------------------------------
-            # EXCESSO DE SEPARADORES
-            # ----------------------------------------------------
-    
-            separadores = len(
-    
-                re.findall(
-    
-                    r"[|;]{4,}",
-    
-                    texto
-    
-                )
-    
-            )
-    
-            if separadores > 0:
-                return False
-    
-            # ----------------------------------------------------
-            # EXCESSO DE LETRAS MAIÚSCULAS
-            #
-            # Normalmente indica título, tabela, índice ou
-            # extração ruim de PDF.
-            # ----------------------------------------------------
-    
-            letras = [
-    
-                caractere
-    
+
                 for caractere
-                in texto
-    
-                if caractere.isalpha()
-    
-            ]
-    
-            if len(letras) >= 30:
-    
-                maiusculas = sum(
-    
-                    1
-    
-                    for caractere
-                    in letras
-    
-                    if caractere.isupper()
-    
-                )
-    
-                percentual_maiusculas = (
-    
-                    maiusculas
-                    /
-                    len(letras)
-    
-                )
-    
-                if percentual_maiusculas > 0.55:
-                    return False
-    
-            # ----------------------------------------------------
-            # FRASES
-            #
-            # Um bom trecho precisa possuir estrutura textual.
-            # ----------------------------------------------------
-    
-            quantidade_frases = len(
-    
-                re.findall(
-    
-                    r"[.!?]",
-    
-                    texto
-    
-                )
-    
+                in letras
+
+                if caractere.isupper()
+
             )
-    
-            if quantidade_frases < 1:
+
+            percentual_maiusculas = (
+
+                maiusculas
+                /
+                len(letras)
+
+            )
+
+            if percentual_maiusculas > 0.55:
                 return False
-    
-            # ----------------------------------------------------
-            # PALAVRAS MUITO CURTAS EM EXCESSO
-            #
-            # Ajuda a detectar fragmentos quebrados de PDF.
-            # ----------------------------------------------------
-    
-            palavras_reais = [
-    
-                palavra
-    
+
+        # ----------------------------------------------------
+        # FRASES
+        # ----------------------------------------------------
+
+        quantidade_frases = len(
+
+            re.findall(
+                r"[.!?]",
+                texto
+            )
+
+        )
+
+        if quantidade_frases < 1:
+            return False
+
+        # ----------------------------------------------------
+        # PALAVRAS MUITO CURTAS
+        # ----------------------------------------------------
+
+        palavras_reais = [
+
+            palavra
+
+            for palavra
+            in re.findall(
+                r"\b\w+\b",
+                texto
+            )
+
+        ]
+
+        if palavras_reais:
+
+            palavras_curtas = sum(
+
+                1
+
                 for palavra
-                in re.findall(
-    
-                    r"\b\w+\b",
-    
-                    texto
-    
-                )
-    
-            ]
-    
-            if palavras_reais:
-    
-                palavras_curtas = sum(
-    
-                    1
-    
-                    for palavra
-                    in palavras_reais
-    
-                    if len(palavra) <= 2
-    
-                )
-    
-                percentual_curtas = (
-    
-                    palavras_curtas
-                    /
-                    len(palavras_reais)
-    
-                )
-    
-                if percentual_curtas > 0.40:
-                    return False
-    
-            return True    
+                in palavras_reais
+
+                if len(palavra) <= 2
+
+            )
+
+            percentual_curtas = (
+
+                palavras_curtas
+                /
+                len(palavras_reais)
+
+            )
+
+            if percentual_curtas > 0.40:
+                return False
+
+        return True      
 
     # ========================================================
     # FUNÇÃO CENTRAL DE ESCOLHA
@@ -13399,6 +13371,22 @@ def selecionar_informacoes_relevantes(
             ):
 
                 continue
+                
+            # ------------------------------------------------
+            # DESCARTAR TRECHOS ESTRUTURALMENTE RUINS
+            #
+            # A pontuação continua sendo responsável pela
+            # ordem de tentativa.
+            #
+            # Se o primeiro candidato for ruim, simplesmente
+            # continuamos para o próximo.
+            # ------------------------------------------------
+
+            if not candidato_eh_utilizavel(
+                candidato
+            ):
+
+                continue    
 
             hash_trecho = candidato.get(
                 "hash",
