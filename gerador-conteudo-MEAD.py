@@ -1215,7 +1215,7 @@ def montar_pagina_json(
             "titulo",
             "subtitulo",
             "subtitulo_listas",
-            "descricao"
+            "subtitulo_segmentos"
 
         ]
 
@@ -1289,12 +1289,12 @@ def montar_pagina_json(
         ).strip()
 
         pagina[
-            "descricao"
+            "subtitulo_segmentos"
         ] = str(
             dados_pagina.get(
-                "descricao",
+                "subtitulo_segmentos",
                 pagina.get(
-                    "descricao",
+                    "subtitulo_segmentos",
                     ""
                 )
             )
@@ -27457,6 +27457,35 @@ def gerar_material_interface():
             urls = []
             dados_coleta = []
             paginas_aprovadas = 0
+            
+            # ====================================================
+            # TIPO OFICIAL DA PÁGINA
+            # ====================================================
+            #
+            # produto ou servico
+            #
+            # NÃO confundir com o tipo da fonte:
+            # html, pdf, etc.
+            # ====================================================
+
+            tipo = identificar_tipo_tema(
+                tema
+            )
+
+            print()
+            print("==============================")
+            print("TIPO OFICIAL DO TEMA")
+            print("==============================")
+
+            print(
+                "TEMA:",
+                tema
+            )
+
+            print(
+                "TIPO:",
+                tipo
+            )
 
             # ====================================================
             # 04. IDENTIFICAR GRUPO DO TEMA
@@ -28132,15 +28161,22 @@ def gerar_material_interface():
                         # =====================================
                         # 25. GARANTIR TIPO DA FONTE
                         # =====================================
+                        #
+                        # tipo = tipo oficial da página
+                        #        produto / servico
+                        #
+                        # tipo_fonte = tipo da fonte coletada
+                        #              html / pdf / etc.
+                        # =====================================
 
-                        tipo = "html"
+                        tipo_fonte = "html"
 
                         if isinstance(
                             dados,
                             dict
                         ):
 
-                            tipo = dados.get(
+                            tipo_fonte = dados.get(
                                 "tipo",
                                 "html"
                             )
@@ -28170,7 +28206,7 @@ def gerar_material_interface():
                                 textos.append(
                                     {
                                         "url": url,
-                                        "tipo": tipo,
+                                        "tipo": tipo_fonte,
                                         "texto": texto
                                     }
                                 )
@@ -28179,7 +28215,7 @@ def gerar_material_interface():
 
                                 dados_coleta.append({
                                     "url": url,
-                                    "tipo": tipo,
+                                    "tipo": tipo_fonte,
                                     "status": "aprovado",
                                     "motivo": "",
                                     "texto": texto
@@ -28189,7 +28225,7 @@ def gerar_material_interface():
 
                                 dados_coleta.append({
                                     "url": url,
-                                    "tipo": tipo,
+                                    "tipo": tipo_fonte,
                                     "status": "descartado",
                                     "motivo": "conteúdo não aprovado",
                                     "texto": texto
