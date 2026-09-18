@@ -161,7 +161,97 @@ SEGMENTOS_CORINGAS = [
     "[TEMA] para Diferentes Necessidades",
 ]
 
+# ============================================================
+# GERAR SEGMENTOS VÁLIDOS PELO PYTHON
+# ============================================================
+#
+# A biblioteca fixa é a única origem dos segmentos.
+# O Ollama não participa desta etapa.
+#
+# Produtos:
+#   SEGMENTOS_PRODUTOS + SEGMENTOS_CORINGAS
+#
+# Serviços:
+#   SEGMENTOS_SERVICOS + SEGMENTOS_CORINGAS
+#
+# O tema original é preservado, inclusive acentuação.
+# ============================================================
 
+def gerar_segmentos_validos(
+    tema,
+    tipo
+):
+
+    tema = str(
+        tema or ""
+    ).strip()
+
+    if not tema:
+        return []
+
+    tipo_normalizado = str(
+        tipo or ""
+    ).strip().casefold()
+
+    if tipo_normalizado == "servico":
+
+        biblioteca = (
+            SEGMENTOS_SERVICOS
+            +
+            SEGMENTOS_CORINGAS
+        )
+
+    else:
+
+        biblioteca = (
+            SEGMENTOS_PRODUTOS
+            +
+            SEGMENTOS_CORINGAS
+        )
+
+    segmentos_validos = []
+
+    for segmento in biblioteca:
+
+        segmento = str(
+            segmento or ""
+        ).strip()
+
+        if not segmento:
+            continue
+
+        segmento = segmento.replace(
+            "[TEMA]",
+            tema
+        )
+
+        segmento = re.sub(
+            r"\s+",
+            " ",
+            segmento
+        ).strip()
+
+        if not segmento:
+            continue
+
+        # Todo segmento precisa conter o tema.
+        if tema.casefold() not in segmento.casefold():
+            continue
+
+        # Evitar duplicidade.
+        if segmento.casefold() in [
+            item.casefold()
+            for item in segmentos_validos
+        ]:
+            continue
+
+        segmentos_validos.append(
+            segmento
+        )
+
+    return segmentos_validos
+    
+    
 ARQUIVO_MEAD = r"C:\Python\gerador-conteudo\mead\mead.json"
 
 
@@ -16635,87 +16725,6 @@ PARÁGRAFOS-BASE SELECIONADOS PELO PYTHON
 
 
 
-    # --------------------------------------------------------
-    # IDENTIFICAR SE O TEMA REPRESENTA UM SERVIÇO
-    # --------------------------------------------------------
-
-    termos_servico = (
-        "manutenção",
-        "manutencao",
-        "reparo",
-        "assistência",
-        "assistencia",
-        "instalação",
-        "instalacao",
-        "montagem",
-        "consultoria",
-        "inspeção",
-        "inspecao",
-        "calibração",
-        "calibracao",
-        "recuperação",
-        "recuperacao",
-        "revisão",
-        "revisao",
-        "diagnóstico",
-        "diagnostico",
-        "serviço",
-        "servico",
-        "engenharia",
-        "projeto",
-        "recondicionamento",
-        "adequação",
-        "adequacao"
-    )
-    
-    tema_lower = str(tema).strip().casefold()
-
-    tema_eh_servico = any(
-        termo in tema_lower
-        for termo in termos_servico
-    )
-
-
-    # --------------------------------------------------------
-    # GERAR SEGMENTOS PELO PYTHON
-    # --------------------------------------------------------
-
-    lista_segmentos = gerar_segmentos_pagina(
-        tema
-    )
-
-    if not isinstance(
-        lista_segmentos,
-        list
-    ):
-
-        lista_segmentos = []
-
-    lista_segmentos = [
-
-        re.sub(
-            r"\s+",
-            " ",
-            str(segmento).strip()
-        )
-
-        for segmento in lista_segmentos
-
-        if str(
-            segmento or ""
-        ).strip()
-    ]
-
-    lista_segmentos = remover_duplicados(
-        lista_segmentos
-    ) if "remover_duplicados" in locals() else lista_segmentos
-
-    # Garantia estrutural: máximo de 12 segmentos
-    lista_segmentos = lista_segmentos[:12]
-
-
-
-
     # ========================================================
     # 18. CRIAR TAGS COM PYTHON
     # ========================================================
@@ -17344,46 +17353,63 @@ PARÁGRAFOS-BASE SELECIONADOS PELO PYTHON
     
         informacoes_adicionais={
     
-            # NOME DO SITE — INTERFACE
             "nome_site":
                 entrada_site.get().strip()
                 if "entrada_site" in globals()
                 else "",
     
-            # GRUPO PRINCIPAL DO PROJETO — INTERFACE
             "grupo_principal_projeto":
                 entrada_grupo.get().strip()
                 if "entrada_grupo" in globals()
                 else "",
     
-            # SEGMENTOS REAIS DA PÁGINA
-            "segmentos_textuais": lista_segmentos,
+            "segmentos_textuais":
+                lista_segmentos,
     
-            # REFERÊNCIAS DAS FONTES COLETADAS
-            "referencias": list(
-                dict.fromkeys(
-                    [
-                        str(item.get("url", "")).strip()
-                        for item in dados_coleta
-                        if isinstance(item, dict)
-                        and str(item.get("url", "")).strip()
-                    ]
-                )
-            ),
+            "referencias":
+                list(
+                    dict.fromkeys(
+                        [
+                            str(
+                                item.get(
+                                    "url",
+                                    ""
+                                )
+                            ).strip()
     
-            # ARQUIVO DE ORIGEM
+                            for item in dados_coleta
+    
+                            if isinstance(
+                                item,
+                                dict
+                            )
+    
+                            and str(
+                                item.get(
+                                    "url",
+                                    ""
+                                )
+                            ).strip()
+                        ]
+                    )
+                ),
+    
             "arquivo_origem":
                 nome_arquivo
         },
     
         blocos=blocos,
+    
         segmentos=lista_segmentos,
+    
         tags=lista_tags,
     
         grupo_principal_projeto=
             entrada_grupo.get().strip()
             if "entrada_grupo" in globals()
-            else ""
+            else "",
+    
+        tipo=tipo
     )
 
 
@@ -20051,14 +20077,58 @@ def salvar_banco(
                 )
                 or ""
             ).strip()
+            
     
-            pagina[
-                "h1"
-            ] = tema_original
-    
-            pagina[
-                "titulo"
-            ] = tema_original
+            # ====================================================
+            # H1 E TÍTULO
+            # ====================================================
+            #
+            # O Python já gerou esses campos anteriormente.
+            # Não sobrescrever com apenas o tema.
+            # ====================================================
+            
+            h1_recebido = str(
+                pagina_recebida.get(
+                    "h1",
+                    ""
+                )
+                or ""
+            ).strip()
+            
+            titulo_recebido = str(
+                pagina_recebida.get(
+                    "titulo",
+                    ""
+                )
+                or ""
+            ).strip()
+            
+            if h1_recebido:
+                pagina[
+                    "h1"
+                ] = h1_recebido
+            
+            elif not pagina.get(
+                "h1",
+                ""
+            ):
+                pagina[
+                    "h1"
+                ] = tema_original
+            
+            
+            if titulo_recebido:
+                pagina[
+                    "titulo"
+                ] = titulo_recebido
+            
+            elif not pagina.get(
+                "titulo",
+                ""
+            ):
+                pagina[
+                    "titulo"
+                ] = tema_original
     
             pagina[
                 "subtitulo"
@@ -21022,36 +21092,64 @@ def salvar_banco(
         ).strip()
     
         # ----------------------------------------------------
-        # PARÁGRAFOS
+        # PARÁGRAFOS PYTHON
         # ----------------------------------------------------
-    
-        paragrafos = bloco.get(
-            "paragrafos",
+        
+        paragrafos_python = bloco.get(
+            "paragrafos_python",
             []
         )
-    
+        
         if not isinstance(
-            paragrafos,
+            paragrafos_python,
             list
         ):
-    
-            paragrafos = []
-    
-        paragrafos_limpos = []
-    
-        for paragrafo in paragrafos[:3]:
-    
-            paragrafos_limpos.append(
-                str(
-                    paragrafo or ""
-                ).strip()
-            )
-    
+            paragrafos_python = []
+        
         bloco[
-            "paragrafos"
+            "paragrafos_python"
         ] = (
-            paragrafos_limpos
-            + [
+            [
+                str(
+                    item or ""
+                ).strip()
+                for item in paragrafos_python[:3]
+            ]
+            +
+            [
+                "",
+                "",
+                ""
+            ]
+        )[:3]
+        
+        
+        # ----------------------------------------------------
+        # PARÁGRAFOS OLLAMA
+        # ----------------------------------------------------
+        
+        paragrafos_ollama = bloco.get(
+            "paragrafos_ollama",
+            []
+        )
+        
+        if not isinstance(
+            paragrafos_ollama,
+            list
+        ):
+            paragrafos_ollama = []
+        
+        bloco[
+            "paragrafos_ollama"
+        ] = (
+            [
+                str(
+                    item or ""
+                ).strip()
+                for item in paragrafos_ollama[:3]
+            ]
+            +
+            [
                 "",
                 "",
                 ""
