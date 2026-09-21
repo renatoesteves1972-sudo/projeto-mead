@@ -22409,6 +22409,22 @@ def salvar_banco(
                     "subtitulo"
                 ] = subtitulo_recebido
                 
+        # ========================================================
+        # PRESERVAR SUBTÍTULO DOS SEGMENTOS
+        # ========================================================
+        
+        if subtitulo_segmentos is not None:
+        
+            subtitulo_segmentos_recebido = str(
+                subtitulo_segmentos or ""
+            ).strip()
+        
+            if subtitulo_segmentos_recebido:
+        
+                pagina[
+                    "subtitulo_segmentos"
+                ] = subtitulo_segmentos_recebido        
+                
         
         # ----------------------------------------------------
         # BLOCOS 1 A 5
