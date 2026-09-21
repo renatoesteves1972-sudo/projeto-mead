@@ -100,6 +100,29 @@ CATEGORIAS = [
     "duvidas_frequentes"
 ]
 
+
+# ========================================================
+# SUBTÍTULOS FIXOS DOS SEGMENTOS
+# ========================================================
+
+SUBTITULOS_SEGMENTOS = [
+    "Principais aplicações de [TEMA]",
+    "Principais segmentos atendidos por [TEMA]",
+    "Aplicações de [TEMA] por segmento",
+    "Segmentos de aplicação de [TEMA]",
+    "Aplicações e segmentos de [TEMA]",
+    "Principais setores que utilizam [TEMA]",
+    "Setores atendidos por [TEMA]",
+    "Aplicações industriais de [TEMA]",
+    "Segmentos que utilizam [TEMA]",
+    "Principais áreas de aplicação de [TEMA]",
+]
+
+# Controle da variação entre páginas
+SUBTITULOS_SEGMENTOS_DISPONIVEIS = []
+
+
+
 # ============================================================
 # BIBLIOTECA DE SEGMENTOS
 # ============================================================
@@ -160,6 +183,51 @@ SEGMENTOS_CORINGAS = [
     "[TEMA] para Obras e Projetos",
     "[TEMA] para Diferentes Necessidades",
 ]
+
+
+# ========================================================
+# GERAR SUBTÍTULO DOS SEGMENTOS
+# ========================================================
+
+def gerar_subtitulo_segmentos(tema):
+
+    global SUBTITULOS_SEGMENTOS_DISPONIVEIS
+
+    tema = str(
+        tema or ""
+    ).strip()
+
+    if not tema:
+        return ""
+
+    # Recarrega e embaralha quando todos os modelos
+    # já tiverem sido utilizados
+    if not SUBTITULOS_SEGMENTOS_DISPONIVEIS:
+
+        SUBTITULOS_SEGMENTOS_DISPONIVEIS = list(
+            SUBTITULOS_SEGMENTOS
+        )
+
+        random.shuffle(
+            SUBTITULOS_SEGMENTOS_DISPONIVEIS
+        )
+
+    # Retira o próximo modelo da sequência
+    modelo = SUBTITULOS_SEGMENTOS_DISPONIVEIS.pop(
+        0
+    )
+
+    # Substitui o marcador pelo tema original
+    subtitulo = modelo.replace(
+        "[TEMA]",
+        tema
+    )
+
+    return str(
+        subtitulo
+    ).strip()
+    
+    
 
 # ============================================================
 # GERAR SEGMENTOS VÁLIDOS PELO PYTHON
@@ -912,7 +980,15 @@ def preparar_dados_pagina(
 
         return None
 
+# ========================================================
+# GERAR SUBTÍTULO DOS SEGMENTOS PELO PYTHON
+# ========================================================
 
+dados_pagina[
+    "subtitulo_segmentos"
+] = gerar_subtitulo_segmentos(
+    tema
+)
         
         
 # ============================================================
