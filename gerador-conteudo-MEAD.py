@@ -17727,13 +17727,13 @@ BLOCO EDITORIAL
 OBJETIVO EDITORIAL DO BLOCO
 ==================================================
 
-{mapa_texto}
+{mapa_redacao_texto}
 
 ==================================================
 REGRAS EDITORIAIS DO MEAD
 ==================================================
 
-{contexto_mead}
+{mead_redacao_texto}
 
 ==================================================
 FRAGMENTO SELECIONADO PELO PYTHON
