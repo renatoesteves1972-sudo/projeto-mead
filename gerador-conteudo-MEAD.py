@@ -809,73 +809,73 @@ def preparar_dados_pagina(
         # ----------------------------------------------------
         # SEGMENTOS / LISTAS
         # ----------------------------------------------------
-
+        
         if not isinstance(
             segmentos_listas,
             dict
         ):
-
+        
             segmentos_listas = {}
-
+        
         segmentos_oficiais = {}
-
+        
         # ----------------------------------------------------
         # GARANTIR OS 12 SEGMENTOS
         # ----------------------------------------------------
-
+        
         for numero in range(
             1,
             13
         ):
-
+        
             chave = (
                 f"segmento_{numero}"
             )
-
+        
             lista = segmentos_listas.get(
                 chave,
                 []
             )
-
+        
             if not isinstance(
                 lista,
                 list
             ):
-
+        
                 lista = []
-
+        
             lista_final = []
-
+        
             for item in lista:
-
+        
                 item = str(
                     item or ""
                 ).strip()
-
+        
                 if not item:
                     continue
-
+        
                 lista_final.append(
                     item
                 )
-
+        
             segmentos_oficiais[
                 chave
             ] = lista_final
-
+        
         dados_pagina[
             "segmentos_listas"
         ] = segmentos_oficiais
         
+        # ----------------------------------------------------
+        # GERAR SUBTÍTULO DOS SEGMENTOS PELO PYTHON
+        # ----------------------------------------------------
+        
         dados_pagina[
             "subtitulo_segmentos"
-        ] = str(
-            dados_pagina.get(
-                "subtitulo_segmentos",
-                ""
-            )
-            or ""
-        ).strip()
+        ] = gerar_subtitulo_segmentos(
+            tema
+        )
 
         # ----------------------------------------------------
         # IMPORTANTE
@@ -980,15 +980,7 @@ def preparar_dados_pagina(
 
         return None
 
-# ========================================================
-# GERAR SUBTÍTULO DOS SEGMENTOS PELO PYTHON
-# ========================================================
 
-dados_pagina[
-    "subtitulo_segmentos"
-] = gerar_subtitulo_segmentos(
-    tema
-)
         
         
 # ============================================================
@@ -1025,6 +1017,7 @@ def montar_pagina_json(
     - Garante 6 imagens.
     - Garante grupo_principal_projeto.
     - Garante subtitulo_listas.
+    - Garante subtitulo_segmentos.
     - Não cria estruturas legadas.
     """
 
