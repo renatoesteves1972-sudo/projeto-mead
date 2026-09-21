@@ -16071,6 +16071,7 @@ def identificar_tipo_tema(
     print("CRITÉRIO: tema não identificado como serviço")
 
     return "produto"
+
     
 # ============================================================
 # GERAR CONTEÚDO COMPLETO
@@ -17582,57 +17583,51 @@ PARÁGRAFOS-BASE SELECIONADOS PELO PYTHON
     
 
     # ============================================================
-    # 11. PROCESSAMENTO DOS FRAGMENTOS — OLLAMA
+    # 11. PROCESSAMENTO DOS 3 FRAGMENTOS POR BLOCO — OLLAMA
     # ============================================================
     #
-    # RESPONSABILIDADE DO PYTHON:
+    # NOVA ARQUITETURA:
     #
-    # - selecionar as informações relevantes;
-    # - organizar os 5 blocos;
-    # - definir H1;
-    # - definir título;
-    # - definir subtítulo;
-    # - definir títulos dos blocos;
-    # - manter os fragmentos originais;
-    # - gerar os parágrafos-base;
-    # - enviar UM fragmento por vez ao Ollama.
+    # Cada bloco possui exatamente 3 fragmentos.
     #
-    # RESPONSABILIDADE DO OLLAMA:
+    # Os 3 fragmentos são enviados juntos em UMA única
+    # chamada ao Ollama.
     #
-    # - transformar UM fragmento selecionado em UM parágrafo;
-    # - não pesquisar;
-    # - não inventar informações;
-    # - não criar títulos;
-    # - não criar subtítulos;
-    # - não criar tags;
-    # - não criar segmentos.
+    # O Ollama retorna exatamente 3 parágrafos.
     #
-    # FLUXO:
+    # Portanto:
     #
-    # BLOCO 1
-    #   fragmento 1 -> Ollama -> salva imediatamente
-    #   fragmento 2 -> Ollama -> salva imediatamente
-    #   fragmento 3 -> Ollama -> salva imediatamente
+    # 5 blocos x 1 chamada = 5 chamadas Ollama
     #
-    # BLOCO 2
-    #   fragmento 1 -> Ollama -> salva imediatamente
-    #   fragmento 2 -> Ollama -> salva imediatamente
-    #   fragmento 3 -> Ollama -> salva imediatamente
+    # Mantemos:
     #
-    # ...
-    #
-    # BLOCO 5
-    #   fragmento 1 -> Ollama -> salva imediatamente
-    #   fragmento 2 -> Ollama -> salva imediatamente
-    #   fragmento 3 -> Ollama -> salva imediatamente
+    # - os mesmos 15 fragmentos;
+    # - a mesma ordem;
+    # - os mesmos 5 blocos;
+    # - 3 parágrafos por bloco;
+    # - a mesma estrutura do JSON.
     #
     # ============================================================
 
     print()
     print("=" * 60)
-    print("PROCESSAMENTO INDIVIDUAL DOS FRAGMENTOS PELO OLLAMA")
+    print("PROCESSAMENTO DOS 3 FRAGMENTOS POR BLOCO PELO OLLAMA")
     print("=" * 60)
 
+    print(
+        "CHAMADAS PREVISTAS:",
+        total_blocos
+    )
+
+    print(
+        "FRAGMENTOS POR CHAMADA:",
+        3
+    )
+
+    print(
+        "PARÁGRAFOS ESPERADOS:",
+        total_blocos * 3
+    )
 
     # ============================================================
     # GARANTIR ESTRUTURA DOS 5 BLOCOS
@@ -17678,7 +17673,8 @@ PARÁGRAFOS-BASE SELECIONADOS PELO PYTHON
 
             print()
             print(
-                f"❌ ERRO: {chave_bloco} não possui estrutura válida."
+                f"❌ ERRO: {chave_bloco} "
+                "não possui estrutura válida."
             )
 
             return None
@@ -17710,10 +17706,12 @@ PARÁGRAFOS-BASE SELECIONADOS PELO PYTHON
 
 
         # ========================================================
-        # O BLOCO PRECISA POSSUIR EXATAMENTE 3 FRAGMENTOS
+        # CADA BLOCO PRECISA POSSUIR EXATAMENTE 3 FRAGMENTOS
         # ========================================================
 
-        if len(informacoes_relevantes) != 3:
+        if len(
+            informacoes_relevantes
+        ) != 3:
 
             print()
             print("=" * 60)
@@ -17724,7 +17722,9 @@ PARÁGRAFOS-BASE SELECIONADOS PELO PYTHON
 
             print(
                 "FRAGMENTOS ENCONTRADOS:",
-                len(informacoes_relevantes)
+                len(
+                    informacoes_relevantes
+                )
             )
 
             print(
@@ -17736,7 +17736,7 @@ PARÁGRAFOS-BASE SELECIONADOS PELO PYTHON
 
 
         # ========================================================
-        # GARANTIR LISTAS DE PARÁGRAFOS
+        # GARANTIR LISTA DE PARÁGRAFOS PYTHON
         # ========================================================
 
         paragrafos_python = (
@@ -17764,6 +17764,10 @@ PARÁGRAFOS-BASE SELECIONADOS PELO PYTHON
         )[:3]
 
 
+        # ========================================================
+        # GARANTIR LISTA DE PARÁGRAFOS OLLAMA
+        # ========================================================
+
         paragrafos_ollama = (
             dados_bloco.get(
                 "paragrafos_ollama",
@@ -17788,6 +17792,10 @@ PARÁGRAFOS-BASE SELECIONADOS PELO PYTHON
             ]
         )[:3]
 
+
+        # ========================================================
+        # GARANTIR LISTA DE PARÁGRAFOS FINAIS
+        # ========================================================
 
         paragrafos_finais = (
             dados_bloco.get(
@@ -17816,8 +17824,6 @@ PARÁGRAFOS-BASE SELECIONADOS PELO PYTHON
 
         # ========================================================
         # TÍTULO DO BLOCO
-        #
-        # O TÍTULO CONTINUA SENDO DO PYTHON.
         # ========================================================
 
         titulo_bloco = titulos_python.get(
@@ -17844,8 +17850,10 @@ PARÁGRAFOS-BASE SELECIONADOS PELO PYTHON
 
 
         # ========================================================
-        # PROCESSAR OS 3 FRAGMENTOS
+        # VALIDAR E PREPARAR OS 3 FRAGMENTOS
         # ========================================================
+
+        fragmentos_bloco = []
 
         for indice_fragmento in range(
             3
@@ -17857,10 +17865,9 @@ PARÁGRAFOS-BASE SELECIONADOS PELO PYTHON
                 ]
             )
 
-
-            # ====================================================
-            # VALIDAR OBJETO DO FRAGMENTO
-            # ====================================================
+            # ----------------------------------------------------
+            # VALIDAR OBJETO
+            # ----------------------------------------------------
 
             if not isinstance(
                 fragmento,
@@ -17877,9 +17884,9 @@ PARÁGRAFOS-BASE SELECIONADOS PELO PYTHON
                 return None
 
 
-            # ====================================================
-            # TEXTO ORIGINAL SELECIONADO PELO PYTHON
-            # ====================================================
+            # ----------------------------------------------------
+            # TEXTO ORIGINAL
+            # ----------------------------------------------------
 
             texto_fragmento = str(
                 fragmento.get(
@@ -17902,10 +17909,6 @@ PARÁGRAFOS-BASE SELECIONADOS PELO PYTHON
                 return None
 
 
-            # ====================================================
-            # IDENTIFICAÇÃO
-            # ====================================================
-
             numero_fragmento = (
                 indice_fragmento + 1
             )
@@ -17919,124 +17922,211 @@ PARÁGRAFOS-BASE SELECIONADOS PELO PYTHON
             ).strip()
 
 
+            fragmentos_bloco.append({
+
+                "numero":
+                    numero_fragmento,
+
+                "id":
+                    id_fragmento,
+
+                "texto":
+                    texto_fragmento
+
+            })
+
+
+        # ========================================================
+        # LOG DOS 3 FRAGMENTOS
+        # ========================================================
+
+        print()
+        print("=" * 60)
+        print(
+            f"OLLAMA — {chave_bloco.upper()} — 3 FRAGMENTOS"
+        )
+        print("=" * 60)
+
+        for fragmento in fragmentos_bloco:
+
             print()
-            print("=" * 60)
             print(
-                f"OLLAMA — {chave_bloco.upper()} "
-                f"— FRAGMENTO {numero_fragmento}/3"
+                f"FRAGMENTO {fragmento['numero']}/3"
             )
-            print("=" * 60)
 
             print(
-                "ID FRAGMENTO:",
-                id_fragmento
+                "ID:",
+                fragmento["id"]
             )
 
             print(
                 "CARACTERES:",
-                len(texto_fragmento)
+                len(
+                    fragmento["texto"]
+                )
             )
 
             print(
                 "PALAVRAS:",
                 len(
-                    texto_fragmento.split()
+                    fragmento["texto"].split()
                 )
             )
 
 
-            # ====================================================
-            # CONTEXTO EDITORIAL MEAD PARA ESTE FRAGMENTO
-            # ====================================================
+        # ========================================================
+        # CONTEXTO EDITORIAL MEAD PARA ESTE BLOCO
+        # ========================================================
 
-            mead_redacao = {}
+        mead_redacao = {}
 
-            try:
+        try:
 
-                mead_obj = json.loads(
-                    contexto_mead
-                )
+            mead_obj = json.loads(
+                contexto_mead
+            )
 
-                principio_mead = mead_obj.get(
-                    "principio_operacional",
+            principio_mead = mead_obj.get(
+                "principio_operacional",
+                {}
+            )
+
+            construcao_mead = mead_obj.get(
+                "construcao_conteudo",
+                {}
+            )
+
+            estrutura_mead = mead_obj.get(
+                "estrutura_pagina",
+                {}
+            )
+
+            fidelidade_mead = mead_obj.get(
+                "fidelidade",
+                {}
+            )
+
+            contexto_blocos_mead = mead_obj.get(
+                "contexto_blocos",
+                {}
+            )
+
+            contexto_bloco_atual = (
+                contexto_blocos_mead.get(
+                    chave_bloco,
                     {}
                 )
+            )
 
-                construcao_mead = mead_obj.get(
-                    "construcao_conteudo",
-                    {}
-                )
+            mead_redacao = {
 
-                estrutura_mead = mead_obj.get(
-                    "estrutura_pagina",
-                    {}
-                )
-
-                fidelidade_mead = mead_obj.get(
-                    "fidelidade",
-                    {}
-                )
-
-                contexto_blocos_mead = mead_obj.get(
-                    "contexto_blocos",
-                    {}
-                )
-
-                contexto_bloco_atual = (
-                    contexto_blocos_mead.get(
-                        chave_bloco,
-                        {}
-                    )
-                )
-
-                mead_redacao = {
-                    "objetivo": mead_obj.get(
+                "objetivo":
+                    mead_obj.get(
                         "objetivo",
                         ""
                     ),
-                    "principio_operacional": principio_mead,
-                    "contexto_editorial_do_bloco": contexto_bloco_atual,
-                    "construcao_conteudo": construcao_mead,
-                    "estrutura_pagina": estrutura_mead,
-                    "fidelidade": fidelidade_mead
-                }
 
-            except Exception as erro:
+                "principio_operacional":
+                    principio_mead,
 
-                print(
-                    "⚠️ Não foi possível reduzir o MEAD para o fragmento:",
-                    repr(erro)
-                )
+                "contexto_editorial_do_bloco":
+                    contexto_bloco_atual,
 
-                mead_redacao = {
-                    "objetivo": "",
-                    "principio_operacional": {},
-                    "contexto_editorial_do_bloco": {},
-                    "construcao_conteudo": {},
-                    "estrutura_pagina": {},
-                    "fidelidade": {}
-                }
+                "construcao_conteudo":
+                    construcao_mead,
 
-            mead_redacao_texto = json.dumps(
-                mead_redacao,
-                ensure_ascii=False,
-                indent=2
+                "estrutura_pagina":
+                    estrutura_mead,
+
+                "fidelidade":
+                    fidelidade_mead
+            }
+
+        except Exception as erro:
+
+            print(
+                "⚠️ Não foi possível reduzir o MEAD para o bloco:",
+                repr(erro)
             )
 
-            mapa_redacao_texto = str(
-                mapa_texto or ""
-            ).strip()
-            
-            
+            mead_redacao = {
 
-            # ====================================================
-            # PROMPT INDIVIDUAL
-            # ====================================================
+                "objetivo":
+                    "",
 
-            prompt_fragmento = f"""
-Você é um redator técnico responsável por transformar
-um fragmento previamente selecionado pelo Python em
-UM único parágrafo editorial.
+                "principio_operacional":
+                    {},
+
+                "contexto_editorial_do_bloco":
+                    {},
+
+                "construcao_conteudo":
+                    {},
+
+                "estrutura_pagina":
+                    {},
+
+                "fidelidade":
+                    {}
+            }
+
+
+        mead_redacao_texto = json.dumps(
+            mead_redacao,
+            ensure_ascii=False,
+            indent=2
+        )
+
+
+        mapa_redacao_texto = str(
+            mapa_texto or ""
+        ).strip()
+
+
+        # ========================================================
+        # MONTAR OS 3 FRAGMENTOS NO PROMPT
+        # ========================================================
+
+        contexto_tres_fragmentos = ""
+
+        for fragmento in fragmentos_bloco:
+
+            contexto_tres_fragmentos += f"""
+
+--------------------------------------------------
+FRAGMENTO {fragmento["numero"]}
+--------------------------------------------------
+
+ID:
+{fragmento["id"]}
+
+TEXTO ORIGINAL:
+
+{fragmento["texto"]}
+
+"""
+
+
+        # ========================================================
+        # PROMPT DO BLOCO
+        #
+        # O OLLAMA RECEBE OS 3 FRAGMENTOS AO MESMO TEMPO.
+        #
+        # IMPORTANTE:
+        #
+        # FRAGMENTO 1 -> PARÁGRAFO 1
+        # FRAGMENTO 2 -> PARÁGRAFO 2
+        # FRAGMENTO 3 -> PARÁGRAFO 3
+        #
+        # Eles não devem ser misturados.
+        # ========================================================
+
+        prompt_bloco = f"""
+Você é um redator técnico especializado.
+
+Sua única função nesta etapa é transformar os
+três fragmentos previamente selecionados pelo
+Python em três parágrafos editoriais finais.
 
 ==================================================
 TEMA
@@ -18063,29 +18153,56 @@ REGRAS EDITORIAIS DO MEAD
 {mead_redacao_texto}
 
 ==================================================
-FRAGMENTO SELECIONADO PELO PYTHON
+RESPONSABILIDADE DO PYTHON
 ==================================================
 
-{texto_fragmento}
+O Python já realizou:
+
+- seleção das informações;
+- organização dos fragmentos;
+- definição dos 5 blocos;
+- definição da ordem dos blocos;
+- definição dos títulos;
+- definição do H1;
+- definição do título SEO;
+- definição do subtítulo;
+- preparação dos parágrafos-base.
+
+Você NÃO deve criar nenhuma dessas estruturas.
+
+==================================================
+SUA RESPONSABILIDADE
+==================================================
+
+Você deve escrever SOMENTE três parágrafos.
+
+FRAGMENTO 1 -> PARÁGRAFO 1
+FRAGMENTO 2 -> PARÁGRAFO 2
+FRAGMENTO 3 -> PARÁGRAFO 3
+
+Cada parágrafo deve ser independente.
+
+Não misture informações entre os fragmentos.
+
+Não utilize informação de um fragmento para
+completar outro fragmento.
 
 ==================================================
 REGRA FUNDAMENTAL DE FIDELIDADE
 ==================================================
 
-O FRAGMENTO SELECIONADO PELO PYTHON é a única
-fonte de informação factual que pode ser utilizada
-para escrever o parágrafo.
+Cada fragmento é a única fonte factual permitida
+para o seu respectivo parágrafo.
 
-O MEAD e o MAPA MEAD servem exclusivamente para
-orientar a forma editorial, o objetivo do bloco,
-a organização das informações e o comportamento
-do texto.
+O MEAD serve somente para orientação editorial.
 
-O MEAD NÃO é uma fonte factual.
+O MAPA MEAD serve somente para orientação editorial.
 
-O MAPA MEAD NÃO é uma fonte factual.
+O MEAD NÃO é fonte factual.
 
-Não utilize informações externas ao fragmento.
+O MAPA MEAD NÃO é fonte factual.
+
+Não utilize informações externas aos fragmentos.
 
 Não complete informações ausentes usando seu
 conhecimento sobre o tema.
@@ -18099,34 +18216,36 @@ REGRAS OBRIGATÓRIAS
 ==================================================
 
 1. Use somente informações factuais presentes no
-   fragmento selecionado pelo Python.
+   respectivo fragmento.
 
-2. Preserve o sentido original das informações.
+2. Preserve o sentido original.
 
 3. Não acrescente características, especificações,
    aplicações, materiais, números, normas, anos,
    certificações, empresas, marcas, clientes ou
-   capacidades que não estejam no fragmento.
+   capacidades que não estejam no respectivo
+   fragmento.
 
 4. Não invente nomes de empresas ou marcas.
 
 5. Não atribua informações a uma empresa que não
    estejam explicitamente presentes no fragmento.
 
-6. Não transforme informações genéricas em afirmações
-   específicas.
+6. Não transforme informações genéricas em
+   afirmações específicas.
 
-7. Não misture informações de outros fragmentos.
+7. Não misture informações dos três fragmentos.
 
 8. Não utilize informações de outros blocos.
 
-9. Não repita informações apenas para aumentar o texto.
+9. Não repita informações apenas para aumentar
+   o texto.
 
 10. Não altere a identidade do tema.
 
-11. Mantenha o tema exatamente relacionado a:
+11. Mantenha o tema relacionado a:
 
-    {tema}
+{tema}
 
 12. O texto deve ser técnico, natural e claro.
 
@@ -18138,42 +18257,63 @@ REGRAS OBRIGATÓRIAS
 15. Não crie conclusões técnicas que não estejam
     sustentadas pelo fragmento.
 
-16. O MEAD deve controlar a construção editorial,
-    mas nunca autorizar a criação de fatos.
+16. O MEAD controla a construção editorial,
+    mas nunca autoriza a criação de fatos.
 
-17. O MAPA MEAD deve orientar o propósito do bloco,
-    mas nunca fornecer fatos adicionais.
+17. O MAPA MEAD orienta o propósito do bloco,
+    mas nunca fornece fatos adicionais.
 
-18. Procure produzir aproximadamente 60 a 70 palavras,
-    mas NUNCA invente conteúdo para atingir essa
-    quantidade.
+18. Procure produzir aproximadamente 60 a 70
+    palavras por parágrafo.
 
-19. Se o fragmento tiver pouca informação, produza
-    um parágrafo menor. A fidelidade é mais importante
-    que a quantidade de palavras.
+19. NUNCA invente conteúdo para atingir a quantidade
+    de palavras.
 
-20. Preserve informações técnicas relevantes do
-    fragmento.
+20. Se um fragmento tiver pouca informação, produza
+    um parágrafo menor.
 
-21. Corrija apenas problemas de redação, gramática,
-    concordância e fluidez, sem alterar o conteúdo
-    factual.
+21. Preserve as informações técnicas relevantes.
 
-22. Não traduza nomes próprios, marcas ou termos
+22. Corrija somente redação, gramática,
+    concordância e fluidez.
+
+23. Não altere o conteúdo factual.
+
+24. Não traduza nomes próprios, marcas ou termos
     técnicos sem necessidade.
 
-23. Não introduza palavras ou conceitos que mudem
+25. Não introduza palavras ou conceitos que mudem
     o significado do fragmento.
 
-24. Retorne somente o parágrafo editorial final.
+==================================================
+ESTRUTURA OBRIGATÓRIA DA RESPOSTA
+==================================================
+
+[BLOCO]
+
+[PARAGRAFO_1]
+Texto produzido exclusivamente a partir do FRAGMENTO 1.
+[/PARAGRAFO_1]
+
+[PARAGRAFO_2]
+Texto produzido exclusivamente a partir do FRAGMENTO 2.
+[/PARAGRAFO_2]
+
+[PARAGRAFO_3]
+Texto produzido exclusivamente a partir do FRAGMENTO 3.
+[/PARAGRAFO_3]
+
+[/BLOCO]
 
 ==================================================
 VERIFICAÇÃO ANTES DA RESPOSTA
 ==================================================
 
-Antes de retornar o parágrafo, confirme internamente:
+Antes de responder, confirme internamente:
 
-- Todas as informações factuais vieram do fragmento?
+- O parágrafo 1 usa somente o fragmento 1?
+- O parágrafo 2 usa somente o fragmento 2?
+- O parágrafo 3 usa somente o fragmento 3?
 - Alguma informação externa foi acrescentada?
 - Alguma marca ou empresa foi inventada?
 - Algum número ou especificação foi inventado?
@@ -18182,379 +18322,535 @@ Antes de retornar o parágrafo, confirme internamente:
 - O MEAD foi usado apenas como orientação editorial?
 
 Se qualquer informação não estiver sustentada pelo
-fragmento, remova-a.
+respectivo fragmento, remova-a.
 
-RETORNE SOMENTE O PARÁGRAFO EDITORIAL.
+RETORNE SOMENTE O BLOCO SOLICITADO.
+
+==================================================
+OS 3 FRAGMENTOS SELECIONADOS PELO PYTHON
+==================================================
+
+{contexto_tres_fragmentos}
 """
 
 
-            # ====================================================
-            # CHAMADA INDIVIDUAL AO OLLAMA
-            # ====================================================
+        # ========================================================
+        # CHAMADA ÚNICA AO OLLAMA
+        # ========================================================
 
-            inicio_ollama = time.time()
+        inicio_ollama = time.time()
 
 
-            try:
+        try:
 
-                resposta = requests.post(
+            resposta = requests.post(
 
-                    "http://localhost:11434/api/generate",
+                "http://localhost:11434/api/generate",
 
-                    json={
-                        "model":
-                            "qwen2.5:3b",
-                    
-                        "prompt":
-                            prompt_fragmento,
-                    
-                        "stream":
-                            False,
-                    
-                        "think":
-                            False,
-                    
-                        "keep_alive":
-                            "10m",
-                    
-                        "options": {
-                    
-                            "num_predict":
-                                140,
-                    
-                            "num_ctx":
-                                8192,
-                    
-                            "temperature":
-                                0.2,
-                    
-                            "top_p":
-                                0.9,
-                    
-                            "repeat_penalty":
-                                1.05
-                        }
-                    },
+                json={
 
-                    timeout=(
-                        30,
-                        900
-                    )
+                    "model":
+                        "qwen2.5:3b",
+
+                    "prompt":
+                        prompt_bloco,
+
+                    "stream":
+                        False,
+
+                    "think":
+                        False,
+
+                    "keep_alive":
+                        "10m",
+
+                    "options": {
+
+                        "num_predict":
+                            420,
+
+                        "num_ctx":
+                            8192,
+
+                        "temperature":
+                            0.2,
+
+                        "top_p":
+                            0.9,
+
+                        "repeat_penalty":
+                            1.05
+                    }
+                },
+
+                timeout=(
+                    30,
+                    900
                 )
+            )
 
 
-            except requests.exceptions.Timeout:
+        except requests.exceptions.Timeout:
 
-                print()
-                print("=" * 60)
-                print("❌ TIMEOUT OLLAMA")
-                print("=" * 60)
+            print()
+            print("=" * 60)
+            print("❌ TIMEOUT OLLAMA")
+            print("=" * 60)
 
-                print(
-                    "Bloco:",
-                    chave_bloco
-                )
+            print(
+                "Bloco:",
+                chave_bloco
+            )
 
-                print(
-                    "Fragmento:",
-                    numero_fragmento
-                )
+            print(
+                "A IA demorou mais de 900 segundos."
+            )
 
-                print(
-                    "A IA demorou mais de 900 segundos."
-                )
-
-                return None
+            return None
 
 
-            except requests.exceptions.ConnectionError as erro:
+        except requests.exceptions.ConnectionError as erro:
 
-                print()
-                print("=" * 60)
-                print("❌ ERRO DE CONEXÃO COM OLLAMA")
-                print("=" * 60)
+            print()
+            print("=" * 60)
+            print("❌ ERRO DE CONEXÃO COM OLLAMA")
+            print("=" * 60)
 
-                print(
-                    repr(erro)
-                )
+            print(
+                repr(erro)
+            )
 
-                return None
-
-
-            except Exception as erro:
-
-                print()
-                print("=" * 60)
-                print("❌ ERRO NA CHAMADA OLLAMA")
-                print("=" * 60)
-
-                print(
-                    repr(erro)
-                )
-
-                return None
+            return None
 
 
-            fim_ollama = time.time()
+        except Exception as erro:
+
+            print()
+            print("=" * 60)
+            print("❌ ERRO NA CHAMADA OLLAMA")
+            print("=" * 60)
+
+            print(
+                repr(erro)
+            )
+
+            return None
 
 
-            # ====================================================
-            # STATUS DA RESPOSTA
-            # ====================================================
+        fim_ollama = time.time()
+
+
+        # ========================================================
+        # STATUS DA RESPOSTA
+        # ========================================================
+
+        print()
+        print(
+            "STATUS HTTP:",
+            resposta.status_code
+        )
+
+        print(
+            "TEMPO:",
+            round(
+                fim_ollama - inicio_ollama,
+                2
+            ),
+            "segundos"
+        )
+
+
+        if resposta.status_code != 200:
+
+            print(
+                "❌ ERRO HTTP:",
+                resposta.text[:1000]
+            )
+
+            return None
+
+
+        # ========================================================
+        # LER JSON
+        # ========================================================
+
+        try:
+
+            dados_ollama = (
+                resposta.json()
+            )
+
+        except Exception as erro:
+
+            print(
+                "❌ ERRO AO LER JSON DO OLLAMA:",
+                repr(erro)
+            )
+
+            print(
+                resposta.text[:1000]
+            )
+
+            return None
+
+
+        # ========================================================
+        # PEGAR RESPOSTA
+        # ========================================================
+
+        resultado_ollama = str(
+
+            dados_ollama.get(
+                "response",
+                ""
+            )
+            or ""
+
+        ).strip()
+
+
+        print(
+            "CARACTERES RETORNADOS:",
+            len(resultado_ollama)
+        )
+
+
+        if not resultado_ollama:
 
             print()
             print(
-                "STATUS HTTP:",
-                resposta.status_code
+                "❌ OLLAMA RETORNOU VAZIO."
             )
 
-            print(
-                "TEMPO:",
-                round(
-                    fim_ollama - inicio_ollama,
-                    2
-                ),
-                "segundos"
+            return None
+
+
+        # ========================================================
+        # EXTRAIR OS 3 PARÁGRAFOS
+        # ========================================================
+
+        padrao_blocos = re.search(
+
+            r"\[BLOCO\](.*?)\[/BLOCO\]",
+
+            resultado_ollama,
+
+            flags=re.IGNORECASE | re.DOTALL
+        )
+
+
+        if padrao_blocos:
+
+            conteudo_bloco_ollama = (
+                padrao_blocos.group(1)
+            )
+
+        else:
+
+            conteudo_bloco_ollama = (
+                resultado_ollama
             )
 
 
-            if resposta.status_code != 200:
+        paragrafos_extraidos = []
+
+
+        for indice_paragrafo in range(
+            1,
+            4
+        ):
+
+            padrao_paragrafo = re.search(
+
+                rf"\[PARAGRAFO_{indice_paragrafo}\]"
+                rf"(.*?)"
+                rf"\[/PARAGRAFO_{indice_paragrafo}\]",
+
+                conteudo_bloco_ollama,
+
+                flags=re.IGNORECASE | re.DOTALL
+            )
+
+
+            if not padrao_paragrafo:
+
+                print()
+                print(
+                    "❌ PARÁGRAFO NÃO ENCONTRADO:"
+                )
 
                 print(
-                    "❌ ERRO HTTP:",
-                    resposta.text[:1000]
+                    indice_paragrafo
+                )
+
+                print()
+                print(
+                    "RESPOSTA RECEBIDA:"
+                )
+
+                print(
+                    resultado_ollama[:3000]
                 )
 
                 return None
 
 
-            # ====================================================
-            # LER JSON DO OLLAMA
-            # ====================================================
+            texto_paragrafo = str(
 
-            try:
+                padrao_paragrafo.group(1)
 
-                dados_ollama = (
-                    resposta.json()
-                )
-
-            except Exception as erro:
-
-                print(
-                    "❌ ERRO AO LER JSON DO OLLAMA:",
-                    repr(erro)
-                )
-
-                print(
-                    resposta.text[:1000]
-                )
-
-                return None
-
-
-            # ====================================================
-            # PEGAR RESPOSTA
-            # ====================================================
-
-            resultado_ollama = str(
-
-                dados_ollama.get(
-                    "response",
-                    ""
-                )
                 or ""
 
             ).strip()
 
 
-            print(
-                "CARACTERES RETORNADOS:",
-                len(resultado_ollama)
-            )
-
-
-            if not resultado_ollama:
+            if not texto_paragrafo:
 
                 print()
                 print(
-                    "❌ OLLAMA RETORNOU VAZIO."
+                    f"❌ PARÁGRAFO {indice_paragrafo} "
+                    "RETORNOU VAZIO."
                 )
 
                 return None
 
 
-            # ====================================================
+            # ----------------------------------------------------
             # LIMPEZA MÍNIMA
-            #
-            # OLLAMA NÃO DEVE RETORNAR MARCADORES,
-            # MAS SE RETORNAR, REMOVEMOS SOMENTE OS
-            # MARCADORES EXTERNOS.
-            # ====================================================
+            # ----------------------------------------------------
 
-            resultado_ollama = re.sub(
-                r"^\s*\[PARAGRAFO_\d+\]\s*",
+            texto_paragrafo = re.sub(
+
+                r"^\s*"
+                r"\[PARAGRAFO_\d+\]"
+                r"\s*",
+
                 "",
-                resultado_ollama,
+
+                texto_paragrafo,
+
                 flags=re.IGNORECASE
             )
 
-            resultado_ollama = re.sub(
-                r"\s*\[/PARAGRAFO_\d+\]\s*$",
+
+            texto_paragrafo = re.sub(
+
+                r"\s*"
+                r"\[/PARAGRAFO_\d+\]"
+                r"\s*$",
+
                 "",
-                resultado_ollama,
+
+                texto_paragrafo,
+
                 flags=re.IGNORECASE
             )
 
-            resultado_ollama = resultado_ollama.strip()
+
+            texto_paragrafo = (
+                texto_paragrafo.strip()
+            )
 
 
-            if not resultado_ollama:
+            if not texto_paragrafo:
 
+                print()
                 print(
-                    "❌ RESULTADO VAZIO APÓS LIMPEZA."
+                    f"❌ PARÁGRAFO {indice_paragrafo} "
+                    "VAZIO APÓS LIMPEZA."
                 )
 
                 return None
 
 
-            # ====================================================
-            # GUARDAR RESULTADO EM MEMÓRIA
-            # ====================================================
-
-            paragrafos_ollama[
-                indice_fragmento
-            ] = resultado_ollama
-
-
-            # ====================================================
-            # PARÁGRAFO OFICIAL
-            #
-            # Neste momento o resultado do Ollama passa
-            # para o campo oficial "paragrafos".
-            # ====================================================
-
-            paragrafos_finais[
-                indice_fragmento
-            ] = resultado_ollama
-
-
-            # ====================================================
-            # GUARDAR IMEDIATAMENTE NO BLOCO
-            # ====================================================
-
-            dados_bloco[
-                "paragrafos_python"
-            ] = paragrafos_python
-
-
-            dados_bloco[
-                "paragrafos_ollama"
-            ] = paragrafos_ollama
-
-
-            dados_bloco[
-                "paragrafos"
-            ] = paragrafos_finais
-
-
-            dados_bloco[
-                "titulo"
-            ] = titulo_bloco
-
-
-            dados_bloco[
-                "hash"
-            ] = hash_bloco
-
-
-            # ====================================================
-            # SALVAR IMEDIATAMENTE
-            #
-            # NÃO ESPERAMOS OS 15 PARÁGRAFOS.
-            #
-            # Cada resposta bem-sucedida já vai para o JSON.
-            # ====================================================
-
-            bloco_para_salvar = {
-
-                "numero":
-                    numero_bloco,
-
-                "id":
-                    chave_bloco,
-
-                "hash":
-                    hash_bloco,
-
-                "titulo":
-                    titulo_bloco,
-
-                "informacoes_relevantes":
-                    informacoes_relevantes,
-
-                "paragrafos_python":
-                    paragrafos_python,
-
-                "paragrafos_ollama":
-                    paragrafos_ollama,
-
-                "paragrafos":
-                    paragrafos_finais
-            }
-
-
-            salvar_banco(
-
-                tema,
-
-                "informacoes_relevantes",
-
-                contexto,
-
-                blocos=[
-                    bloco_para_salvar
-                ],
-
-                tipo=tipo
+            paragrafos_extraidos.append(
+                texto_paragrafo
             )
 
 
-            # ====================================================
-            # LOG DE CONFIRMAÇÃO
-            # ====================================================
+        # ========================================================
+        # GARANTIR EXATAMENTE 3 PARÁGRAFOS
+        # ========================================================
+
+        if len(
+            paragrafos_extraidos
+        ) != 3:
 
             print()
             print(
-                "✅ FRAGMENTO PROCESSADO E SALVO"
+                "❌ QUANTIDADE INCORRETA DE PARÁGRAFOS:"
             )
 
             print(
-                "BLOCO:",
-                numero_bloco
-            )
-
-            print(
-                "FRAGMENTO:",
-                numero_fragmento
-            )
-
-            print(
-                "PALAVRAS:",
                 len(
-                    resultado_ollama.split()
+                    paragrafos_extraidos
                 )
             )
 
-            print(
-                "TOTAL OLLAMA SALVOS NO BLOCO:",
-                len([
+            return None
+
+
+        # ========================================================
+        # GUARDAR OS 3 RESULTADOS
+        # ========================================================
+
+        for indice_paragrafo in range(
+            3
+        ):
+
+            resultado_paragrafo = (
+                paragrafos_extraidos[
+                    indice_paragrafo
+                ]
+            )
+
+            paragrafos_ollama[
+                indice_paragrafo
+            ] = resultado_paragrafo
+
+            paragrafos_finais[
+                indice_paragrafo
+            ] = resultado_paragrafo
+
+
+        # ========================================================
+        # GUARDAR ESTRUTURA DO BLOCO
+        # ========================================================
+
+        dados_bloco[
+            "paragrafos_python"
+        ] = paragrafos_python
+
+
+        dados_bloco[
+            "paragrafos_ollama"
+        ] = paragrafos_ollama
+
+
+        dados_bloco[
+            "paragrafos"
+        ] = paragrafos_finais
+
+
+        dados_bloco[
+            "titulo"
+        ] = titulo_bloco
+
+
+        dados_bloco[
+            "hash"
+        ] = hash_bloco
+
+
+        # ========================================================
+        # SALVAR OS 3 PARÁGRAFOS DE UMA VEZ
+        # ========================================================
+
+        bloco_para_salvar = {
+
+            "numero":
+                numero_bloco,
+
+            "id":
+                chave_bloco,
+
+            "hash":
+                hash_bloco,
+
+            "titulo":
+                titulo_bloco,
+
+            "informacoes_relevantes":
+                informacoes_relevantes,
+
+            "paragrafos_python":
+                paragrafos_python,
+
+            "paragrafos_ollama":
+                paragrafos_ollama,
+
+            "paragrafos":
+                paragrafos_finais
+        }
+
+
+        salvar_banco(
+
+            tema,
+
+            "informacoes_relevantes",
+
+            contexto,
+
+            blocos=[
+                bloco_para_salvar
+            ],
+
+            tipo=tipo
+        )
+
+
+        # ========================================================
+        # LOG DE CONFIRMAÇÃO
+        # ========================================================
+
+        print()
+        print(
+            "✅ BLOCO PROCESSADO E SALVO"
+        )
+
+        print(
+            "BLOCO:",
+            numero_bloco
+        )
+
+        print(
+            "FRAGMENTOS ENVIADOS:",
+            3
+        )
+
+        print(
+            "PARÁGRAFOS RECEBIDOS:",
+            len(
+                [
                     item
                     for item in paragrafos_ollama
                     if str(item or "").strip()
-                ])
+                ]
             )
+        )
 
-            print("=" * 60)
+        print(
+            "PALAVRAS PARÁGRAFO 1:",
+            len(
+                paragrafos_ollama[0].split()
+            )
+        )
+
+        print(
+            "PALAVRAS PARÁGRAFO 2:",
+            len(
+                paragrafos_ollama[1].split()
+            )
+        )
+
+        print(
+            "PALAVRAS PARÁGRAFO 3:",
+            len(
+                paragrafos_ollama[2].split()
+            )
+        )
+
+        print(
+            "TEMPO TOTAL DO BLOCO:",
+            round(
+                fim_ollama - inicio_ollama,
+                2
+            ),
+            "segundos"
+        )
+
+        print("=" * 60)
 
 
         # ========================================================
