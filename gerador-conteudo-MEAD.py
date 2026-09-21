@@ -1,4 +1,4 @@
-# versão 1.4 - 18/09
+# versão 1.5 - 21/09
 
 import json
 import os
@@ -798,6 +798,16 @@ def preparar_dados_pagina(
         dados_pagina[
             "segmentos_listas"
         ] = segmentos_oficiais
+        
+        dados_pagina[
+            "subtitulo_segmentos"
+        ] = str(
+            dados_pagina.get(
+                "subtitulo_segmentos",
+                ""
+            )
+            or ""
+        ).strip()
 
         # ----------------------------------------------------
         # IMPORTANTE
