@@ -17876,33 +17876,35 @@ RETORNE SOMENTE O PARÁGRAFO EDITORIAL.
                     "http://localhost:11434/api/generate",
 
                     json={
-
                         "model":
-                            "qwen3:latest",
-
+                            "qwen2.5:3b",
+                    
                         "prompt":
                             prompt_fragmento,
-
+                    
                         "stream":
                             False,
-
+                    
                         "think":
                             False,
-
+                    
+                        "keep_alive":
+                            "10m",
+                    
                         "options": {
-
+                    
                             "num_predict":
-                                700,
-
+                                140,
+                    
                             "num_ctx":
                                 8192,
-
+                    
                             "temperature":
                                 0.2,
-
+                    
                             "top_p":
                                 0.9,
-
+                    
                             "repeat_penalty":
                                 1.05
                         }
