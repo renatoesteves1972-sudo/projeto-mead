@@ -16799,6 +16799,11 @@ def gerar_conteudo_completo(
         ""
     )
     
+    subtitulo_segmentos = titulos_python.get(
+        "subtitulo_segmentos",
+        ""
+    )
+    
     
     # ============================================================
     # ASSOCIAR OS TÍTULOS AOS BLOCOS
@@ -17231,11 +17236,18 @@ PARÁGRAFOS-BASE SELECIONADOS PELO PYTHON
     )
     
     print(
-        "MAPA MEAD NÃO ENVIADO: SIM"
+        "MAPA MEAD PREPARADO PARA OLLAMA:",
+        "SIM" if mapa_texto else "NÃO"
     )
-    
+
     print(
-        "MEAD NÃO ENVIADO: SIM"
+        "MEAD PREPARADO PARA OLLAMA:",
+        "SIM" if contexto_mead else "NÃO"
+    )
+
+    print(
+        "MEAD REDUZIDO POR BLOCO:",
+        "SIM"
     )
     
     print("=" * 60)
@@ -17607,96 +17619,245 @@ PARÁGRAFOS-BASE SELECIONADOS PELO PYTHON
 
 
             # ====================================================
+            # CONTEXTO EDITORIAL MEAD PARA ESTE FRAGMENTO
+            # ====================================================
+
+            mead_redacao = {}
+
+            try:
+
+                mead_obj = json.loads(
+                    contexto_mead
+                )
+
+                principio_mead = mead_obj.get(
+                    "principio_operacional",
+                    {}
+                )
+
+                construcao_mead = mead_obj.get(
+                    "construcao_conteudo",
+                    {}
+                )
+
+                estrutura_mead = mead_obj.get(
+                    "estrutura_pagina",
+                    {}
+                )
+
+                fidelidade_mead = mead_obj.get(
+                    "fidelidade",
+                    {}
+                )
+
+                contexto_blocos_mead = mead_obj.get(
+                    "contexto_blocos",
+                    {}
+                )
+
+                contexto_bloco_atual = (
+                    contexto_blocos_mead.get(
+                        chave_bloco,
+                        {}
+                    )
+                )
+
+                mead_redacao = {
+                    "objetivo": mead_obj.get(
+                        "objetivo",
+                        ""
+                    ),
+                    "principio_operacional": principio_mead,
+                    "contexto_editorial_do_bloco": contexto_bloco_atual,
+                    "construcao_conteudo": construcao_mead,
+                    "estrutura_pagina": estrutura_mead,
+                    "fidelidade": fidelidade_mead
+                }
+
+            except Exception as erro:
+
+                print(
+                    "⚠️ Não foi possível reduzir o MEAD para o fragmento:",
+                    repr(erro)
+                )
+
+                mead_redacao = {
+                    "objetivo": "",
+                    "principio_operacional": {},
+                    "contexto_editorial_do_bloco": {},
+                    "construcao_conteudo": {},
+                    "estrutura_pagina": {},
+                    "fidelidade": {}
+                }
+
+            mead_redacao_texto = json.dumps(
+                mead_redacao,
+                ensure_ascii=False,
+                indent=2
+            )
+
+            mapa_redacao_texto = str(
+                mapa_texto or ""
+            ).strip()
+            
+            
+
+            # ====================================================
             # PROMPT INDIVIDUAL
             # ====================================================
 
             prompt_fragmento = f"""
-Você é um redator técnico.
+Você é um redator técnico responsável por transformar
+um fragmento previamente selecionado pelo Python em
+UM único parágrafo editorial.
 
-Sua função nesta etapa é transformar SOMENTE o
-fragmento selecionado pelo Python em UM único
-parágrafo editorial.
-
-============================================================
+==================================================
 TEMA
-============================================================
+==================================================
 
 {tema}
 
-============================================================
-BLOCO
-============================================================
+==================================================
+BLOCO EDITORIAL
+==================================================
 
 {chave_bloco}
 
-============================================================
+==================================================
+OBJETIVO EDITORIAL DO BLOCO
+==================================================
+
+{mapa_texto}
+
+==================================================
+REGRAS EDITORIAIS DO MEAD
+==================================================
+
+{contexto_mead}
+
+==================================================
 FRAGMENTO SELECIONADO PELO PYTHON
-============================================================
+==================================================
 
 {texto_fragmento}
 
-============================================================
+==================================================
+REGRA FUNDAMENTAL DE FIDELIDADE
+==================================================
+
+O FRAGMENTO SELECIONADO PELO PYTHON é a única
+fonte de informação factual que pode ser utilizada
+para escrever o parágrafo.
+
+O MEAD e o MAPA MEAD servem exclusivamente para
+orientar a forma editorial, o objetivo do bloco,
+a organização das informações e o comportamento
+do texto.
+
+O MEAD NÃO é uma fonte factual.
+
+O MAPA MEAD NÃO é uma fonte factual.
+
+Não utilize informações externas ao fragmento.
+
+Não complete informações ausentes usando seu
+conhecimento sobre o tema.
+
+Não pesquise informações externas.
+
+Não invente informações.
+
+==================================================
 REGRAS OBRIGATÓRIAS
-============================================================
+==================================================
 
-1. Use somente as informações presentes no fragmento.
+1. Use somente informações factuais presentes no
+   fragmento selecionado pelo Python.
 
-2. Não pesquise informações externas.
+2. Preserve o sentido original das informações.
 
-3. Não use conhecimento externo para complementar
-   o texto.
+3. Não acrescente características, especificações,
+   aplicações, materiais, números, normas, anos,
+   certificações, empresas, marcas, clientes ou
+   capacidades que não estejam no fragmento.
 
-4. Não invente informações.
+4. Não invente nomes de empresas ou marcas.
 
-5. Não invente:
-   - clientes;
-   - empresas;
-   - marcas;
-   - fabricantes;
-   - anos;
-   - certificações;
-   - normas;
-   - números;
-   - métricas;
-   - capacidades;
-   - especificações;
-   - aplicações;
-   - resultados;
-   - depoimentos.
+5. Não atribua informações a uma empresa que não
+   estejam explicitamente presentes no fragmento.
 
-6. Preserve o sentido factual do fragmento.
+6. Não transforme informações genéricas em afirmações
+   específicas.
 
-7. Pode reorganizar a redação para deixá-la natural.
+7. Não misture informações de outros fragmentos.
 
-8. Pode corrigir problemas de redação do fragmento.
+8. Não utilize informações de outros blocos.
 
-9. Não altere fatos presentes no fragmento.
+9. Não repita informações apenas para aumentar o texto.
 
-10. Não crie informações que não estejam sustentadas
-    pelo fragmento.
+10. Não altere a identidade do tema.
 
-11. Não crie título.
+11. Mantenha o tema exatamente relacionado a:
 
-12. Não crie subtítulo.
+    {tema}
 
-13. Não crie lista.
+12. O texto deve ser técnico, natural e claro.
 
-14. Não use marcadores.
+13. Não faça propaganda exagerada.
 
-15. Não escreva explicações sobre o processo.
+14. Não utilize frases promocionais que não estejam
+    sustentadas pelo fragmento.
 
-16. Retorne SOMENTE o parágrafo final.
+15. Não crie conclusões técnicas que não estejam
+    sustentadas pelo fragmento.
 
-17. O texto deve ser natural e técnico.
+16. O MEAD deve controlar a construção editorial,
+    mas nunca autorizar a criação de fatos.
+
+17. O MAPA MEAD deve orientar o propósito do bloco,
+    mas nunca fornecer fatos adicionais.
 
 18. Procure produzir aproximadamente 60 a 70 palavras,
-    sem inventar conteúdo apenas para atingir quantidade.
+    mas NUNCA invente conteúdo para atingir essa
+    quantidade.
 
-============================================================
-RESPOSTA
-============================================================
+19. Se o fragmento tiver pouca informação, produza
+    um parágrafo menor. A fidelidade é mais importante
+    que a quantidade de palavras.
 
-Retorne somente o parágrafo editorial.
+20. Preserve informações técnicas relevantes do
+    fragmento.
+
+21. Corrija apenas problemas de redação, gramática,
+    concordância e fluidez, sem alterar o conteúdo
+    factual.
+
+22. Não traduza nomes próprios, marcas ou termos
+    técnicos sem necessidade.
+
+23. Não introduza palavras ou conceitos que mudem
+    o significado do fragmento.
+
+24. Retorne somente o parágrafo editorial final.
+
+==================================================
+VERIFICAÇÃO ANTES DA RESPOSTA
+==================================================
+
+Antes de retornar o parágrafo, confirme internamente:
+
+- Todas as informações factuais vieram do fragmento?
+- Alguma informação externa foi acrescentada?
+- Alguma marca ou empresa foi inventada?
+- Algum número ou especificação foi inventado?
+- Alguma informação de outro fragmento foi utilizada?
+- O texto continua falando sobre o tema correto?
+- O MEAD foi usado apenas como orientação editorial?
+
+Se qualquer informação não estiver sustentada pelo
+fragmento, remova-a.
+
+RETORNE SOMENTE O PARÁGRAFO EDITORIAL.
 """
 
 
@@ -20027,8 +20188,8 @@ def gerar_titulos(
     # Também criado exclusivamente pelo Python.
     # ========================================================
 
-    subtitulo_segmentos = (
-        f"Principais aplicações de {tema}"
+    subtitulo_segmentos = gerar_subtitulo_segmentos(
+        tema
     )
 
     # ========================================================
