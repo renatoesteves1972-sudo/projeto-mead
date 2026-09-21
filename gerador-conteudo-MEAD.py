@@ -28347,7 +28347,8 @@ def gerar_material_interface():
                         tema,
                         "conteudo_completo",
                         conteudo_completo,
-                        tipo=tipo
+                        tipo=tipo,
+                        subtitulo_segmentos=subtitulo_segmentos
                     )
 
                     print()
