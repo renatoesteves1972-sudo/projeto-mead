@@ -17878,7 +17878,7 @@ RETORNE SOMENTE O PARÁGRAFO EDITORIAL.
                     json={
 
                         "model":
-                            "qwen2.5:3b",
+                            "qwen3:latest",
 
                         "prompt":
                             prompt_fragmento,
