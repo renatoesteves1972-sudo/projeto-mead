@@ -1453,6 +1453,8 @@ def criar_estrutura_json_pagina(tema):
             }
         }
     }        
+    
+    
 # ============================================================
 # MONTAR PÁGINA FINAL NO NOVO JSON OFICIAL
 # ============================================================
@@ -18172,6 +18174,7 @@ OS 3 FRAGMENTOS SELECIONADOS PELO PYTHON
             "paragrafos_ollama":
                 paragrafos_ollama,
 
+        }
 
         salvar_banco(
 
