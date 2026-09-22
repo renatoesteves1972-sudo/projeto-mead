@@ -3739,7 +3739,7 @@ REGRAS:
 
                 "options": {
 
-                    "num_predict": 150,
+                    "num_predict": 600,
 
                     "num_ctx": 2048,
 
