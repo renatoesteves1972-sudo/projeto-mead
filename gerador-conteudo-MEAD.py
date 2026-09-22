@@ -14193,8 +14193,7 @@ def selecionar_informacoes_relevantes(
             "informacoes_relevantes": [],
             "titulo": "",
             "paragrafos_python": ["", "", ""],
-            "paragrafos_ollama": ["", "", ""],
-            "paragrafos": ["", "", ""]
+            "paragrafos_ollama": ["", "", ""] 
         },
 
         "bloco_2": {
@@ -14203,8 +14202,7 @@ def selecionar_informacoes_relevantes(
             "informacoes_relevantes": [],
             "titulo": "",
             "paragrafos_python": ["", "", ""],
-            "paragrafos_ollama": ["", "", ""],
-            "paragrafos": ["", "", ""]
+            "paragrafos_ollama": ["", "", ""] 
         },
 
         "bloco_3": {
@@ -14213,8 +14211,7 @@ def selecionar_informacoes_relevantes(
             "informacoes_relevantes": [],
             "titulo": "",
             "paragrafos_python": ["", "", ""],
-            "paragrafos_ollama": ["", "", ""],
-            "paragrafos": ["", "", ""]
+            "paragrafos_ollama": ["", "", ""] 
         },
 
         "bloco_4": {
@@ -14223,8 +14220,7 @@ def selecionar_informacoes_relevantes(
             "informacoes_relevantes": [],
             "titulo": "",
             "paragrafos_python": ["", "", ""],
-            "paragrafos_ollama": ["", "", ""],
-            "paragrafos": ["", "", ""]
+            "paragrafos_ollama": ["", "", ""] 
         },
 
         "bloco_5": {
@@ -14233,8 +14229,7 @@ def selecionar_informacoes_relevantes(
             "informacoes_relevantes": [],
             "titulo": "",
             "paragrafos_python": ["", "", ""],
-            "paragrafos_ollama": ["", "", ""],
-            "paragrafos": ["", "", ""]
+            "paragrafos_ollama": ["", "", ""] 
         }
 
     }
@@ -14610,14 +14605,8 @@ def selecionar_informacoes_relevantes(
                 dados_bloco.get(
                     "paragrafos_ollama",
                     ["", "", ""]
-                ),
-    
-            "paragrafos":
-                dados_bloco.get(
-                    "paragrafos",
-                    ["", "", ""]
                 )
-    
+     
         }
     
     
@@ -18553,12 +18542,6 @@ OS 3 FRAGMENTOS SELECIONADOS PELO PYTHON
                 dados_bloco.get(
                     "paragrafos_ollama",
                     []
-                ),
-
-            "paragrafos":
-                dados_bloco.get(
-                    "paragrafos",
-                    []
                 )
         })
 
@@ -18566,17 +18549,17 @@ OS 3 FRAGMENTOS SELECIONADOS PELO PYTHON
     # ============================================================
     # CONTROLE FINAL
     # ============================================================
-
+    
     print()
     print("=" * 60)
     print("ESTRUTURA FINAL DOS BLOCOS")
     print("=" * 60)
-
+    
     print(
         "BLOCOS:",
         len(blocos)
     )
-
+    
     print(
         "PARÁGRAFOS:",
         sum(
@@ -18584,7 +18567,7 @@ OS 3 FRAGMENTOS SELECIONADOS PELO PYTHON
                 [
                     p
                     for p in bloco.get(
-                        "paragrafos",
+                        "paragrafos_ollama",
                         []
                     )
                     if str(p or "").strip()
@@ -18593,7 +18576,7 @@ OS 3 FRAGMENTOS SELECIONADOS PELO PYTHON
             for bloco in blocos
         )
     )
-
+    
     print("=" * 60)
 
 
@@ -18999,7 +18982,7 @@ OS 3 FRAGMENTOS SELECIONADOS PELO PYTHON
     total_paragrafos_real = sum(
         len(
             bloco.get(
-                "paragrafos",
+                "paragrafos_ollama",
                 []
             )
         )
@@ -19072,7 +19055,7 @@ OS 3 FRAGMENTOS SELECIONADOS PELO PYTHON
     
         if len(
             bloco.get(
-                "paragrafos",
+                "paragrafos_ollama",
                 []
             )
         ) != paragrafos_por_bloco:
@@ -19112,25 +19095,25 @@ OS 3 FRAGMENTOS SELECIONADOS PELO PYTHON
     # ========================================================
     # 21. MONTAR CONTEÚDO FINAL
     # ========================================================
-
+    
     partes_conteudo = []
-
+    
     partes_conteudo.append(
         "TÍTULO PRINCIPAL: "
         + titulo
     )
-
+    
     partes_conteudo.append(
         "SUBTÍTULO: "
         + subtitulo
     )
-
+    
     partes_conteudo.append(
         "### Conteúdo"
     )
-
+    
     for bloco in blocos:
-
+    
         partes_conteudo.append(
             "#### Bloco "
             + str(
@@ -19139,44 +19122,45 @@ OS 3 FRAGMENTOS SELECIONADOS PELO PYTHON
             + ": "
             + bloco["titulo"]
         )
-
+    
         for paragrafo in bloco[
-            "paragrafos"
+            "paragrafos_ollama"
         ]:
-
+    
             partes_conteudo.append(
                 paragrafo
             )
-
+    
     partes_conteudo.append(
         "### Segmentos"
     )
-
+    
     for indice, segmento in enumerate(
         lista_segmentos,
         start=1
     ):
-
+    
         partes_conteudo.append(
             f"{indice}. {segmento}"
         )
-
+    
     partes_conteudo.append(
         "### Tags"
     )
-
+    
     for indice, tag in enumerate(
         lista_tags,
         start=1
     ):
-
+    
         partes_conteudo.append(
             f"{indice}. {tag}"
         )
-
+    
     conteudo = "\n\n".join(
         partes_conteudo
     ).strip()
+
 
     # ========================================================
     # 22. ESTRUTURA REAL
@@ -19227,7 +19211,7 @@ OS 3 FRAGMENTOS SELECIONADOS PELO PYTHON
         )
     
         paragrafos_teste = bloco.get(
-            "paragrafos",
+            "paragrafos_ollama",
             []
         )
     
@@ -20454,6 +20438,8 @@ def salvar_banco(
     trechos_utilizados=None,
     grupo_principal_projeto=None,
     tipo=None,
+    h1=None,
+    titulo=None,
     subtitulo=None,
     subtitulo_segmentos=None
 ):
@@ -21319,27 +21305,27 @@ def salvar_banco(
         # ====================================================
         # PROTEÇÃO CONTRA CAMPOS LEGADOS
         # ====================================================
-
+        
         alvo.pop(
             "paragrafos",
             None
         )
-
+        
         alvo.pop(
             "imagens",
             None
         )
-
+        
         alvo.pop(
             "caracteres",
             None
         )
-
+        
         alvo.pop(
             "status",
             None
         )
-
+        
         pagina[
             chave_bloco
         ] = alvo
@@ -23070,33 +23056,33 @@ def salvar_banco(
             )
         ).hexdigest()
 
-        # ----------------------------------------------------
-        # PROTEÇÃO CONTRA CAMPOS ANTIGOS
-        # ----------------------------------------------------
-
-        bloco.pop(
-            "paragrafos",
-            None
-        )
-
-        bloco.pop(
-            "imagens",
-            None
-        )
-
-        bloco.pop(
-            "caracteres",
-            None
-        )
-
-        bloco.pop(
-            "status",
-            None
-        )
-
-        pagina[
-            chave_bloco
-        ] = bloco
+    # ----------------------------------------------------
+    # PROTEÇÃO CONTRA CAMPOS ANTIGOS
+    # ----------------------------------------------------
+    
+    bloco.pop(
+        "paragrafos",
+        None
+    )
+    
+    bloco.pop(
+        "imagens",
+        None
+    )
+    
+    bloco.pop(
+        "caracteres",
+        None
+    )
+    
+    bloco.pop(
+        "status",
+        None
+    )
+    
+    pagina[
+        chave_bloco
+    ] = bloco
 
     # ========================================================
     # CONTAGEM DE REPETIÇÕES
@@ -23217,20 +23203,20 @@ def salvar_banco(
     # ========================================================
     # PROTEÇÃO FINAL DOS BLOCOS
     # ========================================================
-
+    
     for numero in range(
         1,
         6
     ):
-
+    
         chave_bloco = (
             f"bloco_{numero}"
         )
-
+    
         bloco = pagina.get(
             chave_bloco
         )
-
+    
         if not isinstance(
             bloco,
             dict
@@ -23238,29 +23224,29 @@ def salvar_banco(
             bloco = criar_bloco_vazio(
                 numero
             )
-
+    
         # Nunca deixar campos legados chegarem ao JSON.
-
+    
         bloco.pop(
             "paragrafos",
             None
         )
-
+    
         bloco.pop(
             "imagens",
             None
         )
-
+    
         bloco.pop(
             "caracteres",
             None
         )
-
+    
         bloco.pop(
             "status",
             None
         )
-
+    
         pagina[
             chave_bloco
         ] = bloco
