@@ -20271,6 +20271,10 @@ def validar_estrutura_pagina(
 
 
 
+# ========================================================
+# 05. GERAR TÍTULOS
+# ========================================================
+
 def gerar_titulos(
     tema,
     blocos_informacoes,
@@ -20299,10 +20303,7 @@ def gerar_titulos(
     # 02. TÍTULO SEO
     # ========================================================
 
-    title = (
-        tema.capitalize()
-        + " | Soluções e Informações Técnicas"
-    )
+    title = tema
 
     # ========================================================
     # 03. SUBTÍTULO DE IMPACTO
@@ -20421,6 +20422,7 @@ def gerar_titulos(
         )
 
     return resultado
+
     
 # ============================================================
 # SALVAR BANCO
