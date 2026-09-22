@@ -1456,6 +1456,92 @@ def criar_estrutura_json_pagina(tema):
     
     
 # ============================================================
+# NORMALIZAR GRUPO PRINCIPAL DO PROJETO
+# ============================================================
+
+def normalizar_grupo_principal_projeto(
+    grupo_principal_projeto
+):
+
+    grupo = str(
+        grupo_principal_projeto or ""
+    ).strip()
+
+    if not grupo:
+        return ""
+
+    # ========================================================
+    # CORREÇÕES CONTROLADAS DE ACENTUAÇÃO
+    # ========================================================
+
+    correcoes = {
+
+        "equipamentos hidraulicos":
+            "equipamentos hidráulicos",
+
+        "equipamento hidraulico":
+            "equipamento hidráulico",
+
+        "equipamentos hidráulicos":
+            "equipamentos hidráulicos",
+
+        "equipamento hidráulico":
+            "equipamento hidráulico",
+
+        "valvulas industriais":
+            "válvulas industriais",
+
+        "valvulas industrial":
+            "válvulas industrial",
+
+        "componentes mecanicos":
+            "componentes mecânicos",
+
+        "componente mecanico":
+            "componente mecânico",
+
+        "protecao contra incendio":
+            "proteção contra incêndio",
+
+        "proteção contra incêndio":
+            "proteção contra incêndio",
+
+        "materiais de construcao":
+            "materiais de construção",
+
+        "materiais de construção":
+            "materiais de construção",
+
+        "construcao civil":
+            "construção civil",
+
+        "construção civil":
+            "construção civil",
+
+        "instalacoes industriais":
+            "instalações industriais",
+
+        "instalações industriais":
+            "instalações industriais",
+
+        "sistemas hidraulicos":
+            "sistemas hidráulicos",
+
+        "sistemas hidráulicos":
+            "sistemas hidráulicos"
+    }
+
+    chave = grupo.casefold()
+
+    grupo_corrigido = correcoes.get(
+        chave,
+        grupo
+    )
+
+    return grupo_corrigido
+
+    
+# ============================================================
 # MONTAR PÁGINA FINAL NO NOVO JSON OFICIAL
 # ============================================================
 
@@ -1532,9 +1618,9 @@ def montar_pagina_json(
             tipo or ""
         ).strip()
 
-        grupo_principal_projeto = str(
-            grupo_principal_projeto or ""
-        ).strip()
+        grupo_principal_projeto = normalizar_grupo_principal_projeto(
+            grupo_principal_projeto
+        )
 
 
         if not tema:
@@ -15475,8 +15561,8 @@ def gerar_conteudo_completo(
 
     # Grupo principal vem da interface e precisa existir antes
     # de qualquer salvamento intermediário desta função.
-    grupo_principal_projeto = (
-        entrada_grupo.get().strip()
+    grupo_principal_projeto = normalizar_grupo_principal_projeto(
+        entrada_grupo.get()
         if "entrada_grupo" in globals()
         else ""
     )
