@@ -20293,17 +20293,22 @@ def gerar_titulos(
     if not tema:
         return {}
 
-    # ========================================================
-    # 01. H1
-    # ========================================================
-
-    h1 = tema
 
     # ========================================================
-    # 02. TÍTULO SEO
+    # 01. H1 / TÍTULO
     # ========================================================
+    
+    # Formata o tema para exibição, preservando a acentuação
+    # original e colocando a inicial de cada palavra em maiúscula.
+    tema_titulo = " ".join(
+        palavra[:1].upper() + palavra[1:]
+        for palavra in tema.split()
+    )
+    
+    h1 = tema_titulo
+    title = tema_titulo
 
-    title = tema
+
 
     # ========================================================
     # 03. SUBTÍTULO DE IMPACTO
