@@ -1,4 +1,4 @@
-# versão 1.5 - 21/09
+# versão 1.6 - 22/09
 
 import json
 import os
@@ -18529,28 +18529,34 @@ OS 3 FRAGMENTOS SELECIONADOS PELO PYTHON
         # EXTRAIR OS 3 PARÁGRAFOS
         # ========================================================
 
-        padrao_blocos = re.search(
+        resultado_ollama = str(
+            resultado_ollama or ""
+        ).strip()
 
-            r"\[BLOCO\](.*?)\[/BLOCO\]",
 
+        # --------------------------------------------------------
+        # REMOVER CERCAS DE CÓDIGO, CASO EXISTAM
+        # --------------------------------------------------------
+
+        resultado_ollama = re.sub(
+            r"```(?:text|txt)?",
+            "",
             resultado_ollama,
-
-            flags=re.IGNORECASE | re.DOTALL
+            flags=re.IGNORECASE
         )
 
+        resultado_ollama = re.sub(
+            r"```",
+            "",
+            resultado_ollama
+        )
 
-        if padrao_blocos:
+        resultado_ollama = resultado_ollama.strip()
 
-            conteudo_bloco_ollama = (
-                padrao_blocos.group(1)
-            )
 
-        else:
-
-            conteudo_bloco_ollama = (
-                resultado_ollama
-            )
-
+        # ========================================================
+        # EXTRAÇÃO DIRETA DOS 3 PARÁGRAFOS
+        # ========================================================
 
         paragrafos_extraidos = []
 
@@ -18560,19 +18566,25 @@ OS 3 FRAGMENTOS SELECIONADOS PELO PYTHON
             4
         ):
 
-            padrao_paragrafo = re.search(
+            marcador_abertura = (
+                f"[PARAGRAFO_{indice_paragrafo}]"
+            )
 
-                rf"\[PARAGRAFO_{indice_paragrafo}\]"
-                rf"(.*?)"
-                rf"\[/PARAGRAFO_{indice_paragrafo}\]",
-
-                conteudo_bloco_ollama,
-
-                flags=re.IGNORECASE | re.DOTALL
+            marcador_fechamento = (
+                f"[/PARAGRAFO_{indice_paragrafo}]"
             )
 
 
-            if not padrao_paragrafo:
+            # ----------------------------------------------------
+            # LOCALIZAR ABERTURA
+            # ----------------------------------------------------
+
+            inicio = resultado_ollama.lower().find(
+                marcador_abertura.lower()
+            )
+
+
+            if inicio == -1:
 
                 print()
                 print(
@@ -18581,6 +18593,15 @@ OS 3 FRAGMENTOS SELECIONADOS PELO PYTHON
 
                 print(
                     indice_paragrafo
+                )
+
+                print()
+                print(
+                    "MARCADOR PROCURADO:"
+                )
+
+                print(
+                    marcador_abertura
                 )
 
                 print()
@@ -18595,12 +18616,73 @@ OS 3 FRAGMENTOS SELECIONADOS PELO PYTHON
                 return None
 
 
+            # ----------------------------------------------------
+            # POSIÇÃO APÓS O MARCADOR
+            # ----------------------------------------------------
+
+            inicio_conteudo = (
+                inicio
+                + len(
+                    marcador_abertura
+                )
+            )
+
+
+            # ----------------------------------------------------
+            # LOCALIZAR FECHAMENTO
+            # ----------------------------------------------------
+
+            fim = resultado_ollama.lower().find(
+                marcador_fechamento.lower(),
+                inicio_conteudo
+            )
+
+
+            if fim == -1:
+
+                print()
+                print(
+                    "❌ FECHAMENTO DO PARÁGRAFO NÃO ENCONTRADO:"
+                )
+
+                print(
+                    indice_paragrafo
+                )
+
+                print()
+                print(
+                    "MARCADOR PROCURADO:"
+                )
+
+                print(
+                    marcador_fechamento
+                )
+
+                print()
+                print(
+                    "RESPOSTA RECEBIDA:"
+                )
+
+                print(
+                    resultado_ollama[:3000]
+                )
+
+                return None
+
+
+            # ----------------------------------------------------
+            # EXTRAIR TEXTO
+            # ----------------------------------------------------
+
+            texto_paragrafo = (
+                resultado_ollama[
+                    inicio_conteudo:fim
+                ]
+            )
+
+
             texto_paragrafo = str(
-
-                padrao_paragrafo.group(1)
-
-                or ""
-
+                texto_paragrafo or ""
             ).strip()
 
 
@@ -18620,36 +18702,10 @@ OS 3 FRAGMENTOS SELECIONADOS PELO PYTHON
             # ----------------------------------------------------
 
             texto_paragrafo = re.sub(
-
-                r"^\s*"
-                r"\[PARAGRAFO_\d+\]"
-                r"\s*",
-
-                "",
-
-                texto_paragrafo,
-
-                flags=re.IGNORECASE
-            )
-
-
-            texto_paragrafo = re.sub(
-
-                r"\s*"
-                r"\[/PARAGRAFO_\d+\]"
-                r"\s*$",
-
-                "",
-
-                texto_paragrafo,
-
-                flags=re.IGNORECASE
-            )
-
-
-            texto_paragrafo = (
-                texto_paragrafo.strip()
-            )
+                r"\s+",
+                " ",
+                texto_paragrafo
+            ).strip()
 
 
             if not texto_paragrafo:
@@ -18666,7 +18722,6 @@ OS 3 FRAGMENTOS SELECIONADOS PELO PYTHON
             paragrafos_extraidos.append(
                 texto_paragrafo
             )
-
 
         # ========================================================
         # GARANTIR EXATAMENTE 3 PARÁGRAFOS
