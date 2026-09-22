@@ -14884,9 +14884,11 @@ def selecionar_informacoes_relevantes(
             informacoes_relevantes,
             blocos=blocos,
             grupo_principal_projeto=
-                entrada_grupo.get().strip()
-                if "entrada_grupo" in globals()
-                else ""
+                normalizar_grupo_principal_projeto(
+                    entrada_grupo.get()
+                    if "entrada_grupo" in globals()
+                    else ""
+                )
         )
     
         print(
@@ -19266,9 +19268,11 @@ OS 3 FRAGMENTOS SELECIONADOS PELO PYTHON
                 else "",
     
             "grupo_principal_projeto":
-                entrada_grupo.get().strip()
-                if "entrada_grupo" in globals()
-                else "",
+                normalizar_grupo_principal_projeto(
+                    entrada_grupo.get()
+                    if "entrada_grupo" in globals()
+                    else ""
+                ),
     
             "segmentos_textuais":
                 lista_segmentos,
@@ -19312,9 +19316,11 @@ OS 3 FRAGMENTOS SELECIONADOS PELO PYTHON
         tags=lista_tags,
     
         grupo_principal_projeto=
-            entrada_grupo.get().strip()
-            if "entrada_grupo" in globals()
-            else "",
+            normalizar_grupo_principal_projeto(
+                entrada_grupo.get()
+                if "entrada_grupo" in globals()
+                else ""
+            ),
     
         tipo=tipo,
         
