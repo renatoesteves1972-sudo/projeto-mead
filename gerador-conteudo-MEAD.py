@@ -1455,7 +1455,7 @@ def criar_estrutura_json_pagina(tema):
     }        
         
 # ============================================================
-# MONTAR PÁGINA FINAL NO NOVO JSON
+# MONTAR PÁGINA FINAL NO NOVO JSON OFICIAL
 # ============================================================
 
 def montar_pagina_json(
@@ -1471,24 +1471,25 @@ def montar_pagina_json(
     ):
 
     """
-    Monta a estrutura oficial da página para o JSON.
+    Monta exclusivamente a estrutura oficial do JSON.
 
     RESPONSABILIDADES:
 
-    - criar a estrutura oficial;
     - transportar os dados já produzidos pelo Python;
-    - preservar a acentuação do tema;
-    - preservar informacoes_relevantes como lista de objetos;
+    - preservar o tema original;
+    - preservar tags;
+    - preservar controle de repetições;
+    - preservar mapa MEAD;
+    - preservar grupo principal;
+    - preservar h1 e titulo;
+    - preservar subtitulo;
     - preservar subtitulo_segmentos;
+    - preservar os 5 blocos;
+    - preservar informacoes_relevantes;
+    - preservar paragrafos_python;
+    - preservar paragrafos_ollama;
     - preservar segmentos_listas;
-    - preservar posicionamento_listas;
-    - preservar imagens;
-    - preservar descricao;
-    - garantir os 5 blocos;
-    - garantir 3 parágrafos por bloco;
-    - preservar caracteres quando já calculados;
-    - calcular caracteres quando necessário;
-    - definir o status da página.
+    - preservar posicionamento_listas.
 
     ESTA FUNÇÃO NÃO:
 
@@ -1500,14 +1501,16 @@ def montar_pagina_json(
     - gera títulos;
     - gera segmentos;
     - gera imagens;
-    - inventa informações;
+    - cria descricao;
+    - cria subtitulo_listas;
+    - cria paragrafos;
+    - calcula caracteres;
+    - cria status;
     - salva o banco;
     - chama salvar_banco();
     - chama atualizar_bloco();
     - cria informacoes_adicionais;
-    - cria categorias;
-    - usa global pagina;
-    - força quantidade de segmentos.
+    - cria categorias.
     """
 
     try:
@@ -1551,7 +1554,6 @@ def montar_pagina_json(
             tags,
             list
         ):
-
             tags = []
 
 
@@ -1559,7 +1561,6 @@ def montar_pagina_json(
             controle_repeticoes,
             dict
         ):
-
             controle_repeticoes = {}
 
 
@@ -1567,7 +1568,6 @@ def montar_pagina_json(
             mapa_mead,
             dict
         ):
-
             mapa_mead = {}
 
 
@@ -1575,39 +1575,16 @@ def montar_pagina_json(
             dados_pagina,
             dict
         ):
-
             dados_pagina = {}
 
 
         # ====================================================
         # INFORMACOES_RELEVANTES
         #
-        # Formatos aceitos:
+        # São os objetos dos fragmentos selecionados
+        # anteriormente pelo Python.
         #
-        # {
-        #     "blocos": {
-        #         "bloco_1": [...],
-        #         "bloco_2": [...],
-        #         ...
-        #     }
-        # }
-        #
-        # ou:
-        #
-        # {
-        #     "bloco_1": [...],
-        #     "bloco_2": [...],
-        #     ...
-        # }
-        #
-        # ou:
-        #
-        # [
-        #     {...},
-        #     {...}
-        # ]
-        #
-        # Nunca transformar objetos em string.
+        # NÃO transformar em string.
         # ====================================================
 
         if isinstance(
@@ -1640,10 +1617,8 @@ def montar_pagina_json(
         ):
 
             fragmentos_blocos = {
-
                 "bloco_1":
                     informacoes_relevantes
-
             }
 
         else:
@@ -1652,147 +1627,34 @@ def montar_pagina_json(
 
 
         # ====================================================
-        # CRIAR ESTRUTURA OFICIAL
-        # ====================================================
-
-        estrutura = criar_estrutura_json_pagina(
-            tema
-        )
-
-
-        if not isinstance(
-            estrutura,
-            dict
-        ):
-
-            print(
-                "❌ criar_estrutura_json_pagina() "
-                "não retornou um dicionário."
-            )
-
-            return None
-
-
-        # ====================================================
-        # OBJETO DO TEMA
-        # ====================================================
-
-        pagina_completa = estrutura.get(
-            tema
-        )
-
-
-        if not isinstance(
-            pagina_completa,
-            dict
-        ):
-
-            print(
-                "❌ Tema não encontrado na estrutura "
-                "criada para o JSON."
-            )
-
-            return None
-
-
-        # ====================================================
-        # OBJETO FINAL DA PÁGINA
-        # ====================================================
-
-        pagina = pagina_completa.get(
-            "pagina"
-        )
-
-
-        if not isinstance(
-            pagina,
-            dict
-        ):
-
-            print(
-                "❌ Estrutura 'pagina' inválida."
-            )
-
-            return None
-
-
-        # ====================================================
-        # DADOS GERAIS DO TEMA
-        #
-        # Estes pertencem ao nível do tema.
-        # ====================================================
-
-        pagina_completa[
-            "tema"
-        ] = tema
-
-
-        pagina_completa[
-            "grupo"
-        ] = grupo
-
-
-        pagina_completa[
-            "tipo"
-        ] = tipo
-
-
-        pagina_completa[
-            "grupo_principal_projeto"
-        ] = grupo_principal_projeto
-
-
-        # ====================================================
         # TAGS
-        #
-        # As tags são produzidas anteriormente pelo Python.
-        #
-        # Aqui apenas:
-        # - remove vazios;
-        # - remove duplicadas;
-        # - limita a 30.
         # ====================================================
 
         tags_finais = []
 
-
         for tag in tags:
 
             if tag is None:
-
                 continue
-
 
             tag_limpa = str(
                 tag
             ).strip()
 
-
             if not tag_limpa:
-
                 continue
-
 
             if tag_limpa in tags_finais:
-
                 continue
-
 
             tags_finais.append(
                 tag_limpa
             )
 
-
             if len(
                 tags_finais
             ) >= 30:
-
                 break
-
-
-        pagina_completa[
-            "tags"
-        ] = tags_finais
 
 
         # ====================================================
@@ -1812,7 +1674,6 @@ def montar_pagina_json(
 
             "repeticoes_faltantes":
                 60
-
         }
 
 
@@ -1821,115 +1682,127 @@ def montar_pagina_json(
         )
 
 
-        pagina_completa[
-            "controle_repeticoes"
-        ] = controle_padrao
-
-
-        # ====================================================
-        # MAPA MEAD
-        # ====================================================
-
-        pagina_completa[
-            "mapa_mead"
-        ] = mapa_mead
-
-
         # ====================================================
         # DADOS GERAIS DA PÁGINA
+        # ====================================================
+
+        arquivo_origem = str(
+            dados_pagina.get(
+                "arquivo_origem",
+                ""
+            ) or ""
+        ).strip()
+
+
+        # ====================================================
+        # H1
         #
-        # Apenas transporta.
+        # NÃO gerar aqui.
         #
-        # Não gera títulos.
+        # O valor deve vir pronto da etapa anterior,
+        # contendo somente a palavra-chave corrigida.
         # ====================================================
 
-        campos_gerais = [
-
-            "tema",
-            "arquivo_origem",
-            "h1",
-            "titulo",
-            "subtitulo",
-            "subtitulo_listas",
-            "subtitulo_segmentos",
-            "descricao"
-
-        ]
-
-
-        for campo in campos_gerais:
-
-            if campo not in dados_pagina:
-
-                continue
-
-
-            valor = dados_pagina.get(
-                campo
-            )
-
-
-            if valor is None:
-
-                continue
-
-
-            pagina[
-                campo
-            ] = valor
+        h1 = str(
+            dados_pagina.get(
+                "h1",
+                ""
+            ) or ""
+        ).strip()
 
 
         # ====================================================
-        # GARANTIR TEMA DA PÁGINA
-        # ====================================================
-
-        pagina[
-            "tema"
-        ] = tema
-
-
-        # ====================================================
-        # GARANTIR CAMPOS GERAIS
+        # TÍTULO
         #
-        # Não sobrescreve valores já produzidos.
-        # Apenas garante existência.
+        # NÃO gerar aqui.
+        #
+        # O valor deve vir pronto da etapa anterior,
+        # contendo somente a palavra-chave corrigida.
         # ====================================================
 
-        campos_padrao = {
-
-            "arquivo_origem": "",
-            "h1": "",
-            "titulo": "",
-            "subtitulo": "",
-            "subtitulo_listas": "",
-            "subtitulo_segmentos": "",
-            "descricao": ""
-
-        }
+        titulo = str(
+            dados_pagina.get(
+                "titulo",
+                ""
+            ) or ""
+        ).strip()
 
 
-        for campo, valor_padrao in (
-            campos_padrao.items()
+        # ====================================================
+        # SUBTÍTULO
+        # ====================================================
+
+        subtitulo = str(
+            dados_pagina.get(
+                "subtitulo",
+                ""
+            ) or ""
+        ).strip()
+
+
+        # ====================================================
+        # SUBTÍTULO DOS SEGMENTOS
+        # ====================================================
+
+        subtitulo_segmentos = str(
+            dados_pagina.get(
+                "subtitulo_segmentos",
+                ""
+            ) or ""
+        ).strip()
+
+
+        # ====================================================
+        # SEGMENTOS
+        #
+        # Produzidos anteriormente pelo Python.
+        # ====================================================
+
+        segmentos_listas = dados_pagina.get(
+            "segmentos_listas",
+            {}
+        )
+
+
+        if not isinstance(
+            segmentos_listas,
+            dict
         ):
 
-            if campo not in pagina:
-
-                pagina[
-                    campo
-                ] = valor_padrao
-
-            elif pagina.get(
-                campo
-            ) is None:
-
-                pagina[
-                    campo
-                ] = valor_padrao
+            segmentos_listas = {}
 
 
         # ====================================================
-        # GARANTIR OS 5 BLOCOS
+        # POSICIONAMENTO DAS LISTAS
+        #
+        # Mantém o bloco escolhido/randomizado
+        # anteriormente pelo Python.
         # ====================================================
+
+        posicionamento_listas = dados_pagina.get(
+            "posicionamento_listas",
+            {
+                "bloco": None
+            }
+        )
+
+
+        if not isinstance(
+            posicionamento_listas,
+            dict
+        ):
+
+            posicionamento_listas = {
+                "bloco": None
+            }
+
+
+        # ====================================================
+        # MONTAR OS 5 BLOCOS
+        # ====================================================
+
+        blocos_finais = {}
+
 
         for numero_bloco in range(
             1,
@@ -1941,234 +1814,52 @@ def montar_pagina_json(
             )
 
 
-            # ------------------------------------------------
-            # BLOCO EXISTENTE
-            # ------------------------------------------------
-
-            bloco_destino = pagina.get(
-                chave_bloco
+            bloco_recebido = dados_pagina.get(
+                chave_bloco,
+                {}
             )
 
 
             if not isinstance(
-                bloco_destino,
-                dict
-            ):
-
-                bloco_destino = {
-
-                    "id":
-                        chave_bloco,
-
-                    "hash":
-                        "",
-
-                    "informacoes_relevantes":
-                        [],
-
-                    "titulo":
-                        "",
-
-                    "paragrafos_python":
-                        [
-                            "",
-                            "",
-                            ""
-                        ],
-
-                    "paragrafos_ollama":
-                        [
-                            "",
-                            "",
-                            ""
-                        ],
-
-
-                }
-
-
-            # ------------------------------------------------
-            # DADOS DO BLOCO RECEBIDOS
-            #
-            # Podem vir dentro de dados_pagina.
-            # ------------------------------------------------
-
-            bloco_recebido = dados_pagina.get(
-                chave_bloco
-            )
-
-
-            if isinstance(
                 bloco_recebido,
                 dict
             ):
 
-                campos_bloco = [
-
-                    "id",
-                    "hash",
-                    "titulo",
-                    "paragrafos_python",
-                    "paragrafos_ollama",
-                    "paragrafos"
-
-                ]
+                bloco_recebido = {}
 
 
-                for campo in campos_bloco:
-
-                    if campo not in bloco_recebido:
-
-                        continue
-
-
-                    valor = (
-                        bloco_recebido.get(
-                            campo
-                        )
-                    )
-
-
-                    # ----------------------------------------
-                    # LISTAS DE PARÁGRAFOS
-                    # ----------------------------------------
-
-                    if campo in [
-
-                        "paragrafos_python",
-                        "paragrafos_ollama",
-                        "paragrafos"
-
-                    ]:
-
-                        if isinstance(
-                            valor,
-                            list
-                        ):
-
-                            bloco_destino[
-                                campo
-                            ] = list(
-                                valor
-                            )
-
-
-                    # ----------------------------------------
-                    # CAMPOS SIMPLES
-                    # ----------------------------------------
-
-                    else:
-
-                        if valor is None:
-
-                            valor = ""
-
-
-                        bloco_destino[
-                            campo
-                        ] = str(
-                            valor
-                        ).strip()
-
-
-            # ------------------------------------------------
+            # =================================================
             # ID
-            # ------------------------------------------------
+            # =================================================
 
-            bloco_destino[
-                "id"
-            ] = chave_bloco
-
-
-            # ------------------------------------------------
-            # HASH
-            # ------------------------------------------------
-
-            bloco_destino[
-                "hash"
-            ] = str(
-                bloco_destino.get(
-                    "hash",
-                    ""
-                )
-                or ""
+            id_bloco = bloco_recebido.get(
+                "id",
+                chave_bloco
             )
 
 
-            # ------------------------------------------------
-            # TÍTULO DO BLOCO
-            # ------------------------------------------------
+            if not id_bloco:
 
-            bloco_destino[
-                "titulo"
-            ] = str(
-                bloco_destino.get(
-                    "titulo",
+                id_bloco = chave_bloco
+
+
+            # =================================================
+            # HASH
+            # =================================================
+
+            hash_bloco = str(
+                bloco_recebido.get(
+                    "hash",
                     ""
-                )
-                or ""
-            ).strip()
+                ) or ""
+            )
 
 
-            # ------------------------------------------------
-            # PARÁGRAFOS
-            # ------------------------------------------------
-
-            for campo_paragrafos in [
-
-                "paragrafos_python",
-                "paragrafos_ollama",
-                "paragrafos"
-
-            ]:
-
-                paragrafos = (
-                    bloco_destino.get(
-                        campo_paragrafos,
-                        []
-                    )
-                )
-
-
-                if not isinstance(
-                    paragrafos,
-                    list
-                ):
-
-                    paragrafos = []
-
-
-                paragrafos = [
-
-                    str(
-                        item or ""
-                    )
-
-                    for item
-                    in paragrafos[:3]
-
-                ]
-
-
-                while len(
-                    paragrafos
-                ) < 3:
-
-                    paragrafos.append(
-                        ""
-                    )
-
-
-                bloco_destino[
-                    campo_paragrafos
-                ] = paragrafos
-
-
-            # ------------------------------------------------
+            # =================================================
             # INFORMACOES_RELEVANTES
             #
-            # Sempre como lista de objetos.
-            # ------------------------------------------------
+            # Recuperadas dos fragmentos selecionados.
+            # =================================================
 
             informacoes_bloco = (
                 fragmentos_blocos.get(
@@ -2178,452 +1869,225 @@ def montar_pagina_json(
             )
 
 
-            if isinstance(
+            if not isinstance(
                 informacoes_bloco,
                 list
             ):
 
-                informacoes_finais = []
+                informacoes_bloco = []
 
 
-                for fragmento in (
-                    informacoes_bloco
-                ):
-
-                    if not isinstance(
-                        fragmento,
-                        dict
-                    ):
-
-                        continue
+            informacoes_finais = []
 
 
-                    informacoes_finais.append(
-                        dict(
-                            fragmento
-                        )
-                    )
-
-
-                bloco_destino[
-                    "informacoes_relevantes"
-                ] = informacoes_finais
-
-
-            elif isinstance(
-                informacoes_bloco,
-                dict
+            for fragmento in (
+                informacoes_bloco
             ):
 
-                bloco_destino[
-                    "informacoes_relevantes"
-                ] = [
-
-                    dict(
-                        informacoes_bloco
-                    )
-
-                ]
-
-
-            else:
-
-                existente = (
-                    bloco_destino.get(
-                        "informacoes_relevantes",
-                        []
-                    )
-                )
-
-
                 if not isinstance(
-                    existente,
-                    list
-                ):
-
-                    existente = []
-
-
-                bloco_destino[
-                    "informacoes_relevantes"
-                ] = [
-
-                    dict(item)
-
-                    for item in existente
-
-                    if isinstance(
-                        item,
-                        dict
-                    )
-
-                ]
-
-
-            # ------------------------------------------------
-            # SALVAR BLOCO
-            # ------------------------------------------------
-
-            pagina[
-                chave_bloco
-            ] = bloco_destino
-
-
-        # ====================================================
-        # SEGMENTOS DAS LISTAS
-        #
-        # A quantidade NÃO é definida aqui.
-        #
-        # Python define anteriormente.
-        # ====================================================
-
-        segmentos_recebidos = (
-            dados_pagina.get(
-                "segmentos_listas"
-            )
-        )
-
-
-        if isinstance(
-            segmentos_recebidos,
-            dict
-        ):
-
-            pagina[
-                "segmentos_listas"
-            ] = segmentos_recebidos
-
-        elif not isinstance(
-            pagina.get(
-                "segmentos_listas"
-            ),
-            dict
-        ):
-
-            pagina[
-                "segmentos_listas"
-            ] = {}
-
-
-        # ====================================================
-        # POSICIONAMENTO DAS LISTAS
-        # ====================================================
-
-        posicionamento_recebido = (
-            dados_pagina.get(
-                "posicionamento_listas"
-            )
-        )
-
-
-        if isinstance(
-            posicionamento_recebido,
-            dict
-        ):
-
-            pagina[
-                "posicionamento_listas"
-            ] = posicionamento_recebido
-
-        elif not isinstance(
-            pagina.get(
-                "posicionamento_listas"
-            ),
-            dict
-        ):
-
-            pagina[
-                "posicionamento_listas"
-            ] = {
-
-                "bloco":
-                    None
-
-            }
-
-
-        # ====================================================
-        # IMAGENS
-        #
-        # Apenas transporta.
-        # ====================================================
-
-        imagens_recebidas = (
-            dados_pagina.get(
-                "imagens"
-            )
-        )
-
-
-        if isinstance(
-            imagens_recebidas,
-            dict
-        ):
-
-            pagina[
-                "imagens"
-            ] = imagens_recebidas
-
-        elif not isinstance(
-            pagina.get(
-                "imagens"
-            ),
-            dict
-        ):
-
-            pagina[
-                "imagens"
-            ] = {}
-
-
-        # ====================================================
-        # CARACTERES
-        #
-        # Se o Python já calculou, preserva.
-        #
-        # Caso contrário, calcula usando:
-        #
-        # - títulos dos blocos;
-        # - parágrafos finais.
-        # ====================================================
-
-        caracteres_recebidos = (
-            dados_pagina.get(
-                "caracteres"
-            )
-        )
-
-
-        if isinstance(
-            caracteres_recebidos,
-            int
-        ):
-
-            pagina[
-                "caracteres"
-            ] = caracteres_recebidos
-
-        else:
-
-            textos_pagina = []
-
-
-            for numero_bloco in range(
-                1,
-                6
-            ):
-
-                chave_bloco = (
-                    f"bloco_{numero_bloco}"
-                )
-
-
-                bloco = pagina.get(
-                    chave_bloco,
-                    {}
-                )
-
-
-                if not isinstance(
-                    bloco,
+                    fragmento,
                     dict
                 ):
-
                     continue
 
 
-                # --------------------------------------------
-                # TÍTULO
-                # --------------------------------------------
-
-                titulo_bloco = str(
-                    bloco.get(
-                        "titulo",
-                        ""
-                    )
-                    or ""
-                ).strip()
-
-
-                if titulo_bloco:
-
-                    textos_pagina.append(
-                        titulo_bloco
-                    )
-
-
-                # --------------------------------------------
-                # PARÁGRAFOS
-                # --------------------------------------------
-
-                paragrafos = (
-                    bloco.get(
-                        "paragrafos",
-                        []
+                informacoes_finais.append(
+                    dict(
+                        fragmento
                     )
                 )
 
 
-                if not isinstance(
-                    paragrafos,
-                    list
-                ):
+            # =================================================
+            # TRECHOS SELECIONADOS PELO PYTHON
+            #
+            # IMPORTANTE:
+            # não são textos escritos pelo Python.
+            #
+            # São os trechos selecionados.
+            # =================================================
 
-                    continue
-
-
-                for paragrafo in paragrafos[:3]:
-
-                    paragrafo = str(
-                        paragrafo or ""
-                    ).strip()
-
-
-                    if paragrafo:
-
-                        textos_pagina.append(
-                            paragrafo
-                        )
-
-
-            pagina[
-                "caracteres"
-            ] = len(
-                "\n\n".join(
-                    textos_pagina
-                )
-            )
-
-
-        # ====================================================
-        # STATUS
-        # ====================================================
-
-        status_recebido = dados_pagina.get(
-            "status"
-        )
-
-
-        if status_recebido is not None:
-
-            pagina[
-                "status"
-            ] = str(
-                status_recebido
-            ).strip()
-
-        elif not pagina.get(
-            "status"
-        ):
-
-            pagina[
-                "status"
-            ] = "em_construcao"
-
-
-        # ====================================================
-        # REMOVER ESTRUTURAS LEGADAS
-        #
-        # Estas estruturas NÃO fazem parte do JSON oficial.
-        # ====================================================
-
-        pagina_completa.pop(
-            "informacoes_adicionais",
-            None
-        )
-
-
-        pagina_completa.pop(
-            "categorias",
-            None
-        )
-
-
-        pagina.pop(
-            "informacoes_adicionais",
-            None
-        )
-
-
-        pagina.pop(
-            "categorias",
-            None
-        )
-
-
-        # ====================================================
-        # PROTEÇÃO:
-        #
-        # informacoes_relevantes só pode existir dentro
-        # dos respectivos blocos.
-        # ====================================================
-
-        pagina_completa.pop(
-            "informacoes_relevantes",
-            None
-        )
-
-
-        pagina.pop(
-            "informacoes_relevantes",
-            None
-        )
-
-
-        # ====================================================
-        # CHECK FINAL DOS FRAGMENTOS
-        # ====================================================
-
-        total_fragmentos = 0
-
-
-        for numero_bloco in range(
-            1,
-            6
-        ):
-
-            chave_bloco = (
-                f"bloco_{numero_bloco}"
-            )
-
-
-            bloco = pagina.get(
-                chave_bloco,
-                {}
-            )
-
-
-            if not isinstance(
-                bloco,
-                dict
-            ):
-
-                continue
-
-
-            informacoes = (
-                bloco.get(
-                    "informacoes_relevantes",
+            paragrafos_python = (
+                bloco_recebido.get(
+                    "paragrafos_python",
                     []
                 )
             )
 
 
-            if isinstance(
-                informacoes,
+            if not isinstance(
+                paragrafos_python,
                 list
             ):
 
-                total_fragmentos += len(
-                    [
-                        item
-                        for item in informacoes
-                        if isinstance(
-                            item,
-                            dict
-                        )
-                    ]
+                paragrafos_python = []
+
+
+            paragrafos_python = list(
+                paragrafos_python[:3]
+            )
+
+
+            while len(
+                paragrafos_python
+            ) < 3:
+
+                paragrafos_python.append(
+                    ""
                 )
+
+
+            # =================================================
+            # PARÁGRAFOS GERADOS PELO OLLAMA
+            # =================================================
+
+            paragrafos_ollama = (
+                bloco_recebido.get(
+                    "paragrafos_ollama",
+                    []
+                )
+            )
+
+
+            if not isinstance(
+                paragrafos_ollama,
+                list
+            ):
+
+                paragrafos_ollama = []
+
+
+            paragrafos_ollama = list(
+                paragrafos_ollama[:3]
+            )
+
+
+            while len(
+                paragrafos_ollama
+            ) < 3:
+
+                paragrafos_ollama.append(
+                    ""
+                )
+
+
+            # =================================================
+            # BLOCO FINAL
+            #
+            # NÃO existe mais:
+            # - titulo
+            # - paragrafos
+            #
+            # =================================================
+
+            blocos_finais[
+                chave_bloco
+            ] = {
+
+                "id":
+                    id_bloco,
+
+                "hash":
+                    hash_bloco,
+
+                "informacoes_relevantes":
+                    informacoes_finais,
+
+                "paragrafos_python":
+                    paragrafos_python,
+
+                "paragrafos_ollama":
+                    paragrafos_ollama
+            }
+
+
+        # ====================================================
+        # PÁGINA FINAL
+        # ====================================================
+
+        pagina_final = {
+
+            "tema":
+                tema,
+
+            "arquivo_origem":
+                arquivo_origem,
+
+            "h1":
+                h1,
+
+            "titulo":
+                titulo,
+
+            "subtitulo":
+                subtitulo,
+
+            "subtitulo_segmentos":
+                subtitulo_segmentos,
+
+            "bloco_1":
+                blocos_finais[
+                    "bloco_1"
+                ],
+
+            "bloco_2":
+                blocos_finais[
+                    "bloco_2"
+                ],
+
+            "bloco_3":
+                blocos_finais[
+                    "bloco_3"
+                ],
+
+            "bloco_4":
+                blocos_finais[
+                    "bloco_4"
+                ],
+
+            "bloco_5":
+                blocos_finais[
+                    "bloco_5"
+                ],
+
+            "segmentos_listas":
+                segmentos_listas,
+
+            "posicionamento_listas":
+                posicionamento_listas
+        }
+
+
+        # ====================================================
+        # OBJETO FINAL DO TEMA
+        # ====================================================
+
+        dados_tema_final = {
+
+            "tema":
+                tema,
+
+            "grupo":
+                grupo,
+
+            "tipo":
+                tipo,
+
+            "tags":
+                tags_finais,
+
+            "controle_repeticoes":
+                controle_padrao,
+
+            "mapa_mead":
+                mapa_mead,
+
+            "grupo_principal_projeto":
+                grupo_principal_projeto,
+
+            "pagina":
+                pagina_final
+        }
 
 
         # ====================================================
@@ -2635,133 +2099,57 @@ def montar_pagina_json(
             "=========================================="
         )
         print(
-            "PÁGINA OFICIAL MONTADA"
+            "JSON OFICIAL MONTADO"
         )
         print(
             "=========================================="
         )
-
 
         print(
             "TEMA:",
             tema
         )
 
-
         print(
             "GRUPO:",
-            pagina_completa.get(
-                "grupo",
-                ""
-            )
+            grupo
         )
-
 
         print(
             "TIPO:",
-            pagina_completa.get(
-                "tipo",
-                ""
-            )
+            tipo
         )
-
-
-        print(
-            "GRUPO PRINCIPAL:",
-            pagina_completa.get(
-                "grupo_principal_projeto",
-                ""
-            )
-        )
-
 
         print(
             "TAGS:",
             len(
-                pagina_completa.get(
-                    "tags",
-                    []
-                )
+                tags_finais
             )
         )
-
 
         print(
             "BLOCOS:",
             5
         )
 
-
-        print(
-            "FRAGMENTOS INFORMACOES_RELEVANTES:",
-            total_fragmentos
-        )
-
-
         print(
             "SEGMENTOS:",
             len(
-                pagina.get(
-                    "segmentos_listas",
-                    {}
-                )
+                segmentos_listas
             )
         )
-
 
         print(
-            "IMAGENS:",
-            len(
-                pagina.get(
-                    "imagens",
-                    {}
-                )
-            )
+            "POSICIONAMENTO:",
+            posicionamento_listas
         )
-
-
-        print(
-            "CARACTERES:",
-            pagina.get(
-                "caracteres",
-                0
-            )
-        )
-
-
-        print(
-            "STATUS:",
-            pagina.get(
-                "status",
-                ""
-            )
-        )
-
 
         print(
             "=========================================="
         )
 
 
-        # ====================================================
-        # RETORNO
-        #
-        # Retorna somente o objeto completo do tema.
-        #
-        # Exemplo:
-        #
-        # {
-        #     "tema": "...",
-        #     "grupo": "...",
-        #     "tipo": "...",
-        #     "tags": [...],
-        #     "controle_repeticoes": {...},
-        #     "mapa_mead": {...},
-        #     "pagina": {...}
-        # }
-        # ====================================================
-
-        return pagina_completa
+        return dados_tema_final
 
 
     except Exception as erro:
@@ -2770,23 +2158,743 @@ def montar_pagina_json(
         print(
             "=========================================="
         )
+
         print(
-            "❌ ERRO AO MONTAR PÁGINA OFICIAL"
+            "❌ ERRO AO MONTAR JSON OFICIAL"
         )
+
         print(
             "=========================================="
         )
-
 
         print(
             repr(erro)
         )
 
+        print(
+            "=========================================="
+        )
+
+        return None# ============================================================
+# MONTAR PÁGINA FINAL NO NOVO JSON OFICIAL
+# ============================================================
+
+def montar_pagina_json(
+        tema,
+        grupo="",
+        tipo="",
+        tags=None,
+        controle_repeticoes=None,
+        mapa_mead=None,
+        informacoes_relevantes=None,
+        dados_pagina=None,
+        grupo_principal_projeto=""
+    ):
+
+    """
+    Monta exclusivamente a estrutura oficial do JSON.
+
+    RESPONSABILIDADES:
+
+    - transportar os dados já produzidos pelo Python;
+    - preservar o tema original;
+    - preservar tags;
+    - preservar controle de repetições;
+    - preservar mapa MEAD;
+    - preservar grupo principal;
+    - preservar h1 e titulo;
+    - preservar subtitulo;
+    - preservar subtitulo_segmentos;
+    - preservar os 5 blocos;
+    - preservar informacoes_relevantes;
+    - preservar paragrafos_python;
+    - preservar paragrafos_ollama;
+    - preservar segmentos_listas;
+    - preservar posicionamento_listas.
+
+    ESTA FUNÇÃO NÃO:
+
+    - pesquisa;
+    - chama Ollama;
+    - seleciona fontes;
+    - seleciona fragmentos;
+    - gera conteúdo;
+    - gera títulos;
+    - gera segmentos;
+    - gera imagens;
+    - cria descricao;
+    - cria subtitulo_listas;
+    - cria paragrafos;
+    - calcula caracteres;
+    - cria status;
+    - salva o banco;
+    - chama salvar_banco();
+    - chama atualizar_bloco();
+    - cria informacoes_adicionais;
+    - cria categorias.
+    """
+
+    try:
+
+        # ====================================================
+        # NORMALIZAÇÃO BÁSICA
+        # ====================================================
+
+        tema = str(
+            tema or ""
+        ).strip()
+
+        grupo = str(
+            grupo or ""
+        ).strip()
+
+        tipo = str(
+            tipo or ""
+        ).strip()
+
+        grupo_principal_projeto = str(
+            grupo_principal_projeto or ""
+        ).strip()
+
+
+        if not tema:
+
+            print(
+                "❌ Não foi possível montar JSON: "
+                "tema vazio."
+            )
+
+            return None
+
+
+        # ====================================================
+        # NORMALIZAR ENTRADAS
+        # ====================================================
+
+        if not isinstance(
+            tags,
+            list
+        ):
+            tags = []
+
+
+        if not isinstance(
+            controle_repeticoes,
+            dict
+        ):
+            controle_repeticoes = {}
+
+
+        if not isinstance(
+            mapa_mead,
+            dict
+        ):
+            mapa_mead = {}
+
+
+        if not isinstance(
+            dados_pagina,
+            dict
+        ):
+            dados_pagina = {}
+
+
+        # ====================================================
+        # INFORMACOES_RELEVANTES
+        #
+        # São os objetos dos fragmentos selecionados
+        # anteriormente pelo Python.
+        #
+        # NÃO transformar em string.
+        # ====================================================
+
+        if isinstance(
+            informacoes_relevantes,
+            dict
+        ):
+
+            if isinstance(
+                informacoes_relevantes.get(
+                    "blocos"
+                ),
+                dict
+            ):
+
+                fragmentos_blocos = (
+                    informacoes_relevantes[
+                        "blocos"
+                    ]
+                )
+
+            else:
+
+                fragmentos_blocos = (
+                    informacoes_relevantes
+                )
+
+        elif isinstance(
+            informacoes_relevantes,
+            list
+        ):
+
+            fragmentos_blocos = {
+                "bloco_1":
+                    informacoes_relevantes
+            }
+
+        else:
+
+            fragmentos_blocos = {}
+
+
+        # ====================================================
+        # TAGS
+        # ====================================================
+
+        tags_finais = []
+
+        for tag in tags:
+
+            if tag is None:
+                continue
+
+            tag_limpa = str(
+                tag
+            ).strip()
+
+            if not tag_limpa:
+                continue
+
+            if tag_limpa in tags_finais:
+                continue
+
+            tags_finais.append(
+                tag_limpa
+            )
+
+            if len(
+                tags_finais
+            ) >= 30:
+                break
+
+
+        # ====================================================
+        # CONTROLE DE REPETIÇÕES
+        # ====================================================
+
+        controle_padrao = {
+
+            "palavra_chave":
+                tema,
+
+            "meta_repeticoes":
+                60,
+
+            "repeticoes_realizadas":
+                0,
+
+            "repeticoes_faltantes":
+                60
+        }
+
+
+        controle_padrao.update(
+            controle_repeticoes
+        )
+
+
+        # ====================================================
+        # DADOS GERAIS DA PÁGINA
+        # ====================================================
+
+        arquivo_origem = str(
+            dados_pagina.get(
+                "arquivo_origem",
+                ""
+            ) or ""
+        ).strip()
+
+
+        # ====================================================
+        # H1
+        #
+        # NÃO gerar aqui.
+        #
+        # O valor deve vir pronto da etapa anterior,
+        # contendo somente a palavra-chave corrigida.
+        # ====================================================
+
+        h1 = str(
+            dados_pagina.get(
+                "h1",
+                ""
+            ) or ""
+        ).strip()
+
+
+        # ====================================================
+        # TÍTULO
+        #
+        # NÃO gerar aqui.
+        #
+        # O valor deve vir pronto da etapa anterior,
+        # contendo somente a palavra-chave corrigida.
+        # ====================================================
+
+        titulo = str(
+            dados_pagina.get(
+                "titulo",
+                ""
+            ) or ""
+        ).strip()
+
+
+        # ====================================================
+        # SUBTÍTULO
+        # ====================================================
+
+        subtitulo = str(
+            dados_pagina.get(
+                "subtitulo",
+                ""
+            ) or ""
+        ).strip()
+
+
+        # ====================================================
+        # SUBTÍTULO DOS SEGMENTOS
+        # ====================================================
+
+        subtitulo_segmentos = str(
+            dados_pagina.get(
+                "subtitulo_segmentos",
+                ""
+            ) or ""
+        ).strip()
+
+
+        # ====================================================
+        # SEGMENTOS
+        #
+        # Produzidos anteriormente pelo Python.
+        # ====================================================
+
+        segmentos_listas = dados_pagina.get(
+            "segmentos_listas",
+            {}
+        )
+
+
+        if not isinstance(
+            segmentos_listas,
+            dict
+        ):
+
+            segmentos_listas = {}
+
+
+        # ====================================================
+        # POSICIONAMENTO DAS LISTAS
+        #
+        # Mantém o bloco escolhido/randomizado
+        # anteriormente pelo Python.
+        # ====================================================
+
+        posicionamento_listas = dados_pagina.get(
+            "posicionamento_listas",
+            {
+                "bloco": None
+            }
+        )
+
+
+        if not isinstance(
+            posicionamento_listas,
+            dict
+        ):
+
+            posicionamento_listas = {
+                "bloco": None
+            }
+
+
+        # ====================================================
+        # MONTAR OS 5 BLOCOS
+        # ====================================================
+
+        blocos_finais = {}
+
+
+        for numero_bloco in range(
+            1,
+            6
+        ):
+
+            chave_bloco = (
+                f"bloco_{numero_bloco}"
+            )
+
+
+            bloco_recebido = dados_pagina.get(
+                chave_bloco,
+                {}
+            )
+
+
+            if not isinstance(
+                bloco_recebido,
+                dict
+            ):
+
+                bloco_recebido = {}
+
+
+            # =================================================
+            # ID
+            # =================================================
+
+            id_bloco = bloco_recebido.get(
+                "id",
+                chave_bloco
+            )
+
+
+            if not id_bloco:
+
+                id_bloco = chave_bloco
+
+
+            # =================================================
+            # HASH
+            # =================================================
+
+            hash_bloco = str(
+                bloco_recebido.get(
+                    "hash",
+                    ""
+                ) or ""
+            )
+
+
+            # =================================================
+            # INFORMACOES_RELEVANTES
+            #
+            # Recuperadas dos fragmentos selecionados.
+            # =================================================
+
+            informacoes_bloco = (
+                fragmentos_blocos.get(
+                    chave_bloco,
+                    []
+                )
+            )
+
+
+            if not isinstance(
+                informacoes_bloco,
+                list
+            ):
+
+                informacoes_bloco = []
+
+
+            informacoes_finais = []
+
+
+            for fragmento in (
+                informacoes_bloco
+            ):
+
+                if not isinstance(
+                    fragmento,
+                    dict
+                ):
+                    continue
+
+
+                informacoes_finais.append(
+                    dict(
+                        fragmento
+                    )
+                )
+
+
+            # =================================================
+            # TRECHOS SELECIONADOS PELO PYTHON
+            #
+            # IMPORTANTE:
+            # não são textos escritos pelo Python.
+            #
+            # São os trechos selecionados.
+            # =================================================
+
+            paragrafos_python = (
+                bloco_recebido.get(
+                    "paragrafos_python",
+                    []
+                )
+            )
+
+
+            if not isinstance(
+                paragrafos_python,
+                list
+            ):
+
+                paragrafos_python = []
+
+
+            paragrafos_python = list(
+                paragrafos_python[:3]
+            )
+
+
+            while len(
+                paragrafos_python
+            ) < 3:
+
+                paragrafos_python.append(
+                    ""
+                )
+
+
+            # =================================================
+            # PARÁGRAFOS GERADOS PELO OLLAMA
+            # =================================================
+
+            paragrafos_ollama = (
+                bloco_recebido.get(
+                    "paragrafos_ollama",
+                    []
+                )
+            )
+
+
+            if not isinstance(
+                paragrafos_ollama,
+                list
+            ):
+
+                paragrafos_ollama = []
+
+
+            paragrafos_ollama = list(
+                paragrafos_ollama[:3]
+            )
+
+
+            while len(
+                paragrafos_ollama
+            ) < 3:
+
+                paragrafos_ollama.append(
+                    ""
+                )
+
+
+            # =================================================
+            # BLOCO FINAL
+            #
+            # NÃO existe mais:
+            # - titulo
+            # - paragrafos
+            #
+            # =================================================
+
+            blocos_finais[
+                chave_bloco
+            ] = {
+
+                "id":
+                    id_bloco,
+
+                "hash":
+                    hash_bloco,
+
+                "informacoes_relevantes":
+                    informacoes_finais,
+
+                "paragrafos_python":
+                    paragrafos_python,
+
+                "paragrafos_ollama":
+                    paragrafos_ollama
+            }
+
+
+        # ====================================================
+        # PÁGINA FINAL
+        # ====================================================
+
+        pagina_final = {
+
+            "tema":
+                tema,
+
+            "arquivo_origem":
+                arquivo_origem,
+
+            "h1":
+                h1,
+
+            "titulo":
+                titulo,
+
+            "subtitulo":
+                subtitulo,
+
+            "subtitulo_segmentos":
+                subtitulo_segmentos,
+
+            "bloco_1":
+                blocos_finais[
+                    "bloco_1"
+                ],
+
+            "bloco_2":
+                blocos_finais[
+                    "bloco_2"
+                ],
+
+            "bloco_3":
+                blocos_finais[
+                    "bloco_3"
+                ],
+
+            "bloco_4":
+                blocos_finais[
+                    "bloco_4"
+                ],
+
+            "bloco_5":
+                blocos_finais[
+                    "bloco_5"
+                ],
+
+            "segmentos_listas":
+                segmentos_listas,
+
+            "posicionamento_listas":
+                posicionamento_listas
+        }
+
+
+        # ====================================================
+        # OBJETO FINAL DO TEMA
+        # ====================================================
+
+        dados_tema_final = {
+
+            "tema":
+                tema,
+
+            "grupo":
+                grupo,
+
+            "tipo":
+                tipo,
+
+            "tags":
+                tags_finais,
+
+            "controle_repeticoes":
+                controle_padrao,
+
+            "mapa_mead":
+                mapa_mead,
+
+            "grupo_principal_projeto":
+                grupo_principal_projeto,
+
+            "pagina":
+                pagina_final
+        }
+
+
+        # ====================================================
+        # CHECK FINAL
+        # ====================================================
+
+        print()
+        print(
+            "=========================================="
+        )
+        print(
+            "JSON OFICIAL MONTADO"
+        )
+        print(
+            "=========================================="
+        )
+
+        print(
+            "TEMA:",
+            tema
+        )
+
+        print(
+            "GRUPO:",
+            grupo
+        )
+
+        print(
+            "TIPO:",
+            tipo
+        )
+
+        print(
+            "TAGS:",
+            len(
+                tags_finais
+            )
+        )
+
+        print(
+            "BLOCOS:",
+            5
+        )
+
+        print(
+            "SEGMENTOS:",
+            len(
+                segmentos_listas
+            )
+        )
+
+        print(
+            "POSICIONAMENTO:",
+            posicionamento_listas
+        )
 
         print(
             "=========================================="
         )
 
+
+        return dados_tema_final
+
+
+    except Exception as erro:
+
+        print()
+        print(
+            "=========================================="
+        )
+
+        print(
+            "❌ ERRO AO MONTAR JSON OFICIAL"
+        )
+
+        print(
+            "=========================================="
+        )
+
+        print(
+            repr(erro)
+        )
+
+        print(
+            "=========================================="
+        )
 
         return None
 
@@ -14818,27 +14926,32 @@ def selecionar_informacoes_relevantes(
         )
         
     # ========================================================
-    # 09.0.1 GERAR PARÁGRAFOS-BASE PELO PYTHON
+    # 09.0.1 PRESERVAR TRECHOS SELECIONADOS PELO PYTHON
     # ========================================================
     #
-    # Os 15 fragmentos já foram selecionados.
+    # Os 15 fragmentos já foram selecionados anteriormente.
     #
     # NÃO HÁ NOVA SELEÇÃO AQUI.
     #
-    # Cada fragmento selecionado origina exatamente
-    # um parágrafo-base.
+    # O Python NÃO escreve parágrafos.
+    # O Python NÃO resume os fragmentos.
+    # O Python NÃO reescreve os fragmentos.
+    # O Python apenas preserva o campo "texto"
+    # dos fragmentos que já foram selecionados.
     #
-    # 15 fragmentos = 15 parágrafos-base
-    # 5 blocos × 3 parágrafos-base
+    # 15 fragmentos = 15 trechos selecionados
+    # 5 blocos × 3 trechos
     #
-    # O Ollama receberá posteriormente SOMENTE
-    # esses parágrafos-base.
+    # O Ollama receberá posteriormente esses trechos
+    # para produzir os textos editoriais.
     #
     # ========================================================
 
     for numero_bloco in range(1, 6):
 
-        chave_bloco = f"bloco_{numero_bloco}"
+        chave_bloco = (
+            f"bloco_{numero_bloco}"
+        )
 
         fragmentos_bloco = (
             blocos[
@@ -14848,24 +14961,36 @@ def selecionar_informacoes_relevantes(
             ]
         )
 
-        paragrafos_python = []
+        # ----------------------------------------------------
+        # PRESERVAR SOMENTE OS TRECHOS SELECIONADOS
+        # ----------------------------------------------------
+        #
+        # Cada posição recebe exatamente o conteúdo
+        # do campo "texto" do fragmento selecionado.
+        #
+        # Nenhuma redação é feita pelo Python.
+        #
+        # ----------------------------------------------------
 
-        for fragmento in fragmentos_bloco:
-
-            texto_base = str(
-                fragmento.get(
-                    "texto",
-                    ""
-                )
-            ).strip()
-
-            paragrafos_python.append(
-                texto_base
+        paragrafos_python = [
+            fragmento.get(
+                "texto",
+                ""
             )
+            for fragmento in fragmentos_bloco
+        ]
 
-        # Garantir exatamente 3 posições
+        # ----------------------------------------------------
+        # GARANTIR AS 3 POSIÇÕES DO BLOCO
+        # ----------------------------------------------------
+
         paragrafos_python = (
-            paragrafos_python + ["", "", ""]
+            paragrafos_python
+            + [
+                "",
+                "",
+                ""
+            ]
         )[:3]
 
         blocos[
@@ -14874,16 +14999,29 @@ def selecionar_informacoes_relevantes(
             "paragrafos_python"
         ] = paragrafos_python
 
-    print()
-    print("==============================")
-    print("PARÁGRAFOS-BASE PYTHON")
-    print("==============================")
 
-    total_paragrafos_python = 0
+    # ========================================================
+    # AUDITORIA DOS TRECHOS SELECIONADOS
+    # ========================================================
+
+    print()
+    print(
+        "=============================="
+    )
+    print(
+        "TRECHOS SELECIONADOS PELO PYTHON"
+    )
+    print(
+        "=============================="
+    )
+
+    total_trechos_python = 0
 
     for numero_bloco in range(1, 6):
 
-        chave_bloco = f"bloco_{numero_bloco}"
+        chave_bloco = (
+            f"bloco_{numero_bloco}"
+        )
 
         paragrafos_python = (
             blocos[
@@ -14894,39 +15032,39 @@ def selecionar_informacoes_relevantes(
             )
         )
 
+        trechos_validos = [
+            trecho
+            for trecho in paragrafos_python
+            if str(trecho)
+        ]
+
         print()
         print(
             chave_bloco,
             ":",
-            len(
-                [
-                    p
-                    for p in paragrafos_python
-                    if str(p).strip()
-                ]
-            ),
-            "parágrafos-base"
+            len(trechos_validos),
+            "trechos selecionados"
         )
 
-        for indice, paragrafo in enumerate(
+        for indice, trecho in enumerate(
             paragrafos_python,
             start=1
         ):
 
-            if str(paragrafo).strip():
+            if str(trecho):
 
-                total_paragrafos_python += 1
+                total_trechos_python += 1
 
                 print(
-                    f"  PARÁGRAFO {indice}: "
-                    f"{len(str(paragrafo).split())} palavras"
+                    f"  TRECHO {indice}: "
+                    f"{len(str(trecho).split())} palavras"
                 )
 
     print()
     print(
-        "TOTAL PARÁGRAFOS-BASE PYTHON:",
-        total_paragrafos_python
-    )        
+        "TOTAL DE TRECHOS SELECIONADOS PELO PYTHON:",
+        total_trechos_python
+    )       
 
     # ========================================================
     # GERAR HASH DE CADA BLOCO
