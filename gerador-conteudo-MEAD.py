@@ -1144,12 +1144,6 @@ def criar_estrutura_json_pagina(tema):
                             ""
                         ],
 
-                    "paragrafos":
-                        [
-                            "",
-                            "",
-                            ""
-                        ]
                 },
 
 
@@ -1185,12 +1179,6 @@ def criar_estrutura_json_pagina(tema):
                             ""
                         ],
 
-                    "paragrafos":
-                        [
-                            "",
-                            "",
-                            ""
-                        ]
                 },
 
 
@@ -1226,12 +1214,6 @@ def criar_estrutura_json_pagina(tema):
                             ""
                         ],
 
-                    "paragrafos":
-                        [
-                            "",
-                            "",
-                            ""
-                        ]
                 },
 
 
@@ -1267,12 +1249,6 @@ def criar_estrutura_json_pagina(tema):
                             ""
                         ],
 
-                    "paragrafos":
-                        [
-                            "",
-                            "",
-                            ""
-                        ]
                 },
 
 
@@ -1308,12 +1284,7 @@ def criar_estrutura_json_pagina(tema):
                             ""
                         ],
 
-                    "paragrafos":
-                        [
-                            "",
-                            "",
-                            ""
-                        ]
+
                 },
 
 
@@ -2012,12 +1983,6 @@ def montar_pagina_json(
                             ""
                         ],
 
-                    "paragrafos":
-                        [
-                            "",
-                            "",
-                            ""
-                        ]
 
                 }
 
@@ -17793,34 +17758,6 @@ PARÁGRAFOS-BASE SELECIONADOS PELO PYTHON
         )[:3]
 
 
-        # ========================================================
-        # GARANTIR LISTA DE PARÁGRAFOS FINAIS
-        # ========================================================
-
-        paragrafos_finais = (
-            dados_bloco.get(
-                "paragrafos",
-                []
-            )
-        )
-
-        if not isinstance(
-            paragrafos_finais,
-            list
-        ):
-
-            paragrafos_finais = []
-
-
-        paragrafos_finais = (
-            paragrafos_finais
-            + [
-                "",
-                "",
-                ""
-            ]
-        )[:3]
-
 
         # ========================================================
         # TÍTULO DO BLOCO
@@ -18748,22 +18685,18 @@ OS 3 FRAGMENTOS SELECIONADOS PELO PYTHON
         # ========================================================
         # GUARDAR OS 3 RESULTADOS
         # ========================================================
-
+        
         for indice_paragrafo in range(
             3
         ):
-
+        
             resultado_paragrafo = (
                 paragrafos_extraidos[
                     indice_paragrafo
                 ]
             )
-
+        
             paragrafos_ollama[
-                indice_paragrafo
-            ] = resultado_paragrafo
-
-            paragrafos_finais[
                 indice_paragrafo
             ] = resultado_paragrafo
 
@@ -18780,11 +18713,6 @@ OS 3 FRAGMENTOS SELECIONADOS PELO PYTHON
         dados_bloco[
             "paragrafos_ollama"
         ] = paragrafos_ollama
-
-
-        dados_bloco[
-            "paragrafos"
-        ] = paragrafos_finais
 
 
         dados_bloco[
@@ -18823,10 +18751,6 @@ OS 3 FRAGMENTOS SELECIONADOS PELO PYTHON
 
             "paragrafos_ollama":
                 paragrafos_ollama,
-
-            "paragrafos":
-                paragrafos_finais
-        }
 
 
         salvar_banco(
