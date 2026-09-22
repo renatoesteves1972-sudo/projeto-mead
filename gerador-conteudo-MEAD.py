@@ -20311,11 +20311,9 @@ def gerar_titulos(
 
     return resultado
     
-
 # ============================================================
 # SALVAR BANCO
 # ============================================================
-    
 
 def salvar_banco(
     tema,
@@ -20333,117 +20331,89 @@ def salvar_banco(
     subtitulo_segmentos=None
 ):
 
-
     """
     Persiste a página no formato oficial do conteudo-site.json.
-    
-    ```
+
     REGRAS:
-    
+
     - Uma única estrutura oficial por tema.
     - Uma nova execução do mesmo tema substitui a versão anterior.
-    - Os cinco blocos recebidos da seleção são gravados diretamente:
-        pagina.bloco_1
-        pagina.bloco_2
-        pagina.bloco_3
-        pagina.bloco_4
-        pagina.bloco_5
-    
-    - Depois de gravados, os blocos NÃO são apagados
-    por chamadas posteriores que não enviem blocos.
-    
-    - NÃO cria informacoes_relevantes no nível global.
+    - Os cinco blocos são preservados entre chamadas.
+    - Python mantém os trechos selecionados em
+      informacoes_relevantes e paragrafos_python.
+    - Ollama mantém o texto editorial em paragrafos_ollama.
+    - Não existe mais o campo legado "paragrafos".
+    - Não existe mais imagens no JSON oficial.
+    - Não existe mais caracteres no JSON oficial.
+    - Não existe mais status no JSON oficial.
+    - Não existe mais subtitulo_listas.
+    - informacoes_relevantes nunca é criada no nível global.
     - Cada bloco possui:
         id
         hash
         informacoes_relevantes
         titulo
-        paragrafos[3]
-    
+        paragrafos_python
+        paragrafos_ollama
     - Mantém:
         5 blocos
-        15 parágrafos
-        12 segmentos
-        6 imagens
+        15 posições de parágrafos
+        segmentos_listas
+        posicionamento_listas
         até 30 tags
     """
-    
+
     global PAGINAS_EM_PROCESSAMENTO
-    
+
     # ========================================================
-    # PRESERVAR A DIFERENÇA ENTRE:
+    # PRESERVAR DIFERENÇA ENTRE:
     #
     # None  = dado não enviado nesta chamada
-    #
     # valor = dado efetivamente enviado
-    #
-    # Isso é fundamental para impedir que chamadas posteriores
-    # de salvar_banco() apaguem dados já gravados.
     # ========================================================
-    
+
     recebeu_informacoes_adicionais = (
         informacoes_adicionais is not None
     )
-    
+
     recebeu_categorias = (
         categorias is not None
     )
-    
+
     recebeu_blocos = (
         blocos is not None
     )
-    
+
     recebeu_segmentos = (
         segmentos is not None
     )
-    
+
     recebeu_tags = (
         tags is not None
     )
-    
+
     recebeu_trechos_utilizados = (
         trechos_utilizados is not None
     )
-    
+
     # ========================================================
     # NORMALIZAÇÃO
     # ========================================================
-    
+
     if not isinstance(
         informacoes_adicionais,
         dict
     ):
-    
         informacoes_adicionais = {}
-    
+
     if not isinstance(
         categorias,
         dict
     ):
-    
         categorias = {}
-    
+
     # ========================================================
     # NORMALIZAR BLOCOS
-    #
-    # A geração do conteúdo envia os 5 blocos como LISTA:
-    #
-    # [
-    #     {"numero": 1, ...},
-    #     {"numero": 2, ...},
-    #     ...
-    # ]
-    #
-    # O salvamento trabalha internamente com DICT:
-    #
-    # {
-    #     "bloco_1": {...},
-    #     "bloco_2": {...},
-    #     ...
-    # }
-    #
-    # Portanto convertemos a lista para o formato oficial
-    # antes de qualquer processamento.
     # ========================================================
 
     if isinstance(
@@ -20462,16 +20432,13 @@ def salvar_banco(
                 continue
 
             try:
-
                 numero_bloco = int(
                     bloco.get(
                         "numero",
                         0
                     )
                 )
-
             except Exception:
-
                 numero_bloco = 0
 
             if numero_bloco < 1 or numero_bloco > 5:
@@ -20489,632 +20456,501 @@ def salvar_banco(
     ):
 
         blocos = {}
-    
+
     if not isinstance(
         segmentos,
         list
     ):
-    
         segmentos = []
-    
+
     if not isinstance(
         tags,
         list
     ):
-    
         tags = []
-    
+
     if not isinstance(
         trechos_utilizados,
         list
     ):
-    
         trechos_utilizados = []
-    
+
     # ========================================================
     # VALIDAR TEMA
     # ========================================================
-    
+
     if not tema:
-    
+
         print(
             "ERRO: tema vazio ao salvar banco."
         )
-    
+
         return False
-    
+
     tema_original = str(
         tema
     ).strip()
-    
+
     if not tema_original:
-    
+
         print(
             "ERRO: tema vazio ao salvar banco."
         )
-    
+
         return False
-    
+
     try:
-    
+
         tema_normalizado = normalizar_tema_chave(
             tema_original
         )
-    
+
     except Exception:
-    
+
         tema_normalizado = (
             tema_original
             .strip()
             .lower()
         )
-    
+
     # ========================================================
     # GARANTIR DIRETÓRIO
     # ========================================================
-    
+
     try:
-    
+
         diretorio = os.path.dirname(
             ARQUIVO_BANCO
         )
-    
+
         if diretorio:
-    
+
             os.makedirs(
                 diretorio,
                 exist_ok=True
             )
-    
+
     except Exception as erro:
-    
+
         print(
             "AVISO: não foi possível preparar diretório:",
             repr(erro)
         )
-    
+
     # ========================================================
     # CARREGAR BANCO
     # ========================================================
-    
+
     banco = carregar_banco()
-    
+
     if not isinstance(
         banco,
         dict
     ):
-    
         banco = {}
-    
+
     # ========================================================
     # LOCALIZAR TEMA EXISTENTE
     # ========================================================
-    
+
     chave_existente = None
-    
+
     for chave in list(
         banco.keys()
     ):
-    
+
         if not isinstance(
             chave,
             str
         ):
-    
             continue
-    
+
         try:
-    
+
             chave_normalizada = normalizar_tema_chave(
                 chave
             )
-    
+
         except Exception:
-    
+
             chave_normalizada = (
                 chave
                 .strip()
                 .lower()
             )
-    
+
         if chave_normalizada == tema_normalizado:
-    
+
             chave_existente = chave
-    
             break
-    
+
     # ========================================================
     # PRIMEIRA GRAVAÇÃO DA EXECUÇÃO
     # ========================================================
-    
+
     primeira_gravacao = (
         tema_normalizado
         not in PAGINAS_EM_PROCESSAMENTO
     )
-    
+
     if primeira_gravacao:
-    
+
         # ----------------------------------------------------
         # Remover versão anterior do mesmo tema.
         # ----------------------------------------------------
-    
+
         for chave in list(
             banco.keys()
         ):
-    
+
             if not isinstance(
                 chave,
                 str
             ):
-    
                 continue
-    
+
             try:
-    
+
                 chave_normalizada = normalizar_tema_chave(
                     chave
                 )
-    
+
             except Exception:
-    
+
                 chave_normalizada = (
                     chave
                     .strip()
                     .lower()
                 )
-    
+
             if chave_normalizada == tema_normalizado:
-    
+
                 del banco[
                     chave
                 ]
-    
-        # ----------------------------------------------------
-        # A chave externa será o tema original.
-        # ----------------------------------------------------
-    
+
         chave_existente = tema_original
-    
-        # ----------------------------------------------------
-        # Criar estrutura oficial inicial.
-        # ----------------------------------------------------
-    
+
         estrutura_inicial = criar_estrutura_json_pagina(
             tema_original
         )
-    
+
         dados_iniciais = estrutura_inicial.get(
             tema_original,
             {}
         )
-    
+
         if not isinstance(
             dados_iniciais,
             dict
         ):
-    
             dados_iniciais = {}
-    
+
         banco[
             chave_existente
         ] = dados_iniciais
-    
+
         PAGINAS_EM_PROCESSAMENTO.add(
             tema_normalizado
         )
-    
+
     elif chave_existente is None:
-    
+
         chave_existente = tema_original
-    
+
         estrutura_inicial = criar_estrutura_json_pagina(
             tema_original
         )
-    
+
         dados_iniciais = estrutura_inicial.get(
             tema_original,
             {}
         )
-    
+
         if not isinstance(
             dados_iniciais,
             dict
         ):
-    
             dados_iniciais = {}
-    
+
         banco[
             chave_existente
         ] = dados_iniciais
-    
+
     # ========================================================
     # RECUPERAR DADOS DO TEMA
     # ========================================================
-    
+
     dados_tema = banco.get(
         chave_existente
     )
-    
+
     if not isinstance(
         dados_tema,
         dict
     ):
-    
+
         estrutura_inicial = criar_estrutura_json_pagina(
             tema_original
         )
-    
+
         dados_tema = estrutura_inicial.get(
             tema_original,
             {}
         )
-    
+
         if not isinstance(
             dados_tema,
             dict
         ):
-    
             dados_tema = {}
-    
+
         banco[
             chave_existente
         ] = dados_tema
-    
+
     # ========================================================
     # RECUPERAR PÁGINA
     # ========================================================
-    
+
     pagina = dados_tema.get(
         "pagina"
     )
-    
+
     if not isinstance(
         pagina,
         dict
     ):
-    
         pagina = {}
-    
+
     # ========================================================
-    # FUNÇÕES AUXILIARES LOCAIS
+    # FUNÇÕES AUXILIARES
     # ========================================================
-    
+
     def normalizar_lista_local(valor):
-    
+
         if isinstance(
             valor,
             list
         ):
-    
+
             resultado = []
-    
+
             for item in valor:
-    
+
                 item_limpo = str(
                     item or ""
                 ).strip()
-    
+
                 if item_limpo:
-    
+
                     resultado.append(
                         item_limpo
                     )
-    
+
             return resultado
-    
+
         if valor is None:
-    
             return []
-    
+
         resultado = []
-    
+
         for item in re.split(
             r"[,;\n]+",
             str(valor)
         ):
-    
+
             item_limpo = item.strip()
-    
+
             if item_limpo:
-    
+
                 resultado.append(
                     item_limpo
                 )
-    
+
         return resultado
-    
+
+    # ========================================================
+    # EXTRAIR TEXTO EDITORIAL
+    #
+    # IMPORTANTE:
+    #
+    # Nunca mais procurar "paragrafos".
+    #
+    # O texto editorial oficial é:
+    # paragrafos_ollama
+    # ========================================================
+
     def extrair_paragrafos_bloco(bloco):
-    
+
         if not isinstance(
             bloco,
             dict
         ):
-    
             return []
-    
-        paragrafos = bloco.get(
-            "paragrafos"
+
+        paragrafos_ollama = bloco.get(
+            "paragrafos_ollama",
+            []
         )
-    
-        if isinstance(
-            paragrafos,
+
+        if not isinstance(
+            paragrafos_ollama,
             list
         ):
-    
-            resultado = []
-    
-            for item in paragrafos:
-    
-                item_limpo = str(
-                    item or ""
-                ).strip()
-    
-                if item_limpo:
-    
-                    resultado.append(
-                        item_limpo
-                    )
-    
-            return resultado[:3]
-    
-        conteudo_bloco = str(
-            bloco.get(
-                "conteudo",
-                ""
-            )
-            or ""
-        ).strip()
-    
-        if not conteudo_bloco:
-    
             return []
-    
-        partes = re.split(
-            r"\n\s*\n+",
-            conteudo_bloco
-        )
-    
+
         resultado = []
-    
-        for parte in partes:
-    
-            parte_limpa = parte.strip()
-    
-            if parte_limpa:
-    
+
+        for item in paragrafos_ollama[:3]:
+
+            if item is None:
+                continue
+
+            texto_paragrafo = str(
+                item
+            )
+
+            if texto_paragrafo.strip():
+
                 resultado.append(
-                    parte_limpa
+                    texto_paragrafo
                 )
-    
+
         return resultado[:3]
-    
+
+    # ========================================================
+    # CRIAR BLOCO VAZIO
+    # ========================================================
+
     def criar_bloco_vazio(numero):
 
         return {
-            "id": f"bloco_{numero}",
-            "hash": "",
-            "informacoes_relevantes": [],
-            "titulo": "",
-    
-            "paragrafos_python": [
+
+            "id":
+                f"bloco_{numero}",
+
+            "hash":
                 "",
+
+            "informacoes_relevantes":
+                [],
+
+            "titulo":
                 "",
-                ""
-            ],
-    
-            "paragrafos_ollama": [
-                "",
-                "",
-                ""
-            ],
-    
-            "paragrafos": [
-                "",
-                "",
-                ""
-            ]
+
+            "paragrafos_python":
+                [
+                    "",
+                    "",
+                    ""
+                ],
+
+            "paragrafos_ollama":
+                [
+                    "",
+                    "",
+                    ""
+                ]
         }
-    
-    def atualizar_bloco(numero, dados_bloco):
-    
+
+    # ========================================================
+    # ATUALIZAR BLOCO
+    # ========================================================
+
+    def atualizar_bloco(
+        numero,
+        dados_bloco
+    ):
+
         if numero < 1 or numero > 5:
-    
             return
-    
+
         chave_bloco = (
             f"bloco_{numero}"
         )
-    
+
         alvo = pagina.get(
             chave_bloco
         )
-    
+
         if not isinstance(
             alvo,
             dict
         ):
-    
+
             alvo = criar_bloco_vazio(
                 numero
             )
-    
-        # ====================================================
-        # PARÁGRAFOS PYTHON
-        # ====================================================
-        
-        if "paragrafos_python" in dados_bloco:
-        
-            paragrafos_python = dados_bloco.get(
-                "paragrafos_python"
-            )
-        
-            if isinstance(
-                paragrafos_python,
-                list
-            ):
-        
-                alvo["paragrafos_python"] = (
-                    paragrafos_python + ["", "", ""]
-                )[:3]
-        
-        
-        # ====================================================
-        # PARÁGRAFOS OLLAMA
-        # ====================================================
-        
-        if "paragrafos_ollama" in dados_bloco:
-        
-            paragrafos_ollama = dados_bloco.get(
-                "paragrafos_ollama"
-            )
-        
-            if isinstance(
-                paragrafos_ollama,
-                list
-            ):
-        
-                alvo["paragrafos_ollama"] = (
-                    paragrafos_ollama + ["", "", ""]
-                )[:3]
 
-
-        # ----------------------------------------------------
-        # ID
-        # ----------------------------------------------------
-    
-        id_bloco = str(
-            alvo.get(
-                "id",
-                ""
-            )
-            or ""
-        ).strip()
-    
-        if not id_bloco:
-    
-            id_bloco = (
-                f"bloco_{numero}"
-            )
-    
-        alvo[
-            "id"
-        ] = id_bloco
-    
-        # ----------------------------------------------------
-        # HASH
-        # ----------------------------------------------------
-    
-        alvo[
-            "hash"
-        ] = str(
-            alvo.get(
-                "hash",
-                ""
-            )
-            or ""
-        ).strip()
-    
-    
-        # ------------------------------------------------
-        # INFORMAÇÕES RELEVANTES
-        # ------------------------------------------------
-        
-        info_recebida = dados_bloco.get(
-            "informacoes_relevantes",
-            []
-        )
-        
-        if isinstance(
-            info_recebida,
-            list
-        ):
-        
-            info_recebida = [
-                item
-                for item in info_recebida
-                if isinstance(
-                    item,
-                    dict
-                )
-            ]
-        
-        else:
-        
-            info_recebida = []
-        
-        if info_recebida:
-        
-            alvo[
-                "informacoes_relevantes"
-            ] = info_recebida
-            
-    
-        # ----------------------------------------------------
-        # TÍTULO
-        # ----------------------------------------------------
-    
-        alvo[
-            "titulo"
-        ] = str(
-            alvo.get(
-                "titulo",
-                ""
-            )
-            or ""
-        ).strip()
-    
-        # ----------------------------------------------------
-        # PARÁGRAFOS
-        # ----------------------------------------------------
-    
-        paragrafos_existentes = (
-            alvo.get(
-                "paragrafos",
-                []
-            )
-        )
-    
         if not isinstance(
-            paragrafos_existentes,
-            list
-        ):
-    
-            paragrafos_existentes = []
-    
-        paragrafos_normalizados = []
-    
-        for item in paragrafos_existentes[:3]:
-    
-            paragrafos_normalizados.append(
-                str(
-                    item or ""
-                ).strip()
-            )
-    
-        alvo[
-            "paragrafos"
-        ] = (
-            paragrafos_normalizados
-            + [
-                "",
-                "",
-                ""
-            ]
-        )[:3]
-    
-        # ====================================================
-        # APLICAR DADOS RECEBIDOS
-        # ====================================================
-    
-        if isinstance(
             dados_bloco,
             dict
         ):
-    
-            # ------------------------------------------------
-            # TÍTULO
-            # ------------------------------------------------
-    
+
+            dados_bloco = {}
+
+        # ====================================================
+        # ID
+        # ====================================================
+
+        id_bloco = str(
+            dados_bloco.get(
+                "id",
+                alvo.get(
+                    "id",
+                    f"bloco_{numero}"
+                )
+            )
+            or f"bloco_{numero}"
+        ).strip()
+
+        alvo[
+            "id"
+        ] = id_bloco
+
+        # ====================================================
+        # INFORMAÇÕES RELEVANTES
+        #
+        # LISTA DE OBJETOS.
+        #
+        # NÃO transformar em texto.
+        # ====================================================
+
+        if "informacoes_relevantes" in dados_bloco:
+
+            info_recebida = (
+                dados_bloco.get(
+                    "informacoes_relevantes"
+                )
+            )
+
+            if isinstance(
+                info_recebida,
+                list
+            ):
+
+                info_recebida = [
+                    item
+                    for item in info_recebida
+                    if isinstance(
+                        item,
+                        dict
+                    )
+                ]
+
+                if info_recebida:
+
+                    alvo[
+                        "informacoes_relevantes"
+                    ] = info_recebida
+
+        # ====================================================
+        # TÍTULO
+        # ====================================================
+
+        if "titulo" in dados_bloco:
+
             titulo_recebido = str(
                 dados_bloco.get(
                     "titulo",
@@ -21122,66 +20958,208 @@ def salvar_banco(
                 )
                 or ""
             ).strip()
-    
+
             if titulo_recebido:
-    
+
                 alvo[
                     "titulo"
                 ] = titulo_recebido
-    
 
+        # ====================================================
+        # PARÁGRAFOS PYTHON
+        #
+        # Estes são os trechos selecionados pelo Python.
+        #
+        # Não escrever, resumir ou alterar o conteúdo aqui.
+        # ====================================================
 
-    
-            # ------------------------------------------------
-            # IMPORTANTE:
-            #
-            # Só substitui se realmente recebeu conteúdo.
-            #
-            # Uma chamada posterior sem conteúdo não apaga
-            # a seleção anterior.
-            # ------------------------------------------------
-    
-            if info_recebida:
-    
-                alvo[
-                    "informacoes_relevantes"
-                ] = info_recebida
-    
-            # ------------------------------------------------
-            # PARÁGRAFOS
-            # ------------------------------------------------
-    
-            paragrafos_recebidos = (
-                extrair_paragrafos_bloco(
-                    dados_bloco
+        if "paragrafos_python" in dados_bloco:
+
+            paragrafos_python = (
+                dados_bloco.get(
+                    "paragrafos_python"
                 )
             )
-    
-            if paragrafos_recebidos:
-    
+
+            if isinstance(
+                paragrafos_python,
+                list
+            ):
+
                 alvo[
-                    "paragrafos"
+                    "paragrafos_python"
                 ] = (
-                    paragrafos_recebidos
-                    + [
+                    list(
+                        paragrafos_python[:3]
+                    )
+                    +
+                    [
                         "",
                         "",
                         ""
                     ]
                 )[:3]
-    
+
         # ====================================================
-        # HASH FINAL
+        # PARÁGRAFOS OLLAMA
         # ====================================================
-    
-        conteudo_hash = (
-            str(
-                alvo.get(
-                    "informacoes_relevantes",
-                    ""
+
+        if "paragrafos_ollama" in dados_bloco:
+
+            paragrafos_ollama = (
+                dados_bloco.get(
+                    "paragrafos_ollama"
                 )
-                or ""
-            ).strip()
+            )
+
+            if isinstance(
+                paragrafos_ollama,
+                list
+            ):
+
+                alvo[
+                    "paragrafos_ollama"
+                ] = (
+                    [
+                        str(
+                            item or ""
+                        ).strip()
+                        for item
+                        in paragrafos_ollama[:3]
+                    ]
+                    +
+                    [
+                        "",
+                        "",
+                        ""
+                    ]
+                )[:3]
+
+        # ====================================================
+        # COMPATIBILIDADE CONTROLADA
+        #
+        # Caso uma chamada antiga de conteudo_completo ainda
+        # entregue "paragrafos", não criamos esse campo.
+        #
+        # Apenas transportamos o conteúdo para
+        # paragrafos_ollama.
+        # ====================================================
+
+        if (
+            "paragrafos" in dados_bloco
+            and
+            "paragrafos_ollama" not in dados_bloco
+        ):
+
+            paragrafos_antigos = (
+                dados_bloco.get(
+                    "paragrafos"
+                )
+            )
+
+            if isinstance(
+                paragrafos_antigos,
+                list
+            ):
+
+                alvo[
+                    "paragrafos_ollama"
+                ] = (
+                    [
+                        str(
+                            item or ""
+                        ).strip()
+                        for item
+                        in paragrafos_antigos[:3]
+                    ]
+                    +
+                    [
+                        "",
+                        "",
+                        ""
+                    ]
+                )[:3]
+
+        # ====================================================
+        # GARANTIR ESTRUTURA DOS CAMPOS
+        # ====================================================
+
+        paragrafos_python = alvo.get(
+            "paragrafos_python",
+            []
+        )
+
+        if not isinstance(
+            paragrafos_python,
+            list
+        ):
+            paragrafos_python = []
+
+        alvo[
+            "paragrafos_python"
+        ] = (
+            list(
+                paragrafos_python[:3]
+            )
+            +
+            [
+                "",
+                "",
+                ""
+            ]
+        )[:3]
+
+        paragrafos_ollama = alvo.get(
+            "paragrafos_ollama",
+            []
+        )
+
+        if not isinstance(
+            paragrafos_ollama,
+            list
+        ):
+            paragrafos_ollama = []
+
+        alvo[
+            "paragrafos_ollama"
+        ] = (
+            [
+                str(
+                    item or ""
+                ).strip()
+                for item
+                in paragrafos_ollama[:3]
+            ]
+            +
+            [
+                "",
+                "",
+                ""
+            ]
+        )[:3]
+
+        # ====================================================
+        # HASH
+        #
+        # O hash utiliza:
+        # informacoes_relevantes
+        # titulo
+        # paragrafos_ollama
+        #
+        # Nunca "paragrafos".
+        # ====================================================
+
+        info_hash = json.dumps(
+            alvo.get(
+                "informacoes_relevantes",
+                []
+            ),
+            ensure_ascii=False,
+            sort_keys=True
+        )
+
+        conteudo_hash = (
+            info_hash
             + "|"
             + str(
                 alvo.get(
@@ -21195,13 +21173,14 @@ def salvar_banco(
                 str(
                     paragrafo or ""
                 ).strip()
-                for paragrafo in alvo.get(
-                    "paragrafos",
+                for paragrafo
+                in alvo.get(
+                    "paragrafos_ollama",
                     []
                 )[:3]
             )
         )
-    
+
         alvo[
             "hash"
         ] = hashlib.sha256(
@@ -21209,29 +21188,53 @@ def salvar_banco(
                 "utf-8"
             )
         ).hexdigest()
-    
+
+        # ====================================================
+        # PROTEÇÃO CONTRA CAMPOS LEGADOS
+        # ====================================================
+
+        alvo.pop(
+            "paragrafos",
+            None
+        )
+
+        alvo.pop(
+            "imagens",
+            None
+        )
+
+        alvo.pop(
+            "caracteres",
+            None
+        )
+
+        alvo.pop(
+            "status",
+            None
+        )
+
         pagina[
             chave_bloco
         ] = alvo
-    
+
     # ========================================================
     # METADADOS PRINCIPAIS
     # ========================================================
-    
+
     dados_tema[
         "tema"
     ] = tema_original
-    
+
     try:
-    
+
         grupo_identificado = identificar_grupo_tema(
             tema_original
         )
-    
+
     except Exception:
-    
+
         grupo_identificado = ""
-    
+
     dados_tema[
         "grupo"
     ] = (
@@ -21241,291 +21244,290 @@ def salvar_banco(
             ""
         )
     )
-    
+
     # ========================================================
-    # TIPO OFICIAL DA PÁGINA
-    #
-    # Só altera quando esta chamada realmente recebeu
-    # um tipo válido.
-    #
-    # Chamadas posteriores, como mapa_mead, não podem
-    # apagar o tipo já existente.
+    # TIPO
     # ========================================================
-    
+
     if tipo is not None:
-    
+
         tipo_recebido = str(
             tipo or ""
         ).strip()
-    
+
         if tipo_recebido:
-    
+
             dados_tema[
                 "tipo"
             ] = tipo_recebido
-    
+
     # ========================================================
     # TAGS
-    #
-    # CORREÇÃO:
-    #
-    # Só atualiza tags quando tags foram realmente enviadas.
-    # Uma chamada posterior sem tags preserva as existentes.
     # ========================================================
-    
+
     if recebeu_tags:
-    
+
         tags_normalizadas = []
-    
         vistos_tags = set()
-    
+
         for tag in normalizar_lista_local(
             tags
         ):
-    
+
             try:
-    
+
                 chave_tag = normalizar_tema_chave(
                     tag
                 )
-    
+
             except Exception:
-    
+
                 chave_tag = tag.lower()
-    
+
             if chave_tag in vistos_tags:
-    
                 continue
-    
+
             vistos_tags.add(
                 chave_tag
             )
-    
+
             tags_normalizadas.append(
                 tag
             )
-    
+
         dados_tema[
             "tags"
         ] = tags_normalizadas[:30]
-    
+
     else:
-    
+
         if not isinstance(
             dados_tema.get(
                 "tags"
             ),
             list
         ):
-    
+
             dados_tema[
                 "tags"
             ] = []
-    
+
     # ========================================================
     # SEGMENTOS TEXTUAIS
-    #
-    # CORREÇÃO:
-    #
-    # Só atualiza quando segmentos foram enviados.
     # ========================================================
-    
+
     if recebeu_informacoes_adicionais:
-    
+
         segmentos_textuais = (
             informacoes_adicionais.get(
                 "segmentos_textuais",
                 []
             )
         )
-    
+
         segmentos_textuais = (
             normalizar_lista_local(
                 segmentos_textuais
             )
         )
-    
-        segmentos_textuais_unicos = []
-    
-        vistos_segmentos = set()
-    
-        for segmento in segmentos_textuais:
-    
-            try:
-    
-                chave_segmento = normalizar_tema_chave(
-                    segmento
-                )
-    
-            except Exception:
-    
-                chave_segmento = segmento.lower()
-    
-            if chave_segmento in vistos_segmentos:
-    
-                continue
-    
-            vistos_segmentos.add(
-                chave_segmento
-            )
-    
-            segmentos_textuais_unicos.append(
-                segmento
-            )
-    
-        segmentos_textuais = (
-            segmentos_textuais_unicos[:12]
-        )
-    
+
     elif recebeu_segmentos:
-    
+
         segmentos_textuais = (
             normalizar_lista_local(
                 segmentos
-            )[:12]
+            )
         )
-    
+
     else:
-    
-        segmentos_textuais = (
-            dados_tema
-            .get(
+
+        informacoes_existentes = (
+            dados_tema.get(
                 "informacoes_adicionais",
                 {}
             )
-            .get(
-                "segmentos_textuais",
-                []
-            )
-            if isinstance(
-                dados_tema.get(
-                    "informacoes_adicionais",
-                    {}
-                ),
-                dict
-            )
-            else []
         )
-    
+
+        if isinstance(
+            informacoes_existentes,
+            dict
+        ):
+
+            segmentos_textuais = (
+                informacoes_existentes.get(
+                    "segmentos_textuais",
+                    []
+                )
+            )
+
+        else:
+
+            segmentos_textuais = []
+
         if isinstance(
             segmentos_textuais,
             dict
         ):
-    
+
             segmentos_textuais = [
                 item
-                for lista in segmentos_textuais.values()
-                if isinstance(lista, list)
-                for item in lista
+                for lista
+                in segmentos_textuais.values()
+                if isinstance(
+                    lista,
+                    list
+                )
+                for item
+                in lista
                 if item
             ]
-    
+
         segmentos_textuais = (
             normalizar_lista_local(
                 segmentos_textuais
-            )[:12]
+            )
         )
-    
+
+    # ========================================================
+    # REMOVER DUPLICADOS DOS SEGMENTOS
+    # ========================================================
+
+    segmentos_textuais_unicos = []
+    vistos_segmentos = set()
+
+    for segmento in segmentos_textuais:
+
+        try:
+
+            chave_segmento = normalizar_tema_chave(
+                segmento
+            )
+
+        except Exception:
+
+            chave_segmento = segmento.lower()
+
+        if chave_segmento in vistos_segmentos:
+            continue
+
+        vistos_segmentos.add(
+            chave_segmento
+        )
+
+        segmentos_textuais_unicos.append(
+            segmento
+        )
+
+    segmentos_textuais = (
+        segmentos_textuais_unicos[:12]
+    )
+
     # ========================================================
     # FONTES
     # ========================================================
-    
+
     if recebeu_informacoes_adicionais:
-    
-        fontes = informacoes_adicionais.get(
-            "fontes",
-            []
+
+        fontes = (
+            informacoes_adicionais.get(
+                "fontes",
+                []
+            )
         )
-    
+
         if not isinstance(
             fontes,
             list
         ):
-    
             fontes = []
-    
+
         fontes = [
             fonte
             for fonte in fontes
             if fonte
         ]
-    
+
     else:
-    
+
         informacoes_existentes = (
             dados_tema.get(
                 "informacoes_adicionais",
                 {}
             )
         )
-    
+
         if isinstance(
             informacoes_existentes,
             dict
         ):
-    
-            fontes = informacoes_existentes.get(
-                "fontes",
-                []
+
+            fontes = (
+                informacoes_existentes.get(
+                    "fontes",
+                    []
+                )
             )
-    
+
         else:
-    
+
             fontes = []
-    
+
     # ========================================================
     # REFERÊNCIAS
     # ========================================================
-    
+
     if recebeu_informacoes_adicionais:
-    
-        referencias = informacoes_adicionais.get(
-            "referencias",
-            []
+
+        referencias = (
+            informacoes_adicionais.get(
+                "referencias",
+                []
+            )
         )
-    
+
         if not isinstance(
             referencias,
             list
         ):
-    
             referencias = []
-    
+
         referencias = [
             referencia
             for referencia in referencias
             if referencia
         ]
-    
+
     else:
-    
+
         informacoes_existentes = (
             dados_tema.get(
                 "informacoes_adicionais",
                 {}
             )
         )
-    
+
         if isinstance(
             informacoes_existentes,
             dict
         ):
-    
-            referencias = informacoes_existentes.get(
-                "referencias",
-                []
+
+            referencias = (
+                informacoes_existentes.get(
+                    "referencias",
+                    []
+                )
             )
-    
+
         else:
-    
+
             referencias = []
-    
+
     # ========================================================
     # NOME DO SITE
     # ========================================================
-    
+
     if recebeu_informacoes_adicionais:
-    
+
         nome_site = str(
             informacoes_adicionais.get(
                 "nome_site",
@@ -21533,37 +21535,39 @@ def salvar_banco(
             )
             or ""
         ).strip()
-    
+
     else:
-    
-        nome_site = str(
+
+        informacoes_existentes = (
             dados_tema.get(
                 "informacoes_adicionais",
                 {}
-            ).get(
-                "nome_site",
-                ""
             )
-            if isinstance(
-                dados_tema.get(
-                    "informacoes_adicionais",
-                    {}
-                ),
-                dict
-            )
-            else ""
-        ).strip()
-    
+        )
+
+        if isinstance(
+            informacoes_existentes,
+            dict
+        ):
+
+            nome_site = str(
+                informacoes_existentes.get(
+                    "nome_site",
+                    ""
+                )
+                or ""
+            ).strip()
+
+        else:
+
+            nome_site = ""
+
     # ========================================================
     # GRUPO PRINCIPAL DO PROJETO
-    #
-    # O valor vem diretamente do fluxo principal/GUI.
-    #
-    # NÃO buscar em informacoes_adicionais.
-    # NÃO criar informacoes_adicionais.
     # ========================================================
 
     if grupo_principal_projeto is None:
+
         grupo_principal_projeto = str(
             dados_tema.get(
                 "grupo_principal_projeto",
@@ -21571,54 +21575,56 @@ def salvar_banco(
             )
             or ""
         ).strip()
+
     else:
+
         grupo_principal_projeto = str(
             grupo_principal_projeto
             or ""
         ).strip()
-    
-    
+
     # ========================================================
     # TRECHOS UTILIZADOS
     # ========================================================
-    
-    dados_tema_existente = dados_tema.get(
-        "informacoes_adicionais",
-        {}
+
+    dados_tema_existente = (
+        dados_tema.get(
+            "informacoes_adicionais",
+            {}
+        )
     )
-    
+
     if not isinstance(
         dados_tema_existente,
         dict
     ):
-    
+
         dados_tema_existente = {}
-    
+
     trechos_existentes = (
         dados_tema_existente.get(
             "trechos_utilizados",
             []
         )
     )
-    
+
     if not isinstance(
         trechos_existentes,
         list
     ):
-    
+
         trechos_existentes = []
-    
+
     hashes_existentes = set()
-    
+
     for existente in trechos_existentes:
-    
+
         if not isinstance(
             existente,
             dict
         ):
-    
             continue
-    
+
         hash_existente = str(
             existente.get(
                 "hash",
@@ -21626,22 +21632,22 @@ def salvar_banco(
             )
             or ""
         ).strip()
-    
+
         if hash_existente:
-    
+
             hashes_existentes.add(
                 hash_existente
             )
-    
+
     if recebeu_trechos_utilizados:
-    
+
         for item in trechos_utilizados:
-    
+
             if isinstance(
                 item,
                 dict
             ):
-    
+
                 trecho = str(
                     item.get(
                         "trecho",
@@ -21649,7 +21655,7 @@ def salvar_banco(
                     )
                     or ""
                 ).strip()
-    
+
                 hash_trecho = str(
                     item.get(
                         "hash",
@@ -21657,164 +21663,164 @@ def salvar_banco(
                     )
                     or ""
                 ).strip()
-    
+
                 if not hash_trecho and trecho:
-    
+
                     try:
-    
+
                         hash_trecho = gerar_hash_trecho(
                             trecho
                         )
-    
+
                     except Exception:
-    
+
                         hash_trecho = ""
-    
+
                 if not hash_trecho:
-    
                     continue
-    
+
                 if hash_trecho in hashes_existentes:
-    
                     continue
-    
+
                 trechos_existentes.append({
-                    "id": str(
-                        item.get(
-                            "id",
-                            hash_trecho
-                        )
-                        or hash_trecho
-                    ),
-                    "hash": hash_trecho,
-                    "tema_origem": str(
-                        item.get(
-                            "tema_origem",
-                            tema_original
-                        )
-                        or tema_original
-                    ).strip(),
-                    "fonte": str(
-                        item.get(
-                            "fonte",
-                            ""
-                        )
-                        or ""
-                    ).strip()
+
+                    "id":
+                        str(
+                            item.get(
+                                "id",
+                                hash_trecho
+                            )
+                            or hash_trecho
+                        ),
+
+                    "hash":
+                        hash_trecho,
+
+                    "tema_origem":
+                        str(
+                            item.get(
+                                "tema_origem",
+                                tema_original
+                            )
+                            or tema_original
+                        ).strip(),
+
+                    "fonte":
+                        str(
+                            item.get(
+                                "fonte",
+                                ""
+                            )
+                            or ""
+                        ).strip()
                 })
-    
+
                 hashes_existentes.add(
                     hash_trecho
                 )
-    
+
             else:
-    
+
                 trecho = str(
                     item or ""
                 ).strip()
-    
+
                 if not trecho:
-    
                     continue
-    
+
                 try:
-    
+
                     hash_trecho = gerar_hash_trecho(
                         trecho
                     )
-    
+
                 except Exception:
-    
+
                     hash_trecho = ""
-    
+
                 if not hash_trecho:
-    
                     continue
-    
+
                 if hash_trecho in hashes_existentes:
-    
                     continue
-    
+
                 trechos_existentes.append({
-                    "id": hash_trecho,
-                    "hash": hash_trecho,
-                    "tema_origem": tema_original,
-                    "fonte": ""
+
+                    "id":
+                        hash_trecho,
+
+                    "hash":
+                        hash_trecho,
+
+                    "tema_origem":
+                        tema_original,
+
+                    "fonte":
+                        ""
                 })
-    
+
                 hashes_existentes.add(
                     hash_trecho
                 )
-    
-    
+
     # ========================================================
     # GARANTIR BLOCOS RECEBIDOS
-    #
-    # CORREÇÃO CRÍTICA:
-    #
-    # SOMENTE atualizar blocos se blocos foram enviados.
-    #
-    # Uma chamada posterior:
-    #
-    # salvar_banco(tema, "mapa_mead", mapa)
-    #
-    # não toca nos cinco blocos.
     # ========================================================
-    
+
     if recebeu_blocos:
-    
+
         for numero in range(
             1,
             6
         ):
-    
+
             chave_bloco = (
                 f"bloco_{numero}"
             )
-    
+
             if chave_bloco not in blocos:
-    
                 continue
-    
-            dados_bloco = blocos.get(
-                chave_bloco
+
+            dados_bloco = (
+                blocos.get(
+                    chave_bloco
+                )
             )
-    
+
             if isinstance(
                 dados_bloco,
                 dict
             ):
-    
+
                 dados_bloco_final = dict(
                     dados_bloco
                 )
-    
+
             else:
-    
+
                 dados_bloco_final = {
                     "informacoes_relevantes":
                         dados_bloco
                 }
-    
+
             atualizar_bloco(
                 numero,
                 dados_bloco_final
             )
-    
-    
+
     # ========================================================
     # CATEGORIA: PÁGINA
     # ========================================================
-    
+
     if categoria == "pagina":
-    
+
         if isinstance(
             texto,
             dict
         ):
-    
+
             pagina_recebida = texto
-    
+
             pagina[
                 "tema"
             ] = str(
@@ -21824,7 +21830,7 @@ def salvar_banco(
                 )
                 or tema_original
             ).strip()
-    
+
             pagina[
                 "arquivo_origem"
             ] = str(
@@ -21837,28 +21843,27 @@ def salvar_banco(
                 )
                 or ""
             ).strip()
-    
-    
-            # ====================================================
+
+            # =================================================
             # SUBTÍTULO
-            # ====================================================
-    
+            # =================================================
+
             if subtitulo is not None:
-    
+
                 subtitulo_recebido = str(
                     subtitulo or ""
                 ).strip()
-    
+
                 if subtitulo_recebido:
-    
+
                     pagina[
                         "subtitulo"
                     ] = subtitulo_recebido
-    
+
             elif pagina_recebida.get(
                 "subtitulo"
             ):
-    
+
                 pagina[
                     "subtitulo"
                 ] = str(
@@ -21867,11 +21872,10 @@ def salvar_banco(
                     )
                     or ""
                 ).strip()
-    
-    
-            # ====================================================
+
+            # =================================================
             # SUBTÍTULO DOS SEGMENTOS
-            # ====================================================
+            # =================================================
 
             if subtitulo_segmentos is not None:
 
@@ -21897,15 +21901,11 @@ def salvar_banco(
                     )
                     or ""
                 ).strip()
-    
-            # ====================================================
+
+            # =================================================
             # H1 E TÍTULO
-            # ====================================================
-            #
-            # O Python já gerou esses campos anteriormente.
-            # Não sobrescrever com apenas o tema.
-            # ====================================================
-            
+            # =================================================
+
             h1_recebido = str(
                 pagina_recebida.get(
                     "h1",
@@ -21913,7 +21913,7 @@ def salvar_banco(
                 )
                 or ""
             ).strip()
-            
+
             titulo_recebido = str(
                 pagina_recebida.get(
                     "titulo",
@@ -21921,210 +21921,211 @@ def salvar_banco(
                 )
                 or ""
             ).strip()
-            
+
             if h1_recebido:
-    
+
                 pagina[
                     "h1"
                 ] = h1_recebido
-            
+
             elif not pagina.get(
                 "h1",
                 ""
             ):
-    
+
                 pagina[
                     "h1"
                 ] = tema_original
-            
-            
+
             if titulo_recebido:
-    
+
                 pagina[
                     "titulo"
                 ] = titulo_recebido
-            
+
             elif not pagina.get(
                 "titulo",
                 ""
             ):
-    
+
                 pagina[
                     "titulo"
                 ] = tema_original
-    
-    
-   
-    
-            # ====================================================
+
+            # =================================================
             # BLOCOS RECEBIDOS DENTRO DA PÁGINA
-            # ====================================================
-    
-            blocos_recebidos = pagina_recebida.get(
-                "blocos",
-                []
+            # =================================================
+
+            blocos_recebidos = (
+                pagina_recebida.get(
+                    "blocos",
+                    []
+                )
             )
-    
+
             if isinstance(
                 blocos_recebidos,
                 list
             ):
-    
+
                 for bloco in blocos_recebidos:
-    
+
                     if not isinstance(
                         bloco,
                         dict
                     ):
-    
                         continue
-    
+
                     try:
-    
+
                         numero = int(
                             bloco.get(
                                 "numero",
                                 0
                             )
                         )
-    
+
                     except Exception:
-    
+
                         numero = 0
-    
+
                     atualizar_bloco(
                         numero,
                         bloco
                     )
-    
-    
-            # ====================================================
+
+            # =================================================
             # SEGMENTOS RECEBIDOS
-            # ====================================================
-    
+            # =================================================
+
             segmentos_recebidos = (
                 pagina_recebida.get(
                     "segmentos",
                     []
                 )
             )
-    
-            if isinstance(
-                segmentos_recebidos,
-                list
-            ) and segmentos_recebidos:
-    
-                segmentos = segmentos_recebidos
-    
+
+            if (
+                isinstance(
+                    segmentos_recebidos,
+                    list
+                )
+                and
+                segmentos_recebidos
+            ):
+
+                segmentos = (
+                    segmentos_recebidos
+                )
+
                 recebeu_segmentos = True
-    
+
     # ========================================================
     # CATEGORIA: CONTEÚDO COMPLETO
     # ========================================================
-    
+
     elif categoria == "conteudo_completo":
-    
+
         conteudo = str(
             texto or ""
         ).strip()
-    
+
         # ----------------------------------------------------
         # TÍTULO
         # ----------------------------------------------------
-    
+
         padroes_titulo = [
-    
+
             r"(?im)^\s*(?:#\s*)?T[ÍI]TULO\s*:\s*(.+)$",
-    
+
             r"(?im)^\s*##\s*T[ÍI]TULO\s*:?\s*(.+)$",
-    
+
             r"(?im)^\s*TITLE\s*:\s*(.+)$"
         ]
-    
+
         for padrao in padroes_titulo:
-    
+
             resultado = re.search(
                 padrao,
                 conteudo
             )
-    
+
             if resultado:
-    
+
                 pagina[
                     "titulo"
                 ] = resultado.group(
                     1
                 ).strip()
-    
+
                 break
-    
+
         # ----------------------------------------------------
         # SUBTÍTULO
         # ----------------------------------------------------
-    
+
         padroes_subtitulo = [
-    
+
             r"(?im)^\s*(?:#\s*)?SUBT[ÍI]TULO\s*:\s*(.+)$",
-    
+
             r"(?im)^\s*##\s*SUBT[ÍI]TULO\s*:?\s*(.+)$",
-    
+
             r"(?im)^\s*SUBTITLE\s*:\s*(.+)$"
         ]
-    
+
         for padrao in padroes_subtitulo:
-    
+
             resultado = re.search(
                 padrao,
                 conteudo
             )
-    
+
             if resultado:
-    
+
                 pagina[
                     "subtitulo"
                 ] = resultado.group(
                     1
                 ).strip()
-    
+
                 break
-                
-        # ========================================================
+
+        # ====================================================
         # PRESERVAR SUBTÍTULO
-        # ========================================================
-        
+        # ====================================================
+
         if subtitulo is not None:
-        
+
             subtitulo_recebido = str(
                 subtitulo or ""
             ).strip()
-        
+
             if subtitulo_recebido:
-        
+
                 pagina[
                     "subtitulo"
                 ] = subtitulo_recebido
-                
-        # ========================================================
+
+        # ====================================================
         # PRESERVAR SUBTÍTULO DOS SEGMENTOS
-        # ========================================================
-        
+        # ====================================================
+
         if subtitulo_segmentos is not None:
-        
+
             subtitulo_segmentos_recebido = str(
                 subtitulo_segmentos or ""
             ).strip()
-        
+
             if subtitulo_segmentos_recebido:
-        
+
                 pagina[
                     "subtitulo_segmentos"
-                ] = subtitulo_segmentos_recebido        
-                
-        
+                ] = subtitulo_segmentos_recebido
+
         # ----------------------------------------------------
         # BLOCOS 1 A 5
         # ----------------------------------------------------
-    
+
         padrao_bloco = re.compile(
             r"(?im)"
             r"^\s*"
@@ -22134,69 +22135,67 @@ def salvar_banco(
             r"\s*:?"
             r"(.*)$"
         )
-    
+
         ocorrencias = list(
             padrao_bloco.finditer(
                 conteudo
             )
         )
-    
+
         for idx, match in enumerate(
             ocorrencias
         ):
-    
+
             inicio = match.end()
-    
+
             if idx + 1 < len(
                 ocorrencias
             ):
-    
+
                 fim = ocorrencias[
                     idx + 1
                 ].start()
-    
+
             else:
-    
+
                 fim = len(
                     conteudo
                 )
-    
+
             conteudo_bloco = conteudo[
                 inicio:fim
             ].strip()
-    
+
             titulo_bloco = (
                 match.group(
                     2
                 ).strip()
             )
-    
-            paragrafos = []
-    
+
+            paragrafos_ollama = []
+
             partes = re.split(
                 r"\n\s*\n+",
                 conteudo_bloco
             )
-    
+
             for parte in partes:
-    
+
                 parte_limpa = parte.strip()
-    
+
                 if not parte_limpa:
-    
                     continue
-    
+
                 if re.match(
                     r"(?i)^\s*(?:TITULO|SUBTITULO|TAGS?|SEGMENTOS?)\s*:",
                     parte_limpa
                 ):
-    
                     continue
-    
-                paragrafos.append(
+
+                paragrafos_ollama.append(
                     parte_limpa
                 )
-    
+
             atualizar_bloco(
                 int(
                     match.group(
@@ -22206,18 +22205,18 @@ def salvar_banco(
                 {
                     "titulo":
                         titulo_bloco,
-    
-                    "paragrafos":
-                        paragrafos[:3]
+
+                    "paragrafos_ollama":
+                        paragrafos_ollama[:3]
                 }
             )
-    
+
         # ----------------------------------------------------
         # SEGMENTOS
         # ----------------------------------------------------
-    
+
         padroes_segmentos = [
-    
+
             r"(?is)"
             r"(?:^|\n)"
             r"\s*(?:#+\s*)?"
@@ -22227,105 +22226,107 @@ def salvar_banco(
             r"\n\s*(?:#+\s*)?"
             r"(?:TAGS?|BLOCO|FIM|$)"
             r")",
-    
+
             r"(?is)"
             r"\[\s*SEGMENTOS?\s*\]"
             r"\s*(.*?)(?="
             r"\[\s*TAGS?\s*\]|$)"
         ]
-    
+
         bloco_segmentos = None
-    
+
         for padrao in padroes_segmentos:
-    
+
             resultado = re.search(
                 padrao,
                 conteudo
             )
-    
+
             if resultado:
-    
+
                 bloco_segmentos = resultado.group(
                     1
                 ).strip()
-    
+
                 break
-    
+
         if bloco_segmentos:
-    
+
             linhas_segmentos = (
                 bloco_segmentos.splitlines()
             )
-    
+
             segmentos_extraidos = []
-    
+
             for linha in linhas_segmentos:
-    
+
                 linha = linha.strip()
-    
+
                 if not linha:
-    
                     continue
-    
+
                 linha = re.sub(
                     r"^\s*[-•*]\s*",
                     "",
                     linha
                 )
-    
+
                 linha = re.sub(
                     r"^\s*\d+[\.\)\-:]\s*",
                     "",
                     linha
                 )
-    
+
                 linha = linha.strip()
-    
+
                 if linha:
-    
+
                     segmentos_extraidos.append(
                         linha
                     )
-    
+
             segmentos_unicos = []
-    
             vistos_segmentos = set()
-    
+
             for segmento in segmentos_extraidos:
-    
+
                 try:
-    
+
                     chave_segmento = normalizar_tema_chave(
                         segmento
                     )
-    
+
                 except Exception:
-    
-                    chave_segmento = segmento.lower()
-    
+
+                    chave_segmento = (
+                        segmento.lower()
+                    )
+
                 if chave_segmento in vistos_segmentos:
-    
                     continue
-    
+
                 vistos_segmentos.add(
                     chave_segmento
                 )
-    
+
                 segmentos_unicos.append(
                     segmento
                 )
-    
-            segmentos = segmentos_unicos[:12]
-    
-            # Atualizar a lista textual também.
-            segmentos_textuais = segmentos
-    
+
+            segmentos = (
+                segmentos_unicos[:12]
+            )
+
+            segmentos_textuais = (
+                segmentos
+            )
+
         # ----------------------------------------------------
         # TAGS
         # ----------------------------------------------------
-    
+
         padroes_tags = [
-    
+
             r"(?is)"
             r"(?:^|\n)"
             r"\s*(?:#+\s*)?"
@@ -22335,340 +22336,320 @@ def salvar_banco(
             r"\n\s*(?:#+\s*)?"
             r"(?:SEGMENTOS?|BLOCO|FIM|$)"
             r")",
-    
+
             r"(?is)"
             r"\[\s*TAGS?\s*\]"
             r"\s*(.*?)(?="
             r"\[\s*SEGMENTOS?\s*\]|$)"
         ]
-    
+
         bloco_tags = None
-    
+
         for padrao in padroes_tags:
-    
+
             resultado = re.search(
                 padrao,
                 conteudo
             )
-    
+
             if resultado:
-    
+
                 bloco_tags = resultado.group(
                     1
                 ).strip()
-    
+
                 break
-    
+
         if bloco_tags:
-    
+
             tags_extraidas = []
-    
+
             for parte in re.split(
                 r"[,;\n]+",
                 bloco_tags
             ):
-    
+
                 tag = re.sub(
                     r"^\s*[-•*]\s*",
                     "",
                     parte
                 ).strip()
-    
+
                 tag = re.sub(
                     r"^\s*\d+[\.\)\-:]\s*",
                     "",
                     tag
                 ).strip()
-    
+
                 if tag:
-    
+
                     tags_extraidas.append(
                         tag
                     )
-    
+
             tags = tags_extraidas
             recebeu_tags = True
-    
-        pagina[
-            "status"
-        ] = (
-            "gerada"
-            if conteudo
-            else "erro"
-        )
-    
+
     # ========================================================
     # CATEGORIA: ARQUIVO DE ORIGEM
     # ========================================================
-    
+
     elif categoria == "arquivo_origem":
-    
+
         pagina[
             "arquivo_origem"
         ] = str(
             texto or ""
         ).strip()
-    
+
     # ========================================================
     # CATEGORIA: TÍTULO
     # ========================================================
-    
+
     elif categoria == "titulo":
-    
+
         pagina[
             "titulo"
         ] = str(
             texto or ""
         ).strip()
-    
+
     # ========================================================
     # CATEGORIA: SUBTÍTULO
     # ========================================================
-    
+
     elif categoria == "subtitulo":
-    
+
         pagina[
             "subtitulo"
         ] = str(
             texto or ""
         ).strip()
-    
+
     # ========================================================
     # CATEGORIA: TAGS
     # ========================================================
-    
+
     elif categoria == "tags":
-    
+
         tags = normalizar_lista_local(
             texto
         )
-    
+
         recebeu_tags = True
-    
+
     # ========================================================
     # CATEGORIA: SEGMENTOS
     # ========================================================
-    
+
     elif categoria == "segmentos":
-    
+
         segmentos = normalizar_lista_local(
             texto
         )
-    
+
         recebeu_segmentos = True
-    
+
     # ========================================================
     # CATEGORIA: BLOCOS
     # ========================================================
-    
+
     elif categoria == "blocos":
-    
+
         if isinstance(
             texto,
             list
         ):
-    
+
             for bloco in texto:
-    
+
                 if not isinstance(
                     bloco,
                     dict
                 ):
-    
                     continue
-    
+
                 try:
-    
+
                     numero = int(
                         bloco.get(
                             "numero",
                             0
                         )
                     )
-    
+
                 except Exception:
-    
+
                     numero = 0
-    
+
                 atualizar_bloco(
                     numero,
                     bloco
                 )
-    
+
     # ========================================================
     # CATEGORIA: MAPA MEAD
     # ========================================================
-    
+
     elif categoria == "mapa_mead":
-    
+
         valor = str(
             texto or ""
         ).strip()
-    
+
         dados_tema[
             "mapa_mead"
         ] = {
-    
+
             "status":
                 "gerado"
                 if valor
                 else "vazio",
-    
+
             "texto":
                 valor
         }
-    
+
     # ========================================================
     # CATEGORIA: ESTRUTURA
     # ========================================================
-    
+
     elif categoria == "estrutura":
-    
+
         pass
-    
-    
+
     # ========================================================
     # NORMALIZAR TAGS FINAIS
-    #
-    # NUNCA substituir tags existentes por [] apenas porque
-    # esta chamada não recebeu tags.
     # ========================================================
-    
+
     tags_atuais = dados_tema.get(
         "tags",
         []
     )
-    
+
     if not isinstance(
         tags_atuais,
         list
     ):
-    
         tags_atuais = []
-    
+
     tags_finais = []
-    
     vistos_tags = set()
-    
+
     for tag in normalizar_lista_local(
         tags_atuais
     ):
-    
+
         try:
-    
+
             chave_tag = normalizar_tema_chave(
                 tag
             )
-    
+
         except Exception:
-    
+
             chave_tag = tag.lower()
-    
+
         if chave_tag in vistos_tags:
-    
             continue
-    
+
         vistos_tags.add(
             chave_tag
         )
-    
+
         tags_finais.append(
             tag
         )
-    
+
     dados_tema[
         "tags"
     ] = tags_finais[:30]
-    
+
     # ========================================================
-    # NORMALIZAR 12 SEGMENTOS
+    # NORMALIZAR SEGMENTOS
     # ========================================================
-    
+
     segmentos_finais = []
-    
     vistos_segmentos = set()
-    
+
     for segmento in normalizar_lista_local(
         segmentos_textuais
     ):
-    
+
         try:
-    
+
             chave_segmento = normalizar_tema_chave(
                 segmento
             )
-    
+
         except Exception:
-    
+
             chave_segmento = segmento.lower()
-    
+
         if chave_segmento in vistos_segmentos:
-    
             continue
-    
+
         vistos_segmentos.add(
             chave_segmento
         )
-    
+
         segmentos_finais.append(
             segmento
         )
-    
-    segmentos_finais = segmentos_finais[:12]
-    
+
+    segmentos_finais = (
+        segmentos_finais[:12]
+    )
+
     # ========================================================
-    # GARANTIR E GRAVAR 12 SEGMENTOS
+    # GARANTIR SEGMENTOS_LISTAS
     # ========================================================
-    
+
     segmentos_listas_existentes = pagina.get(
         "segmentos_listas",
         {}
     )
-    
+
     if not isinstance(
         segmentos_listas_existentes,
         dict
     ):
-    
+
         segmentos_listas_existentes = {}
-    
+
     segmentos_listas_finais = {}
-    
-    # --------------------------------------------------------
-    # Preservar listas existentes.
-    # --------------------------------------------------------
-    
+
     for numero in range(
         1,
         13
     ):
-    
+
         chave_segmento = (
             f"segmento_{numero}"
         )
-    
+
         lista_existente = (
             segmentos_listas_existentes.get(
                 chave_segmento,
                 []
             )
         )
-    
+
         if not isinstance(
             lista_existente,
             list
         ):
-    
+
             lista_existente = []
-    
+
         segmentos_listas_finais[
             chave_segmento
         ] = list(
             lista_existente
         )
-    
+
     # ========================================================
-    # GRAVAR OS 12 SEGMENTOS RECEBIDOS PELO PYTHON
+    # GRAVAR SEGMENTOS RECEBIDOS PELO PYTHON
     # ========================================================
 
     if segmentos_finais:
@@ -22690,124 +22671,38 @@ def salvar_banco(
     pagina[
         "segmentos_listas"
     ] = segmentos_listas_finais
-    
 
-    
     # ========================================================
     # POSICIONAMENTO DAS LISTAS
     # ========================================================
-    
+
     posicionamento = pagina.get(
         "posicionamento_listas",
         {}
     )
-    
+
     if not isinstance(
         posicionamento,
         dict
     ):
-    
+
         posicionamento = {}
-    
+
     pagina[
         "posicionamento_listas"
     ] = {
-    
+
         "bloco":
             posicionamento.get(
                 "bloco",
                 None
             )
     }
-    
+
     # ========================================================
-    # GARANTIR 6 IMAGENS
+    # DADOS BÁSICOS DA PÁGINA
     # ========================================================
-    
-    imagens = pagina.get(
-        "imagens",
-        {}
-    )
-    
-    if not isinstance(
-        imagens,
-        dict
-    ):
-    
-        imagens = {}
-    
-    imagens_oficiais = {}
-    
-    for numero in range(
-        1,
-        7
-    ):
-    
-        chave_imagem = (
-            f"imagem_{numero}"
-        )
-    
-        imagem = imagens.get(
-            chave_imagem,
-            {}
-        )
-    
-        if not isinstance(
-            imagem,
-            dict
-        ):
-    
-            imagem = {}
-    
-        imagens_oficiais[
-            chave_imagem
-        ] = {
-    
-            "url":
-                str(
-                    imagem.get(
-                        "url",
-                        ""
-                    )
-                    or ""
-                ).strip(),
-    
-            "arquivo":
-                str(
-                    imagem.get(
-                        "arquivo",
-                        ""
-                    )
-                    or ""
-                ).strip(),
-    
-            "alt":
-                str(
-                    imagem.get(
-                        "alt",
-                        ""
-                    )
-                    or ""
-                ).strip(),
-    
-            "descricao":
-                str(
-                    imagem.get(
-                        "descricao",
-                        ""
-                    )
-                    or ""
-                ).strip()
-        }
-    
-    pagina[
-        "imagens"
-    ] = imagens_oficiais
-    
-    # ========================================================
-    # DADOS BÁSICOS
-    # ========================================================
-    
+
     pagina[
         "tema"
     ] = str(
@@ -22817,7 +22712,7 @@ def salvar_banco(
         )
         or tema_original
     ).strip()
-    
+
     pagina[
         "arquivo_origem"
     ] = str(
@@ -22827,7 +22722,7 @@ def salvar_banco(
         )
         or ""
     ).strip()
-    
+
     pagina[
         "h1"
     ] = str(
@@ -22837,7 +22732,7 @@ def salvar_banco(
         )
         or tema_original
     ).strip()
-    
+
     pagina[
         "titulo"
     ] = str(
@@ -22847,7 +22742,7 @@ def salvar_banco(
         )
         or tema_original
     ).strip()
-    
+
     pagina[
         "subtitulo"
     ] = str(
@@ -22857,17 +22752,7 @@ def salvar_banco(
         )
         or ""
     ).strip()
-    
-    pagina[
-        "subtitulo_listas"
-    ] = str(
-        pagina.get(
-            "subtitulo_listas",
-            ""
-        )
-        or ""
-    ).strip()
-    
+
     pagina[
         "subtitulo_segmentos"
     ] = str(
@@ -22877,33 +22762,33 @@ def salvar_banco(
         )
         or ""
     ).strip()
-    
+
     # ========================================================
     # GARANTIR 5 BLOCOS
     # ========================================================
-    
+
     for numero in range(
         1,
         6
     ):
-    
+
         chave_bloco = (
             f"bloco_{numero}"
         )
-    
+
         bloco = pagina.get(
             chave_bloco
         )
-    
+
         if not isinstance(
             bloco,
             dict
         ):
-    
+
             bloco = criar_bloco_vazio(
                 numero
             )
-    
+
         bloco[
             "id"
         ] = str(
@@ -22913,28 +22798,26 @@ def salvar_banco(
             )
             or f"bloco_{numero}"
         ).strip()
-    
+
         # ----------------------------------------------------
         # INFORMAÇÕES RELEVANTES
-        #
-        # IMPORTANTE:
-        # Deve permanecer como LISTA no JSON.
-        # Nunca transformar em str() aqui.
         # ----------------------------------------------------
-    
+
         info_bloco = bloco.get(
             "informacoes_relevantes",
             []
         )
-    
+
         if not isinstance(
             info_bloco,
             list
         ):
-    
+
             info_bloco = []
-    
-        info_bloco = [
+
+        bloco[
+            "informacoes_relevantes"
+        ] = [
             item
             for item in info_bloco
             if isinstance(
@@ -22942,15 +22825,11 @@ def salvar_banco(
                 dict
             )
         ]
-    
-        bloco[
-            "informacoes_relevantes"
-        ] = info_bloco
-    
+
         # ----------------------------------------------------
         # TÍTULO
         # ----------------------------------------------------
-    
+
         bloco[
             "titulo"
         ] = str(
@@ -22960,31 +22839,31 @@ def salvar_banco(
             )
             or ""
         ).strip()
-    
+
         # ----------------------------------------------------
         # PARÁGRAFOS PYTHON
+        #
+        # Não transformar em conteúdo editorial.
         # ----------------------------------------------------
-        
+
         paragrafos_python = bloco.get(
             "paragrafos_python",
             []
         )
-        
+
         if not isinstance(
             paragrafos_python,
             list
         ):
+
             paragrafos_python = []
-        
+
         bloco[
             "paragrafos_python"
         ] = (
-            [
-                str(
-                    item or ""
-                ).strip()
-                for item in paragrafos_python[:3]
-            ]
+            list(
+                paragrafos_python[:3]
+            )
             +
             [
                 "",
@@ -22992,23 +22871,23 @@ def salvar_banco(
                 ""
             ]
         )[:3]
-        
-        
+
         # ----------------------------------------------------
         # PARÁGRAFOS OLLAMA
         # ----------------------------------------------------
-        
+
         paragrafos_ollama = bloco.get(
             "paragrafos_ollama",
             []
         )
-        
+
         if not isinstance(
             paragrafos_ollama,
             list
         ):
+
             paragrafos_ollama = []
-        
+
         bloco[
             "paragrafos_ollama"
         ] = (
@@ -23016,7 +22895,8 @@ def salvar_banco(
                 str(
                     item or ""
                 ).strip()
-                for item in paragrafos_ollama[:3]
+                for item
+                in paragrafos_ollama[:3]
             ]
             +
             [
@@ -23025,17 +22905,11 @@ def salvar_banco(
                 ""
             ]
         )[:3]
-    
+
         # ----------------------------------------------------
         # HASH
-        #
-        # informacoes_relevantes é uma LISTA.
-        # Para o hash, transformamos temporariamente
-        # essa lista em JSON.
-        #
-        # Isso NÃO altera o campo original do JSON.
         # ----------------------------------------------------
-    
+
         info_hash = json.dumps(
             bloco.get(
                 "informacoes_relevantes",
@@ -23044,7 +22918,7 @@ def salvar_banco(
             ensure_ascii=False,
             sort_keys=True
         )
-    
+
         conteudo_hash = (
             info_hash
             + "|"
@@ -23055,12 +22929,12 @@ def salvar_banco(
             + "|"
             + "|".join(
                 bloco.get(
-                    "paragrafos",
+                    "paragrafos_ollama",
                     []
                 )[:3]
             )
         )
-    
+
         bloco[
             "hash"
         ] = hashlib.sha256(
@@ -23068,34 +22942,62 @@ def salvar_banco(
                 "utf-8"
             )
         ).hexdigest()
-    
+
+        # ----------------------------------------------------
+        # PROTEÇÃO CONTRA CAMPOS ANTIGOS
+        # ----------------------------------------------------
+
+        bloco.pop(
+            "paragrafos",
+            None
+        )
+
+        bloco.pop(
+            "imagens",
+            None
+        )
+
+        bloco.pop(
+            "caracteres",
+            None
+        )
+
+        bloco.pop(
+            "status",
+            None
+        )
+
         pagina[
             chave_bloco
         ] = bloco
-    
+
     # ========================================================
     # CONTAGEM DE REPETIÇÕES
+    #
+    # SOMENTE TEXTO EDITORIAL DO OLLAMA.
+    #
+    # Os fragmentos selecionados pelo Python NÃO entram
+    # nessa contagem.
     # ========================================================
-    
+
     texto_para_contagem = []
-    
+
     for numero in range(
         1,
         6
     ):
-    
+
         bloco = pagina.get(
             f"bloco_{numero}",
             {}
         )
-    
+
         if not isinstance(
             bloco,
             dict
         ):
-    
             continue
-    
+
         titulo_bloco = str(
             bloco.get(
                 "titulo",
@@ -23103,61 +23005,52 @@ def salvar_banco(
             )
             or ""
         ).strip()
-    
+
         if titulo_bloco:
-    
+
             texto_para_contagem.append(
                 titulo_bloco
             )
-    
-        info_bloco = str(
+
+        paragrafos_ollama = (
             bloco.get(
-                "informacoes_relevantes",
-                ""
+                "paragrafos_ollama",
+                []
             )
-            or ""
-        ).strip()
-    
-        if info_bloco:
-    
-            texto_para_contagem.append(
-                info_bloco
-            )
-    
-        paragrafos = bloco.get(
-            "paragrafos",
-            []
         )
-    
+
         if isinstance(
-            paragrafos,
+            paragrafos_ollama,
             list
         ):
-    
+
             texto_para_contagem.extend(
                 str(
                     paragrafo or ""
                 ).strip()
-                for paragrafo in paragrafos[:3]
+                for paragrafo
+                in paragrafos_ollama[:3]
                 if str(
                     paragrafo or ""
                 ).strip()
             )
-    
+
     texto_para_contagem_final = " ".join(
         texto_para_contagem
     )
-    
+
     try:
-    
-        palavra_chave = tema_original.strip()
-    
+
+        palavra_chave = (
+            tema_original.strip()
+        )
+
         if palavra_chave:
-    
+
             padrao_chave = re.escape(
                 palavra_chave
             )
-    
+
             repeticoes = len(
                 re.findall(
                     rf"(?<!\w){padrao_chave}(?!\w)",
@@ -23165,163 +23058,115 @@ def salvar_banco(
                     flags=re.IGNORECASE
                 )
             )
-    
+
         else:
-    
+
             repeticoes = 0
-    
+
     except Exception:
-    
+
         repeticoes = 0
-    
+
     dados_tema[
         "controle_repeticoes"
     ] = {
-    
+
         "palavra_chave":
             tema_original,
-    
+
         "meta_repeticoes":
             60,
-    
+
         "repeticoes_realizadas":
             repeticoes,
-    
+
         "repeticoes_faltantes":
             max(
                 0,
                 60 - repeticoes
             )
     }
-    
+
     # ========================================================
-    # CALCULAR CARACTERES
+    # PROTEÇÃO FINAL DOS BLOCOS
     # ========================================================
-    
-    textos_pagina = []
-    
+
     for numero in range(
         1,
         6
     ):
-    
-        bloco = pagina.get(
-            f"bloco_{numero}",
-            {}
+
+        chave_bloco = (
+            f"bloco_{numero}"
         )
-    
+
+        bloco = pagina.get(
+            chave_bloco
+        )
+
         if not isinstance(
             bloco,
             dict
         ):
-    
-            continue
-    
-        info_bloco = str(
-            bloco.get(
-                "informacoes_relevantes",
-                ""
+            bloco = criar_bloco_vazio(
+                numero
             )
-            or ""
-        ).strip()
-    
-        if info_bloco:
-    
-            textos_pagina.append(
-                info_bloco
-            )
-    
-        titulo_bloco = str(
-            bloco.get(
-                "titulo",
-                ""
-            )
-            or ""
-        ).strip()
-    
-        if titulo_bloco:
-    
-            textos_pagina.append(
-                titulo_bloco
-            )
-    
-        paragrafos = bloco.get(
+
+        # Nunca deixar campos legados chegarem ao JSON.
+
+        bloco.pop(
             "paragrafos",
-            []
+            None
         )
-    
-        if isinstance(
-            paragrafos,
-            list
-        ):
-    
-            for paragrafo in paragrafos[:3]:
-    
-                paragrafo = str(
-                    paragrafo or ""
-                ).strip()
-    
-                if paragrafo:
-    
-                    textos_pagina.append(
-                        paragrafo
-                    )
-    
-    pagina[
-        "caracteres"
-    ] = len(
-        "\n\n".join(
-            textos_pagina
+
+        bloco.pop(
+            "imagens",
+            None
         )
-    )
-    
-    # ========================================================
-    # STATUS
-    # ========================================================
-    
-    if categoria == "conteudo_completo":
-    
+
+        bloco.pop(
+            "caracteres",
+            None
+        )
+
+        bloco.pop(
+            "status",
+            None
+        )
+
         pagina[
-            "status"
-        ] = (
-            "gerada"
-            if str(
-                texto or ""
-            ).strip()
-            else "erro"
-        )
-    
-    elif categoria == "pagina":
-    
-        pagina[
-            "status"
-        ] = str(
-            pagina.get(
-                "status",
-                "em_construcao"
-            )
-            or "em_construcao"
-        ).strip()
-    
-    else:
-    
-        if not pagina.get(
-            "status"
-        ):
-    
-            pagina[
-                "status"
-            ] = "em_construcao"
-    
+            chave_bloco
+        ] = bloco
+
     # ========================================================
-    # REMOVER INFORMACOES_RELEVANTES DA PÁGINA
+    # REMOVER CAMPOS LEGADOS DA PÁGINA
     # ========================================================
-    
+
     pagina.pop(
         "informacoes_relevantes",
         None
     )
-    
+
+    pagina.pop(
+        "imagens",
+        None
+    )
+
+    pagina.pop(
+        "caracteres",
+        None
+    )
+
+    pagina.pop(
+        "status",
+        None
+    )
+
+    pagina.pop(
+        "subtitulo_listas",
+        None
+    )
+
     # ========================================================
     # MONTAR PÁGINA FINAL
     # ========================================================
@@ -23364,273 +23209,292 @@ def salvar_banco(
                 ""
             )
     }
-    
+
     # ========================================================
     # 5 BLOCOS
     # ========================================================
-    
+
     for numero in range(
         1,
         6
     ):
-    
+
         chave_bloco = (
             f"bloco_{numero}"
         )
-    
+
         pagina_final[
             chave_bloco
         ] = pagina[
             chave_bloco
         ]
-    
+
     # ========================================================
-    # 12 SEGMENTOS
+    # SEGMENTOS_LISTAS
     # ========================================================
-    
+
     pagina_final[
         "segmentos_listas"
-    ] = pagina[
-        "segmentos_listas"
-    ]
-    
+    ] = pagina.get(
+        "segmentos_listas",
+        {}
+    )
+
     # ========================================================
     # POSICIONAMENTO
     # ========================================================
-    
+
     pagina_final[
         "posicionamento_listas"
-    ] = pagina[
-        "posicionamento_listas"
-    ]
-    
-    # ========================================================
-    # 6 IMAGENS
-    # ========================================================
-    
-    pagina_final[
-        "imagens"
-    ] = pagina[
-        "imagens"
-    ]
-    
-    # ========================================================
-    # CARACTERES
-    # ========================================================
-    
-    pagina_final[
-        "caracteres"
     ] = pagina.get(
-        "caracteres",
-        0
+        "posicionamento_listas",
+        {
+            "bloco": None
+        }
     )
-    
-    # ========================================================
-    # STATUS
-    # ========================================================
-    
-    pagina_final[
-        "status"
-    ] = pagina.get(
-        "status",
-        "em_construcao"
-    )
-    
+
     # ========================================================
     # DADOS FINAIS DO TEMA
     # ========================================================
-    
+
     dados_tema_final = {
-        "tema": tema_original,
-    
-        "grupo": dados_tema.get(
-            "grupo",
-            ""
-        ),
-    
-        "tipo": dados_tema.get(
-            "tipo",
-            ""
-        ),
-    
-        "tags": dados_tema.get(
-            "tags",
-            []
-        )[:30],
-    
-        "controle_repeticoes": dados_tema.get(
-            "controle_repeticoes",
-            {}
-        ),
-    
-        "mapa_mead": dados_tema.get(
-            "mapa_mead",
-            {
-                "status": "",
-                "texto": ""
-            }
-        ),
-    
+
+        "tema":
+            tema_original,
+
+        "grupo":
+            dados_tema.get(
+                "grupo",
+                ""
+            ),
+
+        "tipo":
+            dados_tema.get(
+                "tipo",
+                ""
+            ),
+
+        "tags":
+            dados_tema.get(
+                "tags",
+                []
+            )[:30],
+
+        "controle_repeticoes":
+            dados_tema.get(
+                "controle_repeticoes",
+                {}
+            ),
+
+        "mapa_mead":
+            dados_tema.get(
+                "mapa_mead",
+                {
+                    "status": "",
+                    "texto": ""
+                }
+            ),
+
         "grupo_principal_projeto":
             grupo_principal_projeto,
-    
-        "pagina": pagina_final
+
+        "pagina":
+            pagina_final
     }
-    
+
     # ========================================================
     # PROTEÇÃO FINAL ABSOLUTA
     # ========================================================
-    
+
     dados_tema_final.pop(
         "informacoes_relevantes",
         None
     )
-    
+
+    dados_tema_final.pop(
+        "imagens",
+        None
+    )
+
+    dados_tema_final.pop(
+        "caracteres",
+        None
+    )
+
+    dados_tema_final.pop(
+        "status",
+        None
+    )
+
     pagina_final.pop(
         "informacoes_relevantes",
         None
     )
-    
-    # ========================================================
-    # GARANTIR QUE NÃO EXISTE INFORMACOES_RELEVANTES
-    # GLOBAL NO TEMA
-    # ========================================================
-    
-    dados_tema_final.pop(
-        "informacoes_relevantes",
+
+    pagina_final.pop(
+        "imagens",
         None
     )
-    
+
+    pagina_final.pop(
+        "caracteres",
+        None
+    )
+
+    pagina_final.pop(
+        "status",
+        None
+    )
+
+    pagina_final.pop(
+        "subtitulo_listas",
+        None
+    )
+
     # ========================================================
     # SALVAR NA CHAVE DO TEMA
     # ========================================================
-    
+
     banco[
         chave_existente
     ] = dados_tema_final
-    
+
     # ========================================================
     # REMOVER CHAVES DUPLICADAS DO MESMO TEMA
     # ========================================================
-    
+
     for chave in list(
         banco.keys()
     ):
-    
+
         if chave == chave_existente:
-    
             continue
-    
+
         if not isinstance(
             chave,
             str
         ):
-    
             continue
-    
+
         try:
-    
+
             chave_normalizada = normalizar_tema_chave(
                 chave
             )
-    
+
         except Exception:
-    
+
             chave_normalizada = (
                 chave
                 .strip()
                 .lower()
             )
-    
+
         if chave_normalizada == tema_normalizado:
-    
+
             del banco[
                 chave
             ]
-    
+
     # ========================================================
     # SALVAR JSON
     # ========================================================
-    
+
     try:
-    
+
         diretorio = os.path.dirname(
             ARQUIVO_BANCO
         )
-    
+
         if diretorio:
-    
+
             os.makedirs(
                 diretorio,
                 exist_ok=True
             )
-    
+
         with open(
             ARQUIVO_BANCO,
             "w",
             encoding="utf-8"
         ) as arquivo:
-    
+
             json.dump(
                 banco,
                 arquivo,
                 ensure_ascii=False,
                 indent=4
             )
-    
+
         # ====================================================
         # CONFERÊNCIA FINAL
         # ====================================================
-    
+
         total_blocos = 0
-        total_paragrafos = 0
+        total_paragrafos_ollama = 0
         total_fragmentos = 0
-    
+
         for numero in range(
             1,
             6
         ):
-    
+
             bloco = pagina_final.get(
                 f"bloco_{numero}",
                 {}
             )
-    
+
             if not isinstance(
                 bloco,
                 dict
             ):
-    
                 continue
-    
+
             total_blocos += 1
-    
-            info_bloco = str(
-                bloco.get(
-                    "informacoes_relevantes",
-                    ""
-                )
-                or ""
-            ).strip()
-    
-            if info_bloco:
-    
-                total_fragmentos += 1
-    
-            paragrafos = bloco.get(
-                "paragrafos",
+
+            info_bloco = bloco.get(
+                "informacoes_relevantes",
                 []
             )
-    
+
             if isinstance(
-                paragrafos,
+                info_bloco,
                 list
             ):
-    
-                total_paragrafos += len(
-                    paragrafos[:3]
+
+                total_fragmentos += len(
+                    [
+                        item
+                        for item
+                        in info_bloco
+                        if isinstance(
+                            item,
+                            dict
+                        )
+                    ]
                 )
-    
+
+            paragrafos_ollama = bloco.get(
+                "paragrafos_ollama",
+                []
+            )
+
+            if isinstance(
+                paragrafos_ollama,
+                list
+            ):
+
+                total_paragrafos_ollama += len(
+                    [
+                        paragrafo
+                        for paragrafo
+                        in paragrafos_ollama[:3]
+                        if str(
+                            paragrafo or ""
+                        ).strip()
+                    ]
+                )
+
         print()
         print(
             "=============================================="
@@ -23658,11 +23522,11 @@ def salvar_banco(
             total_blocos
         )
         print(
-            "PARÁGRAFOS:",
-            total_paragrafos
+            "PARÁGRAFOS OLLAMA:",
+            total_paragrafos_ollama
         )
         print(
-            "BLOCOS COM INFORMAÇÕES RELEVANTES:",
+            "FRAGMENTOS SELECIONADOS:",
             total_fragmentos
         )
         print(
@@ -23670,10 +23534,6 @@ def salvar_banco(
             len(
                 segmentos_finais
             )
-        )
-        print(
-            "IMAGENS:",
-            6
         )
         print(
             "TAGS:",
@@ -23687,75 +23547,86 @@ def salvar_banco(
         print(
             "=============================================="
         )
-    
+
         # ----------------------------------------------------
         # CHECK DOS 5 BLOCOS
         # ----------------------------------------------------
-    
+
         print(
             "\nCHECK DOS 5 BLOCOS:"
         )
-    
+
         for numero in range(
             1,
             6
         ):
-    
+
             bloco = pagina_final.get(
                 f"bloco_{numero}",
                 {}
             )
-    
+
             if not isinstance(
                 bloco,
                 dict
             ):
-    
+
                 print(
                     f"🔴 bloco_{numero}: inválido"
                 )
-    
+
                 continue
-    
-            info = str(
-                bloco.get(
-                    "informacoes_relevantes",
-                    ""
-                )
-                or ""
-            ).strip()
-    
-            paragrafos = bloco.get(
-                "paragrafos",
+
+            info = bloco.get(
+                "informacoes_relevantes",
                 []
             )
-    
+
+            if not isinstance(
+                info,
+                list
+            ):
+
+                info = []
+
+            paragrafos_ollama = bloco.get(
+                "paragrafos_ollama",
+                []
+            )
+
             quantidade_paragrafos = (
                 len(
-                    paragrafos[:3]
+                    [
+                        paragrafo
+                        for paragrafo
+                        in paragrafos_ollama[:3]
+                        if str(
+                            paragrafo or ""
+                        ).strip()
+                    ]
                 )
                 if isinstance(
-                    paragrafos,
+                    paragrafos_ollama,
                     list
                 )
                 else 0
             )
-    
+
             print(
                 f"{'🟢' if info else '🔴'} "
                 f"bloco_{numero}: "
-                f"{len(info)} caracteres de informações relevantes | "
-                f"{quantidade_paragrafos} parágrafos"
+                f"{len(info)} fragmentos selecionados | "
+                f"{quantidade_paragrafos} parágrafos Ollama"
             )
-    
+
         # ----------------------------------------------------
         # CHECK GLOBAL
         # ----------------------------------------------------
-    
+
         print(
             "\nCHECK FINAL DE INTEGRIDADE:"
         )
-    
+
         print(
             "informacoes_relevantes global:",
             "🔴 EXISTE"
@@ -23763,7 +23634,60 @@ def salvar_banco(
             in dados_tema_final
             else "🟢 NÃO EXISTE"
         )
-    
+
+        print(
+            "paragrafos legado:",
+            "🔴 EXISTE"
+            if any(
+                "paragrafos"
+                in pagina_final.get(
+                    f"bloco_{numero}",
+                    {}
+                )
+                for numero in range(
+                    1,
+                    6
+                )
+                if isinstance(
+                    pagina_final.get(
+                        f"bloco_{numero}",
+                        {}
+                    ),
+                    dict
+                )
+            )
+            else "🟢 NÃO EXISTE"
+        )
+
+        print(
+            "imagens:",
+            "🔴 EXISTE"
+            if "imagens" in pagina_final
+            else "🟢 NÃO EXISTE"
+        )
+
+        print(
+            "caracteres:",
+            "🔴 EXISTE"
+            if "caracteres" in pagina_final
+            else "🟢 NÃO EXISTE"
+        )
+
+        print(
+            "status:",
+            "🔴 EXISTE"
+            if "status" in pagina_final
+            else "🟢 NÃO EXISTE"
+        )
+
+        print(
+            "subtitulo_listas:",
+            "🔴 EXISTE"
+            if "subtitulo_listas"
+            in pagina_final
+            else "🟢 NÃO EXISTE"
+        )
+
         print(
             "5 blocos:",
             "🟢"
@@ -23774,18 +23698,42 @@ def salvar_banco(
                     ),
                     dict
                 )
-                for numero in range(1, 6)
+                for numero in range(
+                    1,
+                    6
+                )
             )
             else "🔴"
         )
-    
+
         print(
-            "15 parágrafos:",
+            "15 posições de parágrafos:",
             "🟢"
-            if total_paragrafos == 15
-            else f"🔴 ({total_paragrafos})"
+            if all(
+                len(
+                    pagina_final.get(
+                        f"bloco_{numero}",
+                        {}
+                    ).get(
+                        "paragrafos_ollama",
+                        []
+                    )
+                ) == 3
+                for numero in range(
+                    1,
+                    6
+                )
+                if isinstance(
+                    pagina_final.get(
+                        f"bloco_{numero}",
+                        {}
+                    ),
+                    dict
+                )
+            )
+            else "🔴"
         )
-    
+
         print(
             "12 segmentos:",
             "🟢"
@@ -23794,7 +23742,7 @@ def salvar_banco(
             ) == 12
             else f"⚠️ ({len(segmentos_finais)})"
         )
-    
+
         print(
             "30 tags:",
             "🟢"
@@ -23806,15 +23754,15 @@ def salvar_banco(
             ) == 30
             else f"⚠️ ({len(dados_tema_final.get('tags', []))})"
         )
-    
+
         print(
             "=============================================="
         )
-    
+
         return True
-    
+
     except Exception as erro:
-    
+
         print()
         print(
             "=============================================="
@@ -23831,9 +23779,8 @@ def salvar_banco(
         print(
             "=============================================="
         )
-    
-        return False
 
+        return False
 
 
 
