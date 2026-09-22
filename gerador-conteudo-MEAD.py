@@ -17987,45 +17987,77 @@ OS 3 FRAGMENTOS SELECIONADOS PELO PYTHON
             )
 
 
+
             # ----------------------------------------------------
             # LOCALIZAR FECHAMENTO
             # ----------------------------------------------------
-
+            
             fim = resultado_ollama.lower().find(
                 marcador_fechamento.lower(),
                 inicio_conteudo
             )
-
-
+            
+            # ----------------------------------------------------
+            # COMPATIBILIDADE:
+            # se o Ollama não retornar o fechamento individual
+            # do parágrafo, utilizar o próximo marcador como
+            # limite do parágrafo atual.
+            # ----------------------------------------------------
+            
             if fim == -1:
-
+            
+                if indice_paragrafo < 3:
+            
+                    proximo_marcador = (
+                        f"[PARAGRAFO_{indice_paragrafo + 1}]"
+                    )
+            
+                else:
+            
+                    proximo_marcador = "[/BLOCO]"
+            
+                fim = resultado_ollama.lower().find(
+                    proximo_marcador.lower(),
+                    inicio_conteudo
+                )
+            
+            
+            if fim == -1:
+            
                 print()
                 print(
                     "❌ FECHAMENTO DO PARÁGRAFO NÃO ENCONTRADO:"
                 )
-
+            
                 print(
                     indice_paragrafo
                 )
-
+            
                 print()
                 print(
-                    "MARCADOR PROCURADO:"
+                    "MARCADORES PROCURADOS:"
                 )
-
+            
                 print(
                     marcador_fechamento
                 )
-
+            
+                print(
+                    "OU LIMITE ALTERNATIVO:",
+                    proximo_marcador
+                    if 'proximo_marcador' in locals()
+                    else ""
+                )
+            
                 print()
                 print(
                     "RESPOSTA RECEBIDA:"
                 )
-
+            
                 print(
                     resultado_ollama[:3000]
                 )
-
+            
                 return None
 
 
