@@ -19226,23 +19226,14 @@ OS 3 FRAGMENTOS SELECIONADOS PELO PYTHON
         subtitulo_segmentos
     )
     
-    for chave, lista in segmentos_listas.items():
+    lista_segmentos = [
+        capitalizar_texto_editorial(
+            segmento
+        )
+        for segmento in lista_segmentos
+    ]
     
-        if not isinstance(
-            lista,
-            list
-        ):
-            continue
-    
-        segmentos_listas[
-            chave
-        ] = [
-            capitalizar_texto_editorial(
-                segmento
-            )
-            for segmento in lista
-        ]
-        
+
         
     # ========================================================
     # 21. MONTAR CONTEÚDO FINAL
