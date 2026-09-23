@@ -323,78 +323,7 @@ def gerar_segmentos_validos(
     
 ARQUIVO_MEAD = r"C:\Python\gerador-conteudo\mead\mead.json"
 
-# ============================================================
-# CAPITALIZAÇÃO EDITORIAL
-# ============================================================
-# Aplicada SOMENTE em:
-# - subtitulo
-# - subtitulo_segmentos
-# - segmentos_listas
-#
-# NÃO aplicar em:
-# - tema
-# - tags
-# - H1
-# - titulo
-# - parágrafos
-# - fontes
-# - referências
-# ============================================================
 
-PALAVRAS_EDITORIAL_MINUSCULAS = {
-    "a", "as", "o", "os",
-    "de", "da", "das", "do", "dos",
-    "em", "na", "nas", "no", "nos",
-    "para", "por",
-    "e",
-    "com", "sem",
-    "sobre", "entre",
-    "ao", "aos",
-    "à", "às"
-}
-
-
-def capitalizar_texto_editorial(texto):
-
-    texto = str(
-        texto or ""
-    ).strip()
-
-    if not texto:
-        return ""
-
-    palavras = texto.split()
-
-    resultado = []
-
-    for indice, palavra in enumerate(palavras):
-
-        if not palavra:
-            continue
-
-        palavra_normalizada = palavra.casefold()
-
-        if (
-            indice > 0
-            and palavra_normalizada
-            in PALAVRAS_EDITORIAL_MINUSCULAS
-        ):
-
-            resultado.append(
-                palavra_normalizada
-            )
-
-        else:
-
-            resultado.append(
-                palavra[:1].upper()
-                +
-                palavra[1:].lower()
-            )
-
-    return " ".join(
-        resultado
-    )
     
     
 # ============================================================
@@ -19208,7 +19137,113 @@ OS 3 FRAGMENTOS SELECIONADOS PELO PYTHON
         )
     
         return None
+        
+        
+        
+    # ============================================================
+    # CAPITALIZAÇÃO EDITORIAL
+    # ============================================================
+    # Aplicada SOMENTE em:
+    # - subtitulo
+    # - subtitulo_segmentos
+    # - segmentos_listas
+    #
+    # NÃO aplicar em:
+    # - tema
+    # - tags
+    # - H1
+    # - titulo
+    # - parágrafos
+    # - fontes
+    # - referências
+    # ============================================================
     
+    PALAVRAS_EDITORIAL_MINUSCULAS = {
+        "a", "as", "o", "os",
+        "de", "da", "das", "do", "dos",
+        "em", "na", "nas", "no", "nos",
+        "para", "por",
+        "e",
+        "com", "sem",
+        "sobre", "entre",
+        "ao", "aos",
+        "à", "às"
+    }
+    
+    
+    def capitalizar_texto_editorial(texto):
+    
+        texto = str(
+            texto or ""
+        ).strip()
+    
+        if not texto:
+            return ""
+    
+        palavras = texto.split()
+    
+        resultado = []
+    
+        for indice, palavra in enumerate(palavras):
+    
+            if not palavra:
+                continue
+    
+            palavra_normalizada = palavra.casefold()
+    
+            if (
+                indice > 0
+                and palavra_normalizada
+                in PALAVRAS_EDITORIAL_MINUSCULAS
+            ):
+    
+                resultado.append(
+                    palavra_normalizada
+                )
+    
+            else:
+    
+                resultado.append(
+                    palavra[:1].upper()
+                    +
+                    palavra[1:].lower()
+                )
+    
+        return " ".join(
+            resultado
+        )    
+        
+
+    # ========================================================
+    # CAPITALIZAÇÃO EDITORIAL FINAL
+    # ========================================================
+    
+    subtitulo = capitalizar_texto_editorial(
+        subtitulo
+    )
+    
+    subtitulo_segmentos = capitalizar_texto_editorial(
+        subtitulo_segmentos
+    )
+    
+    for chave, lista in segmentos_listas.items():
+    
+        if not isinstance(
+            lista,
+            list
+        ):
+            continue
+    
+        segmentos_listas[
+            chave
+        ] = [
+            capitalizar_texto_editorial(
+                segmento
+            )
+            for segmento in lista
+        ]
+        
+        
     # ========================================================
     # 21. MONTAR CONTEÚDO FINAL
     # ========================================================
