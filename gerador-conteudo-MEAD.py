@@ -19167,7 +19167,13 @@ OS 3 FRAGMENTOS SELECIONADOS PELO PYTHON
         "com", "sem",
         "sobre", "entre",
         "ao", "aos",
-        "à", "às"
+        "à", "às",
+        "num", "numa",
+        "nuns", "numas",
+        "dum", "duma",
+        "duns", "dumas",
+        "até",
+        "como"
     }
     
     
