@@ -19308,8 +19308,12 @@ OS 3 FRAGMENTOS SELECIONADOS PELO PYTHON
     
         tipo=tipo,
         
+        h1=h1,
+        
+        titulo=titulo,
+        
         subtitulo=subtitulo,
-
+        
         subtitulo_segmentos=subtitulo_segmentos,
     )
 
@@ -28109,8 +28113,7 @@ def gerar_material_interface():
                         tema,
                         "conteudo_completo",
                         conteudo_completo,
-                        tipo=tipo,
-                        subtitulo_segmentos=subtitulo_segmentos
+                        tipo=tipo
                     )
 
                     print()
