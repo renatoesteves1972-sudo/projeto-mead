@@ -22144,6 +22144,67 @@ def salvar_banco(
 
                 recebeu_segmentos = True
 
+
+        # =================================================
+        # PRESERVAR METADADOS RECEBIDOS PELO PYTHON
+        #
+        # Esses valores são gerados por gerar_titulos()
+        # e precisam ser preservados mesmo quando
+        # "texto" recebido por salvar_banco() for uma string.
+        # =================================================
+
+        if h1 is not None:
+
+            h1_recebido = str(
+                h1 or ""
+            ).strip()
+
+            if h1_recebido:
+
+                pagina[
+                    "h1"
+                ] = h1_recebido
+
+
+        if titulo is not None:
+
+            titulo_recebido = str(
+                titulo or ""
+            ).strip()
+
+            if titulo_recebido:
+
+                pagina[
+                    "titulo"
+                ] = titulo_recebido
+
+
+        if subtitulo is not None:
+
+            subtitulo_recebido = str(
+                subtitulo or ""
+            ).strip()
+
+            if subtitulo_recebido:
+
+                pagina[
+                    "subtitulo"
+                ] = subtitulo_recebido
+
+
+        if subtitulo_segmentos is not None:
+
+            subtitulo_segmentos_recebido = str(
+                subtitulo_segmentos or ""
+            ).strip()
+
+            if subtitulo_segmentos_recebido:
+
+                pagina[
+                    "subtitulo_segmentos"
+                ] = subtitulo_segmentos_recebido
+
+
     # ========================================================
     # CATEGORIA: CONTEÚDO COMPLETO
     # ========================================================
