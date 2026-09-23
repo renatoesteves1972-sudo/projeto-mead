@@ -30082,30 +30082,6 @@ def executar():
 
 
     # ========================================================
-    # 24. SALVAR
-    # ========================================================
-
-    if conteudo_completo:
-
-        salvar_banco(
-            tema,
-            "conteudo_completo",
-            conteudo_completo
-        )
-
-        print()
-        print(
-            "CONTEÚDO COMPLETO SALVO NO BANCO"
-        )
-
-    else:
-
-        print()
-        print(
-            "FALHA AO GERAR CONTEÚDO COMPLETO"
-        )
-
-    # ========================================================
     # 25. FINAL
     # ========================================================
 
