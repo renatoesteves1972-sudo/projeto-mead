@@ -22183,6 +22183,34 @@ def salvar_banco(
                 ).strip()
 
                 break
+                
+        # ====================================================
+        # PRESERVAR H1 E TÍTULO GERADOS PELO PYTHON
+        # ====================================================
+
+        if h1 is not None:
+
+            h1_recebido = str(
+                h1 or ""
+            ).strip()
+
+            if h1_recebido:
+
+                pagina[
+                    "h1"
+                ] = h1_recebido
+
+        if titulo is not None:
+
+            titulo_recebido = str(
+                titulo or ""
+            ).strip()
+
+            if titulo_recebido:
+
+                pagina[
+                    "titulo"
+                ] = titulo_recebido        
 
         # ----------------------------------------------------
         # SUBTÍTULO
@@ -28113,9 +28141,13 @@ def gerar_material_interface():
                         tema,
                         "conteudo_completo",
                         conteudo_completo,
-                        tipo=tipo
+                        tipo=tipo,
+                        h1=h1,
+                        titulo=titulo,
+                        subtitulo=subtitulo,
+                        subtitulo_segmentos=subtitulo_segmentos
                     )
-
+                    
                     print()
                     print("==============================")
                     print("SALVANDO CONTEÚDO")
