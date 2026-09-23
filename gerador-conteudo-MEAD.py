@@ -107,16 +107,16 @@ CATEGORIAS = [
 # ========================================================
 
 SUBTITULOS_SEGMENTOS = [
-    "Principais aplicações de [TEMA]",
-    "Principais segmentos atendidos por [TEMA]",
-    "Aplicações de [TEMA] por segmento",
-    "Segmentos de aplicação de [TEMA]",
-    "Aplicações e segmentos de [TEMA]",
-    "Principais setores que utilizam [TEMA]",
-    "Setores atendidos por [TEMA]",
-    "Aplicações industriais de [TEMA]",
-    "Segmentos que utilizam [TEMA]",
-    "Principais áreas de aplicação de [TEMA]",
+    "Principais Aplicações de [TEMA]",
+    "Principais Segmentos Atendidos por [TEMA]",
+    "Aplicações de [TEMA] por Segmento",
+    "Segmentos de Aplicação de [TEMA]",
+    "Aplicações e Segmentos de [TEMA]",
+    "Principais Setores que Utilizam [TEMA]",
+    "Setores Atendidos por [TEMA]",
+    "Aplicações Industriais de [TEMA]",
+    "Segmentos que Utilizam [TEMA]",
+    "Principais Áreas de Aplicação de [TEMA]",
 ]
 
 # Controle da variação entre páginas
@@ -323,7 +323,80 @@ def gerar_segmentos_validos(
     
 ARQUIVO_MEAD = r"C:\Python\gerador-conteudo\mead\mead.json"
 
+# ============================================================
+# CAPITALIZAÇÃO EDITORIAL
+# ============================================================
+# Aplicada SOMENTE em:
+# - subtitulo
+# - subtitulo_segmentos
+# - segmentos_listas
+#
+# NÃO aplicar em:
+# - tema
+# - tags
+# - H1
+# - titulo
+# - parágrafos
+# - fontes
+# - referências
+# ============================================================
 
+PALAVRAS_EDITORIAL_MINUSCULAS = {
+    "a", "as", "o", "os",
+    "de", "da", "das", "do", "dos",
+    "em", "na", "nas", "no", "nos",
+    "para", "por",
+    "e",
+    "com", "sem",
+    "sobre", "entre",
+    "ao", "aos",
+    "à", "às"
+}
+
+
+def capitalizar_texto_editorial(texto):
+
+    texto = str(
+        texto or ""
+    ).strip()
+
+    if not texto:
+        return ""
+
+    palavras = texto.split()
+
+    resultado = []
+
+    for indice, palavra in enumerate(palavras):
+
+        if not palavra:
+            continue
+
+        palavra_normalizada = palavra.casefold()
+
+        if (
+            indice > 0
+            and palavra_normalizada
+            in PALAVRAS_EDITORIAL_MINUSCULAS
+        ):
+
+            resultado.append(
+                palavra_normalizada
+            )
+
+        else:
+
+            resultado.append(
+                palavra[:1].upper()
+                +
+                palavra[1:].lower()
+            )
+
+    return " ".join(
+        resultado
+    )
+    
+    
 # ============================================================
 # CARREGAR MEAD
 # ============================================================
@@ -877,6 +950,50 @@ def preparar_dados_pagina(
         ] = gerar_subtitulo_segmentos(
             tema
         )
+        
+        # ----------------------------------------------------
+        # CAPITALIZAÇÃO EDITORIAL
+        # ----------------------------------------------------
+        
+        # Subtítulo
+        dados_pagina[
+            "subtitulo"
+        ] = capitalizar_texto_editorial(
+            dados_pagina.get(
+                "subtitulo",
+                ""
+            )
+        )
+        
+        # Subtítulo dos segmentos
+        dados_pagina[
+            "subtitulo_segmentos"
+        ] = capitalizar_texto_editorial(
+            dados_pagina.get(
+                "subtitulo_segmentos",
+                ""
+            )
+        )
+        
+        # Segmentos
+        for chave, lista in dados_pagina[
+            "segmentos_listas"
+        ].items():
+        
+            if not isinstance(
+                lista,
+                list
+            ):
+                continue
+        
+            dados_pagina[
+                "segmentos_listas"
+            ][chave] = [
+                capitalizar_texto_editorial(
+                    segmento
+                )
+                for segmento in lista
+            ]
 
         # ----------------------------------------------------
         # IMPORTANTE
