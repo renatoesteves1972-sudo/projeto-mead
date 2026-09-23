@@ -19232,6 +19232,14 @@ OS 3 FRAGMENTOS SELECIONADOS PELO PYTHON
         )
         for segmento in lista_segmentos
     ]
+
+    for bloco in blocos:
+
+        if isinstance(bloco, dict):
+
+            bloco["titulo"] = capitalizar_texto_editorial(
+                bloco.get("titulo", "")
+            )
     
 
         
