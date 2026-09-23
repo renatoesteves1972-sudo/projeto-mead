@@ -28135,43 +28135,7 @@ def gerar_material_interface():
                     conteudo_completo
                     and conteudo_completo.strip()
                 ):
-
-
-                    salvar_banco(
-                        tema,
-                        "conteudo_completo",
-                        conteudo_completo,
-                        tipo=tipo,
-                        h1=h1,
-                        titulo=titulo,
-                        subtitulo=subtitulo,
-                        subtitulo_segmentos=subtitulo_segmentos
-                    )
-                    
-                    print()
-                    print("==============================")
-                    print("SALVANDO CONTEÚDO")
-                    print("==============================")
-
-                    print(
-                        "CHAVE:",
-                        tema
-                    )
-
-                    print(
-                        "TAMANHO:",
-                        tamanho_conteudo
-                    )
-
-                    print(
-                        conteudo_completo[:500]
-                    )
-
-                    print()
-                    print("==============================")
-                    print("CONTEÚDO COMPLETO SALVO")
-                    print("==============================")
-
+                
                     salvar_progresso(
                         tema,
                         indice_tema + 1,
@@ -28180,26 +28144,26 @@ def gerar_material_interface():
                         "concluido",
                         lista_palavras
                     )
-
+                
                 else:
-
+                
                     IA_PROCESSANDO = False
-
+                
                     print()
                     print("==============================")
                     print("FALHA AO GERAR CONTEÚDO COMPLETO")
                     print("==============================")
-
+                
                     print(
                         "TEMA:",
                         tema
                     )
-
+                
                     print(
                         "RETORNO:",
                         repr(conteudo_completo)
                     )
-
+                
                     salvar_progresso(
                         tema,
                         indice_tema,
@@ -28208,24 +28172,6 @@ def gerar_material_interface():
                         "concluido",
                         lista_palavras
                     )
-
-            except Exception as e:
-
-                IA_PROCESSANDO = False
-
-                print()
-                print("==============================")
-                print("ERRO NO TEMA")
-                print("==============================")
-
-                print(
-                    repr(e)
-                )
-
-                atualizar_progresso(
-                    0,
-                    f"Erro no tema {tema}: {e}"
-                )
 
         # ========================================================
         # 37. FINAL DO PROCESSAMENTO GERAL
