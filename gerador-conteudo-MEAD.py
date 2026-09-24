@@ -16717,7 +16717,8 @@ def gerar_conteudo_completo(
     mapa_mead,
     estrutura_editorial,
     arquivo_origem=None,
-    dados_coleta=None
+    dados_coleta=None,
+    nome_site=""
 ):
 
     # Grupo principal vem da interface e precisa existir antes
@@ -29372,13 +29373,24 @@ def gerar_material_interface():
 
                 print("==============================")
 
+                # ========================================================
+                # NOME DO SITE CAPTURADO DA INTERFACE
+                # ========================================================
+                
+                nome_site = (
+                    entrada_site.get().strip()
+                    if "entrada_site" in globals()
+                    else ""
+                )
+                
                 conteudo_completo = (
                     gerar_conteudo_completo(
                         tema,
                         textos,
                         mapa_mead,
                         estrutura_editorial_atual,
-                        dados_coleta=dados_coleta
+                        dados_coleta=dados_coleta,
+                        nome_site=nome_site
                     )
                 )
 
@@ -31366,7 +31378,12 @@ def executar():
         tema,
         textos,
         mapa_mead,
-        obter_estrutura_editorial()
+        obter_estrutura_editorial(),
+        nome_site=(
+            entrada_site.get().strip()
+            if "entrada_site" in globals()
+            else ""
+        )
     )
 
     # ========================================================
