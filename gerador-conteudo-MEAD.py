@@ -18540,7 +18540,13 @@ PARÁGRAFOS-BASE SELECIONADOS PELO PYTHON
                     id_fragmento,
 
                 "texto":
-                    texto_fragmento
+                    texto_fragmento,
+
+                "identidade_fonte":
+                    fragmento.get(
+                        "identidade_fonte",
+                        {}
+                    )
 
             })
 
