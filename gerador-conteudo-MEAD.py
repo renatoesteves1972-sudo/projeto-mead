@@ -11677,114 +11677,309 @@ def selecionar_informacoes_relevantes(
 
     termos_blocos = {
 
+        # ========================================================
+        # BLOCO 1
+        # O QUE É / CONTEXTO / FUNCIONAMENTO
+        # ========================================================
+    
         "bloco_1": [
-
+    
             "contextualização",
             "contextualizacao",
             "contexto",
-            "importância",
-            "importancia",
-            "cenário",
-            "cenario",
-            "necessidade",
-            "protagonista",
-            "finalidade",
+    
             "conceito",
             "definição",
-            "definicao"
-
-        ],
-
-        "bloco_2": [
-
+            "definicao",
+    
+            "descrição",
+            "descricao",
+    
+            "finalidade",
+    
             "funcionamento",
             "funciona",
-            "aplicação",
-            "aplicacao",
-            "aplicações",
-            "aplicacoes",
+    
+            "princípio",
+            "principio",
+    
+            "mecanismo",
+    
+            "operação",
+            "operacao",
+    
+            "movimento",
+            "movimentação",
+            "movimentacao",
+    
+            "processo",
+    
+            "pressão",
+            "pressao",
+    
+            "vazão",
+            "vazao",
+    
+            "fluido",
+            "liquido",
+            "líquido"
+    
+        ],
+    
+    
+        # ========================================================
+        # BLOCO 2
+        # CARACTERÍSTICAS / APLICAÇÕES
+        # ========================================================
+    
+        "bloco_2": [
+    
             "característica",
             "caracteristicas",
-            "utilização",
-            "utilizacao",
-            "uso",
-            "operação",
-            "operacao",
-            "processo",
-            "mecanismo"
-
-        ],
-
-        "bloco_3": [
-
-            "critério",
-            "criterio",
-            "critérios",
-            "criterios",
-            "cuidado",
-            "cuidados",
-            "instalação",
-            "instalacao",
-            "operação",
-            "operacao",
-            "manutenção",
-            "manutencao",
-            "segurança",
-            "seguranca",
-            "aspecto técnico",
-            "aspecto tecnico",
+    
+            "características",
+            "caracteristicas",
+    
             "especificação",
             "especificacao",
-            "dimensionamento",
-            "inspeção",
-            "inspecao",
-            "ajuste"
-
-        ],
-
-        "bloco_4": [
-
-            "empresa",
-            "conhecimento",
-            "conhecimento técnico",
-            "conhecimento tecnico",
-            "atendimento",
-            "suporte",
-            "produto",
-            "produtos",
-            "solução",
-            "solucao",
-            "experiência",
-            "experiencia",
-            "serviço",
-            "servico",
-            "fornecedor",
-            "fabricante"
-
-        ],
-
-        "bloco_5": [
-
-            "necessidade",
-            "necessidades",
+    
+            "capacidade",
+    
+            "vazão",
+            "vazao",
+    
+            "pressão",
+            "pressao",
+    
+            "temperatura",
+    
+            "potência",
+            "potencia",
+    
+            "rotação",
+            "rotacao",
+    
+            "material",
+            "materiais",
+    
+            "configuração",
+            "configuracao",
+    
             "aplicação",
             "aplicacao",
+    
             "aplicações",
             "aplicacoes",
+    
+            "utilização",
+            "utilizacao",
+    
+            "uso",
+    
+            "empregado",
+            "empregada",
+    
+            "setor",
+            "processo",
+    
+            "sistema",
+    
+            "desempenho"
+    
+        ],
+    
+    
+        # ========================================================
+        # BLOCO 3
+        # VANTAGENS / DIFERENCIAIS
+        # ========================================================
+    
+        "bloco_3": [
+    
+            "vantagem",
+            "vantagens",
+    
+            "benefício",
+            "beneficio",
+    
+            "benefícios",
+            "beneficios",
+    
+            "diferencial",
+            "diferenciais",
+    
+            "eficiência",
+            "eficiencia",
+    
+            "rendimento",
+    
+            "desempenho",
+    
+            "confiabilidade",
+    
+            "durabilidade",
+    
+            "resistência",
+            "resistencia",
+    
+            "segurança",
+            "seguranca",
+    
+            "produtividade",
+    
+            "economia",
+    
+            "redução",
+            "reducao",
+    
+            "otimização",
+            "otimizacao",
+    
+            "flexibilidade",
+    
+            "continuidade",
+    
+            "estabilidade"
+    
+        ],
+    
+    
+        # ========================================================
+        # BLOCO 4
+        # ASPECTOS TÉCNICOS / CUIDADOS
+        # ========================================================
+    
+        "bloco_4": [
+    
+            "aspecto técnico",
+            "aspecto tecnico",
+    
+            "aspectos técnicos",
+            "aspectos tecnicos",
+    
+            "especificação",
+            "especificacao",
+    
+            "dimensionamento",
+    
+            "instalação",
+            "instalacao",
+    
+            "montagem",
+    
+            "operação",
+            "operacao",
+    
+            "manutenção",
+            "manutencao",
+    
+            "inspeção",
+            "inspecao",
+    
+            "reparo",
+    
+            "ajuste",
+    
+            "lubrificação",
+            "lubrificacao",
+    
+            "vedação",
+            "vedacao",
+    
+            "segurança",
+            "seguranca",
+    
+            "cuidado",
+            "cuidados",
+    
+            "pressão",
+            "pressao",
+    
+            "vazão",
+            "vazao",
+    
+            "temperatura",
+    
+            "desgaste",
+    
+            "corrosão",
+            "corrosao",
+    
+            "vibração",
+            "vibracao",
+    
+            "cavitação",
+            "cavitacao",
+    
+            "material",
+            "materiais"
+    
+        ],
+    
+    
+        # ========================================================
+        # BLOCO 5
+        # ESCOLHA / FORNECIMENTO / SUPORTE
+        # ========================================================
+    
+        "bloco_5": [
+    
+            "seleção",
+            "selecao",
+    
+            "escolha",
+    
+            "dimensionamento",
+    
+            "especificação",
+            "especificacao",
+    
+            "necessidade",
+            "necessidades",
+    
+            "aplicação",
+            "aplicacao",
+    
+            "aplicações",
+            "aplicacoes",
+    
+            "fornecimento",
+    
+            "fornecedor",
+    
+            "fornecedores",
+    
+            "fabricante",
+    
+            "fabricantes",
+    
+            "distribuidor",
+            "distribuidores",
+    
+            "suporte",
+    
+            "assistência",
+            "assistencia",
+    
+            "atendimento",
+    
+            "atendimento especializado",
+    
+            "prazo",
+    
+            "confiabilidade",
+    
             "conhecimento técnico",
             "conhecimento tecnico",
-            "solução",
-            "solucao",
-            "problema",
-            "problemas",
-            "atendimento",
-            "desempenho",
-            "resultado",
-            "eficiência",
-            "eficiencia"
-
+    
+            "orientação",
+            "orientacao",
+    
+            "especificações",
+            "especificacoes"
+    
         ]
-
+    
     }
 
     # --------------------------------------------------------
@@ -12456,33 +12651,42 @@ def selecionar_informacoes_relevantes(
 
     for candidato in candidatos:
 
-        for numero_bloco in range(
-            1,
-            6
-        ):
+    if not fragmento_pertence_ao_tema(
+        candidato.get(
+            "texto",
+            ""
+        ),
+        tema
+    ):
+        continue
 
-            chave_bloco = (
-                f"bloco_{numero_bloco}"
-            )
+    for numero_bloco in range(
+        1,
+        6
+    ):
 
-            pontuacao = (
-                calcular_pontuacao_bloco(
-                    candidato,
-                    chave_bloco
-                )
-            )
+        chave_bloco = (
+            f"bloco_{numero_bloco}"
+        )
 
-            candidatos_por_bloco[
+        pontuacao = (
+            calcular_pontuacao_bloco(
+                candidato,
                 chave_bloco
-            ].append({
+            )
+        )
 
-                "candidato":
-                    candidato,
+        candidatos_por_bloco[
+            chave_bloco
+        ].append({
 
-                "pontuacao":
-                    pontuacao
+            "candidato":
+                candidato,
 
-            })
+            "pontuacao":
+                pontuacao
+
+        })
 
     # ========================================================
     # 06.5 ORDENAR CADA BLOCO
@@ -13014,6 +13218,21 @@ def selecionar_informacoes_relevantes(
             return False
             
         # ----------------------------------------------------
+        # TEMA OBRIGATÓRIO
+        # ----------------------------------------------------
+        #
+        # A pontuação editorial jamais pode selecionar um
+        # fragmento que não pertença ao tema.
+        # ----------------------------------------------------
+
+        if not fragmento_pertence_ao_tema(
+            texto,
+            tema
+        ):
+
+            return False
+
+        # ----------------------------------------------------
         # IDENTIDADE COMERCIAL / PRODUTO
         # ----------------------------------------------------
 
@@ -13350,7 +13569,192 @@ def selecionar_informacoes_relevantes(
                 return False
 
         return True      
+    
+    
+    # ========================================================
+    # PERTENCIMENTO REAL AO TEMA
+    # ========================================================
+    #
+    # Um fragmento somente pode participar da seleção se
+    # realmente tratar do tema pesquisado.
+    #
+    # A pontuação editorial NÃO pode compensar a ausência
+    # do tema.
+    #
+    # Exemplo:
+    #
+    # tema:
+    #     bomba centrífuga
+    #
+    # fragmento:
+    #     bomba submersível solar apresenta...
+    #
+    # Mesmo contendo "bomba", "aplicação", "desempenho",
+    # etc., o fragmento deve ser rejeitado.
+    #
+    # ========================================================
 
+    def fragmento_pertence_ao_tema(
+        texto,
+        tema
+    ):
+
+        texto = str(
+            texto or ""
+        ).strip()
+
+        tema = str(
+            tema or ""
+        ).strip()
+
+        if not texto or not tema:
+            return False
+
+
+        # ----------------------------------------------------
+        # NORMALIZAÇÃO
+        # ----------------------------------------------------
+
+        texto_normalizado = (
+            normalizar_assunto_texto(
+                texto
+            )
+        )
+
+        tema_normalizado = (
+            normalizar_assunto_texto(
+                tema
+            )
+        )
+
+
+        # ----------------------------------------------------
+        # PALAVRAS SIGNIFICATIVAS DO TEMA
+        # ----------------------------------------------------
+
+        palavras_tema = re.findall(
+            r"\b[a-z0-9]{3,}\b",
+            tema_normalizado
+        )
+
+
+        # Remove termos gramaticais.
+        palavras_ignoradas = {
+
+            "de",
+            "da",
+            "das",
+            "do",
+            "dos",
+            "em",
+            "na",
+            "nas",
+            "no",
+            "nos",
+            "para",
+            "por",
+            "com",
+            "sem",
+            "e",
+            "a",
+            "o",
+            "as",
+            "os"
+
+        }
+
+
+        palavras_tema = [
+
+            palavra
+
+            for palavra
+            in palavras_tema
+
+            if palavra
+            not in palavras_ignoradas
+
+        ]
+
+
+        if not palavras_tema:
+            return False
+
+
+        # ----------------------------------------------------
+        # PALAVRAS DO FRAGMENTO
+        # ----------------------------------------------------
+
+        palavras_fragmento = set(
+
+            re.findall(
+                r"\b[a-z0-9]{3,}\b",
+                texto_normalizado
+            )
+
+        )
+
+
+        # ----------------------------------------------------
+        # COMPARAÇÃO POR RADICAL SIMPLES
+        #
+        # Permite:
+        #
+        # bomba       → bombas
+        # centrifug   → centrifuga
+        # centrifug   → centrifugas
+        #
+        # Sem exigir que o texto tenha exatamente a mesma
+        # flexão usada na palavra-chave.
+        # ----------------------------------------------------
+
+        for palavra_tema in palavras_tema:
+
+            radical = palavra_tema
+
+            if len(radical) >= 5:
+
+                # Remove terminações flexionais simples.
+                if radical.endswith("es"):
+                    radical = radical[:-2]
+
+                elif radical.endswith("s"):
+                    radical = radical[:-1]
+
+                elif radical.endswith("a"):
+                    radical = radical[:-1]
+
+                elif radical.endswith("o"):
+                    radical = radical[:-1]
+
+
+            encontrou = False
+
+
+            for palavra_fragmento in palavras_fragmento:
+
+                if palavra_fragmento.startswith(
+                    radical
+                ):
+
+                    encontrou = True
+
+                    break
+
+
+            # ------------------------------------------------
+            # TODAS as palavras significativas do tema
+            # precisam estar representadas no fragmento.
+            # ------------------------------------------------
+
+            if not encontrou:
+
+                return False
+
+
+        return True
+        
+        
     # ========================================================
     # FUNÇÃO CENTRAL DE ESCOLHA
     # ========================================================
