@@ -10398,6 +10398,27 @@ def selecionar_informacoes_relevantes(
                 or "texto"
             )
 
+            # ====================================================
+            # PRESERVAR IDENTIDADE DA FONTE
+            # ====================================================
+            #
+            # A identidade já foi identificada na etapa de
+            # limpeza das referências.
+            #
+            # Aqui apenas transportamos o objeto para a estrutura
+            # interna "fontes".
+            #
+            # NÃO identificar novamente.
+            # NÃO inferir fabricante pelo domínio.
+            # ====================================================
+
+            identidade_fonte = (
+                item.get(
+                    "identidade_fonte",
+                    {}
+                )
+            )
+
         else:
 
             texto = str(
@@ -10407,6 +10428,8 @@ def selecionar_informacoes_relevantes(
             url = ""
 
             tipo = "texto"
+
+            identidade_fonte = {}
 
         texto = str(
             texto
@@ -10443,51 +10466,12 @@ def selecionar_informacoes_relevantes(
                 texto,
 
             "eh_pdf":
-                eh_pdf
+                eh_pdf,
+
+            "identidade_fonte":
+                identidade_fonte
 
         })
-
-    if not fontes:
-
-        print("NENHUMA FONTE VÁLIDA")
-
-        return resultado_vazio
-
-    print()
-    print("==============================")
-    print("FONTES NORMALIZADAS")
-    print("==============================")
-
-    print(
-        "FONTES VÁLIDAS:",
-        len(fontes)
-    )
-
-    fontes_pdf = [
-
-        fonte
-        for fonte in fontes
-        if fonte["eh_pdf"]
-
-    ]
-
-    fontes_outros = [
-
-        fonte
-        for fonte in fontes
-        if not fonte["eh_pdf"]
-
-    ]
-
-    print(
-        "PDFS TÉCNICOS:",
-        len(fontes_pdf)
-    )
-
-    print(
-        "OUTRAS FONTES:",
-        len(fontes_outros)
-    )
 
     # ========================================================
     # 02. PREPARAR ESTRUTURA EDITORIAL
