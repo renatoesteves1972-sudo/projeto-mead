@@ -11372,7 +11372,13 @@ def selecionar_informacoes_relevantes(
                     fonte["eh_pdf"],
 
                 "palavras":
-                    quantidade
+                    quantidade,
+
+                "identidade_fonte":
+                    fonte.get(
+                        "identidade_fonte",
+                        {}
+                    )
 
             })
 
