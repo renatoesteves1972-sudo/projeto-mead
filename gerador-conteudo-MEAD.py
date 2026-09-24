@@ -20811,7 +20811,172 @@ def limpar_referencias_comerciais(texto, tema):
     print("AUDITORIA DE NATURALIDADE FINALIZADA")
     print("==============================")    
 
+# ============================================================
+# IDENTIFICAR IDENTIDADE DA FONTE
+# ============================================================
 
+def identificar_empresa_fonte(
+    texto,
+    url
+):
+
+    """
+    Identifica uma empresa ou entidade explicitamente mencionada
+    como fabricante, fornecedor, distribuidor ou empresa responsável
+    pela informação.
+
+    IMPORTANTE:
+    - Não inventa nomes.
+    - Não transforma automaticamente o domínio em fabricante.
+    - A identidade fica vinculada posteriormente ao fragmento/hash.
+    """
+
+    texto = str(
+        texto or ""
+    ).strip()
+
+    url = str(
+        url or ""
+    ).strip()
+
+
+    resultado = {
+
+        "nome": "",
+        "dominio": "",
+        "papel": "",
+        "origem_identificacao": "",
+        "confianca": "baixa"
+
+    }
+
+
+    if not texto and not url:
+
+        return resultado
+
+
+    # ========================================================
+    # EXTRAIR DOMÍNIO
+    # ========================================================
+
+    dominio = ""
+
+    try:
+
+        from urllib.parse import urlparse
+
+        dominio = urlparse(
+            url
+        ).netloc.lower().strip()
+
+        if dominio.startswith("www."):
+
+            dominio = dominio[4:]
+
+
+    except Exception:
+
+        dominio = ""
+
+
+    resultado["dominio"] = dominio
+
+
+    # ========================================================
+    # IDENTIFICAÇÃO EXPLÍCITA NO TEXTO
+    # ========================================================
+
+    padroes = [
+
+        (
+            r"(?:fabricado|fabricada|fabricante)"
+            r"\s+(?:pela|pelo|por)\s+"
+            r"([A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.' -]{2,80})",
+            "fabricante"
+        ),
+
+        (
+            r"(?:produzido|produzida|produzidos|produzidas)"
+            r"\s+(?:pela|pelo|por)\s+"
+            r"([A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.' -]{2,80})",
+            "fabricante"
+        ),
+
+        (
+            r"(?:distribuído|distribuída|distribuidor)"
+            r"\s+(?:pela|pelo|por)\s+"
+            r"([A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.' -]{2,80})",
+            "distribuidor"
+        ),
+
+        (
+            r"(?:fornecido|fornecida|fornecedor)"
+            r"\s+(?:pela|pelo|por)\s+"
+            r"([A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.' -]{2,80})",
+            "fornecedor"
+        ),
+
+        (
+            r"(?:empresa|fabricante|fornecedor)"
+            r"\s*:\s*"
+            r"([A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.' -]{2,80})",
+            "empresa"
+        ),
+
+        (
+            r"(?:razão social)"
+            r"\s*:\s*"
+            r"([A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.' -]{2,100})",
+            "empresa"
+        )
+
+    ]
+
+
+    for padrao, papel in padroes:
+
+        try:
+
+            correspondencia = re.search(
+                padrao,
+                texto
+            )
+
+        except Exception:
+
+            correspondencia = None
+
+
+        if not correspondencia:
+
+            continue
+
+
+        nome = correspondencia.group(
+            1
+        ).strip().strip(
+            ".,;:-"
+        )
+
+
+        if not nome:
+
+            continue
+
+
+        resultado["nome"] = nome
+
+        resultado["papel"] = papel
+
+        resultado["origem_identificacao"] = "texto"
+
+        resultado["confianca"] = "alta"
+
+        return resultado
+
+
+    return resultado
     
 
 # ============================================================
