@@ -1,4 +1,4 @@
-# versão 1.7 - 23/09
+# versão 1.8 - 24/09
 
 import json
 import os
