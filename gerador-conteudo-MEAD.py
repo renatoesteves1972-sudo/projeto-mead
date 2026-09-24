@@ -10550,6 +10550,59 @@ def selecionar_informacoes_relevantes(
     
     
     # ========================================================
+    # IDENTIDADE EDITORIAL DO SITE
+    # ========================================================
+    
+    def preparar_identidade_editorial(nome_site):
+        """
+        Normaliza o nome do site informado na interface.
+    
+        O nome do site será usado como identidade editorial
+        da página final.
+    
+        Exemplo:
+            Pascal Engenharia
+        """
+        
+        nome_site = str(nome_site or "").strip()
+        
+        if not nome_site:
+            return ""
+        
+        return re.sub(r"\s+", " ", nome_site)
+    
+    
+    def fragmento_pode_usar_identidade_site(
+        texto,
+        nome_site
+    ):
+        """
+        Verifica se o fragmento pode ser utilizado como
+        contexto para uma redação institucional.
+    
+        IMPORTANTE:
+        - não substitui nomes de empresas automaticamente;
+        - não considera empresas de terceiros como identidade
+        do conteúdo;
+        - permite que o Ollama utilize o contexto técnico;
+        - a identidade editorial final será o nome_site.
+        """
+        
+        texto = str(texto or "").strip()
+        nome_site = preparar_identidade_editorial(nome_site)
+        
+        if not texto:
+            return False
+        
+        # Se não existe nome de site configurado,
+        # não bloquear o fragmento por esse motivo.
+        if not nome_site:
+            return True
+        
+        return True
+    
+    
+    # ========================================================
     # FILTRO DE IDENTIDADE COMERCIAL / PRODUTO
     # ========================================================
     #
@@ -10956,67 +11009,310 @@ def selecionar_informacoes_relevantes(
     # ========================================================
     # CONSTRUIR FRAGMENTOS
     # ========================================================
+    #
+    # ARQUITETURA:
+    #
+    # texto_original
+    #       ↓
+    # cópia usada somente para análise
+    #       ↓
+    # identificação das frases / palavras
+    #       ↓
+    # posição inicial e final no texto original
+    #       ↓
+    # candidato["texto"] = trecho original
+    #
+    # IMPORTANTE:
+    # O Python pode analisar, contar, pontuar e filtrar.
+    # Porém, o texto salvo no candidato deve continuar sendo
+    # o trecho existente na fonte original.
+    #
+    # Não usar:
+    #     " ".join(...)
+    #
+    # para reconstruir o conteúdo final.
+    # ========================================================
 
     for fonte in fontes:
 
-        texto = fonte["texto"]
+        # ----------------------------------------------------
+        # TEXTO ORIGINAL
+        # ----------------------------------------------------
+        #
+        # Este texto não será reconstruído nem normalizado.
+        # Ele será utilizado posteriormente para extrair
+        # exatamente o trecho selecionado.
+        # ----------------------------------------------------
 
-        texto = re.sub(
-            r"\s+",
-            " ",
-            texto
-        ).strip()
+        texto_original = str(
+            fonte.get("texto", "")
+        )
 
-        if not texto:
+        if not texto_original.strip():
             continue
 
 
         # ----------------------------------------------------
-        # SEPARAR O TEXTO EM FRASES
+        # TEXTO PARA ANÁLISE
+        # ----------------------------------------------------
+        #
+        # Esta cópia pode ser modificada livremente.
+        # Ela serve somente para localizar frases e palavras.
+        #
+        # O conteúdo final do candidato NÃO será obtido dela.
         # ----------------------------------------------------
 
-        frases = re.split(
-            r"(?<=[.!?])\s+",
-            texto
-        )
+        texto_para_analise = re.sub(
+            r"\s+",
+            " ",
+            texto_original
+        ).strip()
 
-        frases = [
-
-            frase.strip()
-
-            for frase
-            in frases
-
-            if frase.strip()
-
-        ]
-
-
-        # ----------------------------------------------------
-        # ACUMULADOR
-        # ----------------------------------------------------
-
-        acumulado = []
-
-        palavras_acumuladas = 0
+        if not texto_para_analise:
+            continue
 
 
         # ----------------------------------------------------
-        # FUNÇÃO LOCAL PARA CRIAR CANDIDATO
+        # LOCALIZAR FRASES
+        # ----------------------------------------------------
+        #
+        # Mantemos também a posição da frase dentro do texto
+        # de análise.
+        #
+        # A posição será convertida para o texto original
+        # através da mesma sequência de palavras.
         # ----------------------------------------------------
 
-        def adicionar_candidato(
-            texto_fragmento
+        frases_analise = []
+
+        for correspondencia in re.finditer(
+            r".*?(?<=[.!?])(?=\s|$)",
+            texto_para_analise,
+            re.DOTALL
         ):
 
-            texto_fragmento = str(
-                texto_fragmento or ""
+            inicio_frase = (
+                correspondencia.start()
+            )
+
+            fim_frase = (
+                correspondencia.end()
+            )
+
+            frase = texto_para_analise[
+                inicio_frase:fim_frase
+            ].strip()
+
+            if not frase:
+                continue
+
+            frases_analise.append({
+                "inicio": inicio_frase,
+                "fim": fim_frase,
+                "texto": frase
+            })
+
+
+        # ----------------------------------------------------
+        # TEXTO SEM PONTUAÇÃO FINAL
+        # ----------------------------------------------------
+
+        if not frases_analise:
+
+            frases_analise = [{
+                "inicio": 0,
+                "fim": len(
+                    texto_para_analise
+                ),
+                "texto": texto_para_analise
+            }]
+
+        else:
+
+            ultimo_fim = frases_analise[-1]["fim"]
+
+            restante = texto_para_analise[
+                ultimo_fim:
+            ].strip()
+
+            if restante:
+
+                inicio_restante = (
+                    texto_para_analise.find(
+                        restante,
+                        ultimo_fim
+                    )
+                )
+
+                if inicio_restante >= 0:
+
+                    frases_analise.append({
+                        "inicio":
+                            inicio_restante,
+
+                        "fim":
+                            inicio_restante
+                            + len(restante),
+
+                        "texto":
+                            restante
+                    })
+
+
+        # ----------------------------------------------------
+        # MAPEAR PALAVRAS DA ANÁLISE
+        # PARA O TEXTO ORIGINAL
+        # ----------------------------------------------------
+        #
+        # A análise pode ter espaços normalizados.
+        # Por isso não podemos simplesmente utilizar os
+        # mesmos índices de caracteres.
+        #
+        # Criamos uma correspondência sequencial entre as
+        # palavras da cópia de análise e as palavras existentes
+        # no texto original.
+        # ----------------------------------------------------
+
+        palavras_original = list(
+            re.finditer(
+                r"\S+",
+                texto_original
+            )
+        )
+
+        palavras_analise = list(
+            re.finditer(
+                r"\S+",
+                texto_para_analise
+            )
+        )
+
+        if not palavras_original:
+            continue
+
+        if not palavras_analise:
+            continue
+
+
+        # ----------------------------------------------------
+        # CORRESPONDÊNCIA DAS PALAVRAS
+        # ----------------------------------------------------
+        #
+        # Normalizamos somente para comparação.
+        # O texto original permanece intacto.
+        # ----------------------------------------------------
+
+        quantidade_palavras = min(
+            len(palavras_original),
+            len(palavras_analise)
+        )
+
+        mapa_palavras = []
+
+        for indice_palavra in range(
+            quantidade_palavras
+        ):
+
+            palavra_analise = (
+                palavras_analise[
+                    indice_palavra
+                ].group()
+            )
+
+            palavra_original = (
+                palavras_original[
+                    indice_palavra
+                ].group()
+            )
+
+            mapa_palavras.append({
+                "analise_inicio":
+                    palavras_analise[
+                        indice_palavra
+                    ].start(),
+
+                "analise_fim":
+                    palavras_analise[
+                        indice_palavra
+                    ].end(),
+
+                "original_inicio":
+                    palavras_original[
+                        indice_palavra
+                    ].start(),
+
+                "original_fim":
+                    palavras_original[
+                        indice_palavra
+                    ].end(),
+
+                "palavra_analise":
+                    palavra_analise,
+
+                "palavra_original":
+                    palavra_original
+            })
+
+
+        # ----------------------------------------------------
+        # CRIAR CANDIDATO A PARTIR DA POSIÇÃO ORIGINAL
+        # ----------------------------------------------------
+
+        def adicionar_candidato_por_palavras(
+            indice_inicio,
+            indice_fim
+        ):
+
+            if (
+                indice_inicio < 0
+                or
+                indice_fim <= indice_inicio
+                or
+                indice_inicio >= len(mapa_palavras)
+                or
+                indice_fim > len(mapa_palavras)
+            ):
+                return
+
+
+            # ------------------------------------------------
+            # POSIÇÃO REAL NO TEXTO ORIGINAL
+            # ------------------------------------------------
+
+            inicio_original = (
+                mapa_palavras[
+                    indice_inicio
+                ]["original_inicio"]
+            )
+
+            fim_original = (
+                mapa_palavras[
+                    indice_fim - 1
+                ]["original_fim"]
+            )
+
+
+            # ------------------------------------------------
+            # EXTRAIR DO TEXTO ORIGINAL
+            # ------------------------------------------------
+            #
+            # Aqui está a correção principal.
+            #
+            # O candidato não é reconstruído.
+            # Ele é recortado diretamente da fonte original.
+            # ------------------------------------------------
+
+            texto_fragmento = (
+                texto_original[
+                    inicio_original:fim_original
+                ]
             ).strip()
 
             if not texto_fragmento:
                 return
 
-            quantidade_palavras = len(
+
+            quantidade = len(
                 re.findall(
                     r"\S+",
                     texto_fragmento
@@ -11024,13 +11320,14 @@ def selecionar_informacoes_relevantes(
             )
 
             if (
-                quantidade_palavras
-                < MIN_PALAVRAS_FRAGMENTO
+                quantidade
+                <
+                MIN_PALAVRAS_FRAGMENTO
                 or
-                quantidade_palavras
-                > MAX_PALAVRAS_FRAGMENTO
+                quantidade
+                >
+                MAX_PALAVRAS_FRAGMENTO
             ):
-
                 return
 
 
@@ -11055,7 +11352,7 @@ def selecionar_informacoes_relevantes(
 
                 print(
                     "PALAVRAS:",
-                    quantidade_palavras
+                    quantidade
                 )
 
                 print(
@@ -11065,6 +11362,10 @@ def selecionar_informacoes_relevantes(
 
                 return
 
+
+            # ------------------------------------------------
+            # SALVAR CANDIDATO
+            # ------------------------------------------------
 
             candidatos.append({
 
@@ -11084,84 +11385,137 @@ def selecionar_informacoes_relevantes(
                     fonte["eh_pdf"],
 
                 "palavras":
-                    quantidade_palavras
+                    quantidade
 
             })
 
 
         # ----------------------------------------------------
-        # PROCESSAR FRASES
+        # CONVERTER FRASES EM INTERVALOS DE PALAVRAS
         # ----------------------------------------------------
 
-        for frase in frases:
+        intervalos_frases = []
 
-            palavras_frase = re.findall(
-                r"\S+",
-                frase
-            )
+        for frase in frases_analise:
 
-            if not palavras_frase:
-                continue
+            palavras_da_frase = [
 
+                indice
 
-            # ------------------------------------------------
-            # FRASE PEQUENA OU MÉDIA
-            # ------------------------------------------------
-
-            if len(palavras_frase) <= MAX_PALAVRAS_FRAGMENTO:
+                for indice, palavra
+                in enumerate(mapa_palavras)
 
                 if (
+                    palavra["analise_inicio"]
+                    >=
+                    frase["inicio"]
+
+                    and
+
+                    palavra["analise_fim"]
+                    <=
+                    frase["fim"]
+                )
+
+            ]
+
+            if not palavras_da_frase:
+                continue
+
+            intervalos_frases.append({
+
+                "inicio":
+                    palavras_da_frase[0],
+
+                "fim":
+                    palavras_da_frase[-1] + 1
+
+            })
+
+
+        # ----------------------------------------------------
+        # ACUMULAR FRASES
+        # ----------------------------------------------------
+
+        acumulado_inicio = None
+        acumulado_fim = None
+        palavras_acumuladas = 0
+
+
+        for intervalo in intervalos_frases:
+
+            inicio = intervalo["inicio"]
+            fim = intervalo["fim"]
+
+            quantidade = (
+                fim - inicio
+            )
+
+
+            # ------------------------------------------------
+            # FRASE PEQUENA / MÉDIA
+            # ------------------------------------------------
+
+            if quantidade <= MAX_PALAVRAS_FRAGMENTO:
+
+                if acumulado_inicio is None:
+
+                    acumulado_inicio = inicio
+                    acumulado_fim = fim
+                    palavras_acumuladas = quantidade
+
+                elif (
                     palavras_acumuladas
-                    +
-                    len(palavras_frase)
+                    + quantidade
                     <= MAX_PALAVRAS_FRAGMENTO
                 ):
 
-                    acumulado.append(
-                        frase
-                    )
+                    acumulado_fim = fim
 
                     palavras_acumuladas += (
-                        len(palavras_frase)
+                        quantidade
                     )
-
-                    if (
-                        palavras_acumuladas
-                        >= MIN_PALAVRAS_FRAGMENTO
-                    ):
-
-                        adicionar_candidato(
-                            " ".join(
-                                acumulado
-                            )
-                        )
-
-                        acumulado = []
-
-                        palavras_acumuladas = 0
 
                 else:
 
                     if (
-                        acumulado
-                        and
+                        MIN_PALAVRAS_FRAGMENTO
+                        <=
                         palavras_acumuladas
-                        >= MIN_PALAVRAS_FRAGMENTO
+                        <=
+                        MAX_PALAVRAS_FRAGMENTO
                     ):
 
-                        adicionar_candidato(
-                            " ".join(
-                                acumulado
-                            )
+                        adicionar_candidato_por_palavras(
+                            acumulado_inicio,
+                            acumulado_fim
                         )
 
-                    acumulado = [
-                        frase
-                    ]
+                    acumulado_inicio = inicio
+                    acumulado_fim = fim
+                    palavras_acumuladas = quantidade
 
-                    palavras_acumuladas = (
-                        len(palavras_frase)
+
+                # --------------------------------------------
+                # CANDIDATO PRONTO
+                # --------------------------------------------
+
+                if (
+                    MIN_PALAVRAS_FRAGMENTO
+                    <=
+                    palavras_acumuladas
+                    <=
+                    MAX_PALAVRAS_FRAGMENTO
+                ):
+
+                    adicionar_candidato_por_palavras(
+                        acumulado_inicio,
+                        acumulado_fim
                     )
+
+                    acumulado_inicio = None
+                    acumulado_fim = None
+                    palavras_acumuladas = 0
 
 
             # ------------------------------------------------
@@ -11170,21 +11524,28 @@ def selecionar_informacoes_relevantes(
 
             else:
 
+                # --------------------------------------------
+                # SALVAR ACUMULADO ANTERIOR
+                # --------------------------------------------
+
                 if (
-                    acumulado
+                    acumulado_inicio is not None
                     and
+                    MIN_PALAVRAS_FRAGMENTO
+                    <=
                     palavras_acumuladas
-                    >= MIN_PALAVRAS_FRAGMENTO
+                    <=
+                    MAX_PALAVRAS_FRAGMENTO
                 ):
 
-                    adicionar_candidato(
-                        " ".join(
-                            acumulado
-                        )
+                    adicionar_candidato_por_palavras(
+                        acumulado_inicio,
+                        acumulado_fim
                     )
 
-                acumulado = []
 
+                acumulado_inicio = None
+                acumulado_fim = None
                 palavras_acumuladas = 0
 
 
@@ -11192,88 +11553,87 @@ def selecionar_informacoes_relevantes(
                 # DIVIDIR FRASE GRANDE
                 # --------------------------------------------
 
-                partes = [
+                inicio_parte = inicio
 
-                    palavras_frase[inicio:
-                                   inicio
-                                   + MAX_PALAVRAS_FRAGMENTO]
+                while inicio_parte < fim:
 
-                    for inicio
-                    in range(
-                        0,
-                        len(palavras_frase),
-                        MAX_PALAVRAS_FRAGMENTO
+                    fim_parte = min(
+                        inicio_parte
+                        + MAX_PALAVRAS_FRAGMENTO,
+                        fim
                     )
 
-                ]
-
-                for parte in partes:
-
-                    if not parte:
-                        continue
-
-                    quantidade = len(
-                        parte
+                    quantidade_parte = (
+                        fim_parte
+                        -
+                        inicio_parte
                     )
+
+                    # ----------------------------------------
+                    # PARTE COMPLETA
+                    # ----------------------------------------
 
                     if (
                         MIN_PALAVRAS_FRAGMENTO
-                        <= quantidade
-                        <= MAX_PALAVRAS_FRAGMENTO
+                        <=
+                        quantidade_parte
+                        <=
+                        MAX_PALAVRAS_FRAGMENTO
                     ):
 
-                        adicionar_candidato(
-                            " ".join(
-                                parte
-                            )
+                        adicionar_candidato_por_palavras(
+                            inicio_parte,
+                            fim_parte
                         )
 
+                    # ----------------------------------------
+                    # PARTE FINAL PEQUENA
+                    # ----------------------------------------
+                    #
+                    # Não descartamos imediatamente.
+                    # Guardamos para tentar combinar com a
+                    # próxima frase.
+                    # ----------------------------------------
+
                     elif (
-                        quantidade
+                        quantidade_parte
                         <
                         MIN_PALAVRAS_FRAGMENTO
                     ):
 
-                        acumulado = [
-                            " ".join(
-                                parte
-                            )
-                        ]
+                        acumulado_inicio = (
+                            inicio_parte
+                        )
+
+                        acumulado_fim = (
+                            fim_parte
+                        )
 
                         palavras_acumuladas = (
-                            quantidade
+                            quantidade_parte
                         )
+
+                    inicio_parte = fim_parte
 
 
         # ----------------------------------------------------
-        # ÚLTIMO FRAGMENTO
+        # ÚLTIMO ACUMULADO
         # ----------------------------------------------------
 
         if (
-            acumulado
+            acumulado_inicio is not None
             and
             MIN_PALAVRAS_FRAGMENTO
-            <= palavras_acumuladas
-            <= MAX_PALAVRAS_FRAGMENTO
+            <=
+            palavras_acumuladas
+            <=
+            MAX_PALAVRAS_FRAGMENTO
         ):
 
-            adicionar_candidato(
-                " ".join(
-                    acumulado
-                )
+            adicionar_candidato_por_palavras(
+                acumulado_inicio,
+                acumulado_fim
             )
-
-
-    print()
-    print("==============================")
-    print("CANDIDATOS DE FRAGMENTOS")
-    print("==============================")
-
-    print(
-        "TOTAL DE CANDIDATOS:",
-        len(candidatos)
-    )
-
 
     # ========================================================
     # 05. REMOVER DUPLICADOS
@@ -18363,6 +18723,11 @@ TEXTO ORIGINAL:
         #
         # Eles não devem ser misturados.
         # ========================================================
+        
+        
+        nome_site_editorial = preparar_identidade_editorial(
+            nome_site
+        )
 
         prompt_bloco = f"""
 Você é um redator técnico especializado.
@@ -18376,6 +18741,41 @@ TEMA
 ==================================================
 
 {tema}
+
+==================================================
+IDENTIDADE EDITORIAL
+==================================================
+
+NOME DO SITE:
+{nome_site_editorial}
+
+REGRA DE IDENTIDADE:
+
+O conteúdo está sendo produzido para o site informado
+acima.
+
+Quando houver necessidade de referência institucional,
+utilize o NOME DO SITE como identidade da empresa.
+
+Nomes de empresas, marcas ou sites encontrados nas
+fontes são referências de terceiros e não devem ser
+transferidos automaticamente para o texto final.
+
+Utilize informações técnicas relevantes encontradas
+nas fontes, mas não reproduza propaganda, chamadas
+comerciais, slogans ou afirmações promocionais de
+terceiros.
+
+Não atribua ao NOME DO SITE características,
+produtos, serviços, certificações, experiências,
+qualificações ou resultados que não estejam autorizados
+pelas informações do projeto.
+
+Não invente informações sobre a empresa.
+
+O nome de terceiros pode aparecer no material de origem
+apenas como referência contextual. Na redação final,
+preserve a identidade editorial do NOME DO SITE.
 
 ==================================================
 BLOCO EDITORIAL
