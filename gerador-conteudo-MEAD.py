@@ -31458,7 +31458,32 @@ def executar():
                         ),
 
                     "texto":
-                        texto_item
+                        texto_item,
+
+                    # ====================================================
+                    # PRESERVAR IDENTIDADE DA FONTE
+                    # ====================================================
+                    #
+                    # A identidade já foi identificada anteriormente
+                    # na etapa de limpeza das referências.
+                    #
+                    # Aqui apenas transportamos o objeto.
+                    #
+                    # NÃO identificar novamente.
+                    # NÃO inferir fabricante pelo domínio.
+                    # ====================================================
+
+                    "identidade_fonte":
+                        item.get(
+                            "identidade_fonte",
+                            {
+                                "nome": "",
+                                "dominio": "",
+                                "papel": "",
+                                "origem_identificacao": "",
+                                "confianca": "baixa"
+                            }
+                        )
 
                 })
 
@@ -31478,7 +31503,16 @@ def executar():
                         "texto",
 
                     "texto":
-                        item
+                        item,
+
+                    "identidade_fonte":
+                        {
+                            "nome": "",
+                            "dominio": "",
+                            "papel": "",
+                            "origem_identificacao": "",
+                            "confianca": "baixa"
+                        }
 
                 })
 
