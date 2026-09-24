@@ -15420,7 +15420,7 @@ def selecionar_informacoes_relevantes(
         # PRESERVAR O FRAGMENTO COMPLETO
         # ----------------------------------------------------
 
-        dados_fragmento = {
+                dados_fragmento = {
 
             "id":
                 fragmento["id"],
@@ -15444,7 +15444,13 @@ def selecionar_informacoes_relevantes(
                 fragmento["pdf"],
 
             "palavras":
-                fragmento["palavras"]
+                fragmento["palavras"],
+
+            "identidade_fonte":
+                fragmento.get(
+                    "identidade_fonte",
+                    {}
+                )
 
         }
 
@@ -15977,7 +15983,13 @@ def selecionar_informacoes_relevantes(
                 fragmento["pdf"],
 
             "palavras":
-                fragmento["palavras"]
+                fragmento["palavras"],
+
+            "identidade_fonte":
+                fragmento.get(
+                    "identidade_fonte",
+                    {}
+                )
 
         })
 
