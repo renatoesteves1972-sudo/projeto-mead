@@ -18706,6 +18706,54 @@ PARÁGRAFOS-BASE SELECIONADOS PELO PYTHON
 
         for fragmento in fragmentos_bloco:
 
+            identidade_fonte = (
+                fragmento.get(
+                    "identidade_fonte",
+                    {}
+                )
+                or {}
+            )
+
+            nome_fonte = str(
+                identidade_fonte.get(
+                    "nome",
+                    ""
+                )
+                or ""
+            ).strip()
+
+            dominio_fonte = str(
+                identidade_fonte.get(
+                    "dominio",
+                    ""
+                )
+                or ""
+            ).strip()
+
+            papel_fonte = str(
+                identidade_fonte.get(
+                    "papel",
+                    ""
+                )
+                or ""
+            ).strip()
+
+            origem_fonte = str(
+                identidade_fonte.get(
+                    "origem_identificacao",
+                    ""
+                )
+                or ""
+            ).strip()
+
+            confianca_fonte = str(
+                identidade_fonte.get(
+                    "confianca",
+                    "baixa"
+                )
+                or "baixa"
+            ).strip()
+
             contexto_tres_fragmentos += f"""
 
 --------------------------------------------------
@@ -18715,10 +18763,26 @@ FRAGMENTO {fragmento["numero"]}
 ID:
 {fragmento["id"]}
 
+IDENTIDADE DA FONTE:
+
+Nome:
+{nome_fonte}
+
+Domínio:
+{dominio_fonte}
+
+Papel:
+{papel_fonte}
+
+Origem da identificação:
+{origem_fonte}
+
+Confiança:
+{confianca_fonte}
+
 TEXTO ORIGINAL:
 
 {fragmento["texto"]}
-
 """
 
 
