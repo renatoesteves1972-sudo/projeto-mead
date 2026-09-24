@@ -12636,6 +12636,190 @@ def selecionar_informacoes_relevantes(
         return pontuacao
 
     # ========================================================
+    # PERTENCIMENTO REAL AO TEMA
+    # ========================================================
+    #
+    # Um fragmento somente pode participar da seleção se
+    # realmente tratar do tema pesquisado.
+    #
+    # A pontuação editorial NÃO pode compensar a ausência
+    # do tema.
+    #
+    # Exemplo:
+    #
+    # tema:
+    #     bomba centrífuga
+    #
+    # fragmento:
+    #     bomba submersível solar apresenta...
+    #
+    # Mesmo contendo "bomba", "aplicação", "desempenho",
+    # etc., o fragmento deve ser rejeitado.
+    #
+    # ========================================================
+
+    def fragmento_pertence_ao_tema(
+        texto,
+        tema
+    ):
+
+        texto = str(
+            texto or ""
+        ).strip()
+
+        tema = str(
+            tema or ""
+        ).strip()
+
+        if not texto or not tema:
+            return False
+
+
+        # ----------------------------------------------------
+        # NORMALIZAÇÃO
+        # ----------------------------------------------------
+
+        texto_normalizado = (
+            normalizar_assunto_texto(
+                texto
+            )
+        )
+
+        tema_normalizado = (
+            normalizar_assunto_texto(
+                tema
+            )
+        )
+
+
+        # ----------------------------------------------------
+        # PALAVRAS SIGNIFICATIVAS DO TEMA
+        # ----------------------------------------------------
+
+        palavras_tema = re.findall(
+            r"\b[a-z0-9]{3,}\b",
+            tema_normalizado
+        )
+
+
+        # Remove termos gramaticais.
+        palavras_ignoradas = {
+
+            "de",
+            "da",
+            "das",
+            "do",
+            "dos",
+            "em",
+            "na",
+            "nas",
+            "no",
+            "nos",
+            "para",
+            "por",
+            "com",
+            "sem",
+            "e",
+            "a",
+            "o",
+            "as",
+            "os"
+
+        }
+
+
+        palavras_tema = [
+
+            palavra
+
+            for palavra
+            in palavras_tema
+
+            if palavra
+            not in palavras_ignoradas
+
+        ]
+
+
+        if not palavras_tema:
+            return False
+
+
+        # ----------------------------------------------------
+        # PALAVRAS DO FRAGMENTO
+        # ----------------------------------------------------
+
+        palavras_fragmento = set(
+
+            re.findall(
+                r"\b[a-z0-9]{3,}\b",
+                texto_normalizado
+            )
+
+        )
+
+
+        # ----------------------------------------------------
+        # COMPARAÇÃO POR RADICAL SIMPLES
+        #
+        # Permite:
+        #
+        # bomba       → bombas
+        # centrifug   → centrifuga
+        # centrifug   → centrifugas
+        #
+        # Sem exigir que o texto tenha exatamente a mesma
+        # flexão usada na palavra-chave.
+        # ----------------------------------------------------
+
+        for palavra_tema in palavras_tema:
+
+            radical = palavra_tema
+
+            if len(radical) >= 5:
+
+                # Remove terminações flexionais simples.
+                if radical.endswith("es"):
+                    radical = radical[:-2]
+
+                elif radical.endswith("s"):
+                    radical = radical[:-1]
+
+                elif radical.endswith("a"):
+                    radical = radical[:-1]
+
+                elif radical.endswith("o"):
+                    radical = radical[:-1]
+
+
+            encontrou = False
+
+
+            for palavra_fragmento in palavras_fragmento:
+
+                if palavra_fragmento.startswith(
+                    radical
+                ):
+
+                    encontrou = True
+
+                    break
+
+
+            # ------------------------------------------------
+            # TODAS as palavras significativas do tema
+            # precisam estar representadas no fragmento.
+            # ------------------------------------------------
+
+            if not encontrou:
+
+                return False
+
+
+        return True
+        
+        
+    # ========================================================
     # 06.4 ORGANIZAR CANDIDATOS POR BLOCO
     # ========================================================
 
@@ -13570,190 +13754,6 @@ def selecionar_informacoes_relevantes(
 
         return True      
     
-    
-    # ========================================================
-    # PERTENCIMENTO REAL AO TEMA
-    # ========================================================
-    #
-    # Um fragmento somente pode participar da seleção se
-    # realmente tratar do tema pesquisado.
-    #
-    # A pontuação editorial NÃO pode compensar a ausência
-    # do tema.
-    #
-    # Exemplo:
-    #
-    # tema:
-    #     bomba centrífuga
-    #
-    # fragmento:
-    #     bomba submersível solar apresenta...
-    #
-    # Mesmo contendo "bomba", "aplicação", "desempenho",
-    # etc., o fragmento deve ser rejeitado.
-    #
-    # ========================================================
-
-    def fragmento_pertence_ao_tema(
-        texto,
-        tema
-    ):
-
-        texto = str(
-            texto or ""
-        ).strip()
-
-        tema = str(
-            tema or ""
-        ).strip()
-
-        if not texto or not tema:
-            return False
-
-
-        # ----------------------------------------------------
-        # NORMALIZAÇÃO
-        # ----------------------------------------------------
-
-        texto_normalizado = (
-            normalizar_assunto_texto(
-                texto
-            )
-        )
-
-        tema_normalizado = (
-            normalizar_assunto_texto(
-                tema
-            )
-        )
-
-
-        # ----------------------------------------------------
-        # PALAVRAS SIGNIFICATIVAS DO TEMA
-        # ----------------------------------------------------
-
-        palavras_tema = re.findall(
-            r"\b[a-z0-9]{3,}\b",
-            tema_normalizado
-        )
-
-
-        # Remove termos gramaticais.
-        palavras_ignoradas = {
-
-            "de",
-            "da",
-            "das",
-            "do",
-            "dos",
-            "em",
-            "na",
-            "nas",
-            "no",
-            "nos",
-            "para",
-            "por",
-            "com",
-            "sem",
-            "e",
-            "a",
-            "o",
-            "as",
-            "os"
-
-        }
-
-
-        palavras_tema = [
-
-            palavra
-
-            for palavra
-            in palavras_tema
-
-            if palavra
-            not in palavras_ignoradas
-
-        ]
-
-
-        if not palavras_tema:
-            return False
-
-
-        # ----------------------------------------------------
-        # PALAVRAS DO FRAGMENTO
-        # ----------------------------------------------------
-
-        palavras_fragmento = set(
-
-            re.findall(
-                r"\b[a-z0-9]{3,}\b",
-                texto_normalizado
-            )
-
-        )
-
-
-        # ----------------------------------------------------
-        # COMPARAÇÃO POR RADICAL SIMPLES
-        #
-        # Permite:
-        #
-        # bomba       → bombas
-        # centrifug   → centrifuga
-        # centrifug   → centrifugas
-        #
-        # Sem exigir que o texto tenha exatamente a mesma
-        # flexão usada na palavra-chave.
-        # ----------------------------------------------------
-
-        for palavra_tema in palavras_tema:
-
-            radical = palavra_tema
-
-            if len(radical) >= 5:
-
-                # Remove terminações flexionais simples.
-                if radical.endswith("es"):
-                    radical = radical[:-2]
-
-                elif radical.endswith("s"):
-                    radical = radical[:-1]
-
-                elif radical.endswith("a"):
-                    radical = radical[:-1]
-
-                elif radical.endswith("o"):
-                    radical = radical[:-1]
-
-
-            encontrou = False
-
-
-            for palavra_fragmento in palavras_fragmento:
-
-                if palavra_fragmento.startswith(
-                    radical
-                ):
-
-                    encontrou = True
-
-                    break
-
-
-            # ------------------------------------------------
-            # TODAS as palavras significativas do tema
-            # precisam estar representadas no fragmento.
-            # ------------------------------------------------
-
-            if not encontrou:
-
-                return False
-
-
-        return True
-        
         
     # ========================================================
     # FUNÇÃO CENTRAL DE ESCOLHA
