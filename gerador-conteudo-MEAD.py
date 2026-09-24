@@ -12835,42 +12835,42 @@ def selecionar_informacoes_relevantes(
 
     for candidato in candidatos:
 
-    if not fragmento_pertence_ao_tema(
-        candidato.get(
-            "texto",
-            ""
-        ),
-        tema
-    ):
-        continue
-
-    for numero_bloco in range(
-        1,
-        6
-    ):
-
-        chave_bloco = (
-            f"bloco_{numero_bloco}"
-        )
-
-        pontuacao = (
-            calcular_pontuacao_bloco(
-                candidato,
-                chave_bloco
+        if not fragmento_pertence_ao_tema(
+            candidato.get(
+                "texto",
+                ""
+            ),
+            tema
+        ):
+            continue
+    
+        for numero_bloco in range(
+            1,
+            6
+        ):
+    
+            chave_bloco = (
+                f"bloco_{numero_bloco}"
             )
-        )
-
-        candidatos_por_bloco[
-            chave_bloco
-        ].append({
-
-            "candidato":
-                candidato,
-
-            "pontuacao":
-                pontuacao
-
-        })
+    
+            pontuacao = (
+                calcular_pontuacao_bloco(
+                    candidato,
+                    chave_bloco
+                )
+            )
+    
+            candidatos_por_bloco[
+                chave_bloco
+            ].append({
+    
+                "candidato":
+                    candidato,
+    
+                "pontuacao":
+                    pontuacao
+    
+            })
 
     # ========================================================
     # 06.5 ORDENAR CADA BLOCO
