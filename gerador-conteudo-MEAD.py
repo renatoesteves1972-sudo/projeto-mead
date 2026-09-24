@@ -10175,6 +10175,60 @@ MAPEAMENTO_EDITORIAL = {
     ]
 }
 
+
+# ========================================================
+# IDENTIDADE EDITORIAL DO SITE
+# ========================================================
+
+def preparar_identidade_editorial(nome_site):
+    """
+    Normaliza o nome do site informado na interface.
+
+    O nome do site será usado como identidade editorial
+    da página final.
+
+    Exemplo:
+        Pascal Engenharia
+    """
+    
+    nome_site = str(nome_site or "").strip()
+    
+    if not nome_site:
+        return ""
+    
+    return re.sub(r"\s+", " ", nome_site)
+
+
+def fragmento_pode_usar_identidade_site(
+    texto,
+    nome_site
+):
+    """
+    Verifica se o fragmento pode ser utilizado como
+    contexto para uma redação institucional.
+
+    IMPORTANTE:
+    - não substitui nomes de empresas automaticamente;
+    - não considera empresas de terceiros como identidade
+      do conteúdo;
+    - permite que o Ollama utilize o contexto técnico;
+    - a identidade editorial final será o nome_site.
+    """
+    
+    texto = str(texto or "").strip()
+    nome_site = preparar_identidade_editorial(nome_site)
+    
+    if not texto:
+        return False
+    
+    # Se não existe nome de site configurado,
+    # não bloquear o fragmento por esse motivo.
+    if not nome_site:
+        return True
+    
+    return True
+
+
     
     
 # ============================================================
@@ -10549,58 +10603,7 @@ def selecionar_informacoes_relevantes(
     MAX_PALAVRAS_FRAGMENTO = 60
     
     
-    # ========================================================
-    # IDENTIDADE EDITORIAL DO SITE
-    # ========================================================
-    
-    def preparar_identidade_editorial(nome_site):
-        """
-        Normaliza o nome do site informado na interface.
-    
-        O nome do site será usado como identidade editorial
-        da página final.
-    
-        Exemplo:
-            Pascal Engenharia
-        """
-        
-        nome_site = str(nome_site or "").strip()
-        
-        if not nome_site:
-            return ""
-        
-        return re.sub(r"\s+", " ", nome_site)
-    
-    
-    def fragmento_pode_usar_identidade_site(
-        texto,
-        nome_site
-    ):
-        """
-        Verifica se o fragmento pode ser utilizado como
-        contexto para uma redação institucional.
-    
-        IMPORTANTE:
-        - não substitui nomes de empresas automaticamente;
-        - não considera empresas de terceiros como identidade
-        do conteúdo;
-        - permite que o Ollama utilize o contexto técnico;
-        - a identidade editorial final será o nome_site.
-        """
-        
-        texto = str(texto or "").strip()
-        nome_site = preparar_identidade_editorial(nome_site)
-        
-        if not texto:
-            return False
-        
-        # Se não existe nome de site configurado,
-        # não bloquear o fragmento por esse motivo.
-        if not nome_site:
-            return True
-        
-        return True
-    
+
     
     # ========================================================
     # FILTRO DE IDENTIDADE COMERCIAL / PRODUTO
