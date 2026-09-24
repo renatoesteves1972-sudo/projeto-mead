@@ -20934,14 +20934,25 @@ def limpar_lista_referencias(
 
 
     # ========================================================
-    # 05. SALVAR TEXTO LIMPO
+    # 05. IDENTIFICAR IDENTIDADE DA FONTE
+    # ========================================================
+
+        identidade_fonte = identificar_empresa_fonte(
+            texto,
+            url
+        )
+
+
+    # ========================================================
+    # 06. SALVAR TEXTO LIMPO
     # ========================================================
 
         textos_limpos.append(
             {
                 "url": url,
                 "tipo": tipo,
-                "texto": texto
+                "texto": texto,
+                "identidade_fonte": identidade_fonte
             }
         )
 
