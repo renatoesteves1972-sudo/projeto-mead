@@ -12817,8 +12817,365 @@ def selecionar_informacoes_relevantes(
 
 
         return True
-        
-        
+
+        # ========================================================
+        # ADERÊNCIA TEMÁTICA PREDOMINANTE
+        # ========================================================
+        #
+        # Regra geral do MEAD:
+        #
+        # Um fragmento não é considerado adequado apenas porque
+        # contém os termos da palavra-chave.
+        #
+        # O conteúdo precisa demonstrar que o tema é um dos
+        # assuntos predominantes do fragmento.
+        #
+        # Esta função é genérica.
+        #
+        # NÃO conhece produtos.
+        # NÃO conhece serviços.
+        # NÃO possui lista de concorrentes.
+        # NÃO possui exceções por palavra-chave.
+        #
+        # Ela analisa somente a relação entre:
+        #
+        #     TEMA <-> CONTEÚDO DO FRAGMENTO
+        #
+        # ========================================================
+    
+        def fragmento_tem_aderencia_tematica(
+            texto,
+            tema
+        ):
+    
+            texto = str(
+                texto or ""
+            ).strip()
+    
+            tema = str(
+                tema or ""
+            ).strip()
+    
+            if not texto or not tema:
+                return False
+    
+    
+            # ----------------------------------------------------
+            # PRIMEIRO FILTRO:
+            # o fragmento precisa pertencer ao tema.
+            # ----------------------------------------------------
+    
+            if not fragmento_pertence_ao_tema(
+                texto,
+                tema
+            ):
+                return False
+    
+    
+            # ----------------------------------------------------
+            # NORMALIZAÇÃO
+            # ----------------------------------------------------
+    
+            texto_normalizado = (
+                normalizar_assunto_texto(
+                    texto
+                )
+            )
+    
+            tema_normalizado = (
+                normalizar_assunto_texto(
+                    tema
+                )
+            )
+    
+    
+            # ----------------------------------------------------
+            # TERMOS SIGNIFICATIVOS DO TEMA
+            # ----------------------------------------------------
+    
+            palavras_ignoradas = {
+    
+                "de",
+                "da",
+                "das",
+                "do",
+                "dos",
+                "em",
+                "na",
+                "nas",
+                "no",
+                "nos",
+                "para",
+                "por",
+                "com",
+                "sem",
+                "e",
+                "a",
+                "o",
+                "as",
+                "os"
+    
+            }
+    
+    
+            palavras_tema = [
+    
+                palavra
+    
+                for palavra in re.findall(
+                    r"\b[a-z0-9]{3,}\b",
+                    tema_normalizado
+                )
+    
+                if palavra
+                not in palavras_ignoradas
+    
+            ]
+    
+    
+            if not palavras_tema:
+                return False
+    
+    
+            # ----------------------------------------------------
+            # DIVIDIR O FRAGMENTO EM FRASES
+            # ----------------------------------------------------
+    
+            frases = re.split(
+                r"(?<=[.!?])\s+",
+                texto_normalizado
+            )
+    
+            frases = [
+    
+                frase.strip()
+    
+                for frase in frases
+    
+                if frase.strip()
+    
+            ]
+    
+    
+            if not frases:
+                return False
+    
+    
+            # ----------------------------------------------------
+            # RADICAIS DO TEMA
+            # ----------------------------------------------------
+    
+            radicais_tema = []
+    
+            for palavra in palavras_tema:
+    
+                radical = palavra
+    
+                if len(radical) >= 5:
+    
+                    if radical.endswith("es"):
+                        radical = radical[:-2]
+    
+                    elif radical.endswith("s"):
+                        radical = radical[:-1]
+    
+                    elif radical.endswith("a"):
+                        radical = radical[:-1]
+    
+                    elif radical.endswith("o"):
+                        radical = radical[:-1]
+    
+                radicais_tema.append(
+                    radical
+                )
+    
+    
+            # ----------------------------------------------------
+            # ANALISAR CADA FRASE
+            # ----------------------------------------------------
+    
+            frases_relevantes = 0
+    
+            maior_aderencia_frase = 0
+    
+            encontrou_proximidade = False
+    
+    
+            for frase in frases:
+    
+                palavras_frase = re.findall(
+                    r"\b[a-z0-9]{3,}\b",
+                    frase
+                )
+    
+                if not palavras_frase:
+                    continue
+    
+    
+                encontrados = 0
+    
+                posicoes = []
+    
+    
+                for radical in radicais_tema:
+    
+                    encontrou = False
+    
+                    for indice, palavra in enumerate(
+                        palavras_frase
+                    ):
+    
+                        if palavra.startswith(
+                            radical
+                        ):
+    
+                            encontrou = True
+    
+                            posicoes.append(
+                                indice
+                            )
+    
+                            break
+    
+    
+                    if encontrou:
+                        encontrados += 1
+    
+    
+                # ------------------------------------------------
+                # ADERÊNCIA DA FRASE
+                # ------------------------------------------------
+    
+                if encontrados > 0:
+    
+                    aderencia_frase = (
+                        encontrados
+                        /
+                        len(radicais_tema)
+                    )
+    
+                    if aderencia_frase > maior_aderencia_frase:
+    
+                        maior_aderencia_frase = (
+                            aderencia_frase
+                        )
+    
+    
+                # ------------------------------------------------
+                # FRASE COM TODOS OS TERMOS DO TEMA
+                # ------------------------------------------------
+    
+                if encontrados == len(
+                    radicais_tema
+                ):
+    
+                    frases_relevantes += 1
+    
+                    # --------------------------------------------
+                    # PROXIMIDADE DOS TERMOS
+                    #
+                    # Quanto mais próximos os termos do tema,
+                    # maior a evidência de que formam um assunto
+                    # único dentro da frase.
+                    # --------------------------------------------
+    
+                    if len(posicoes) >= 2:
+    
+                        distancia = (
+                            max(posicoes)
+                            -
+                            min(posicoes)
+                        )
+    
+                        if distancia <= 8:
+    
+                            encontrou_proximidade = True
+    
+                elif encontrados > 0:
+    
+                    # --------------------------------------------
+                    # Frase parcialmente relacionada.
+                    #
+                    # Só recebe peso se houver uma quantidade
+                    # relevante dos termos do tema.
+                    # --------------------------------------------
+    
+                    if (
+                        encontrados
+                        /
+                        len(radicais_tema)
+                    ) >= 0.5:
+    
+                        frases_relevantes += 1
+    
+    
+            # ----------------------------------------------------
+            # PROPORÇÃO DE FRASES RELACIONADAS
+            # ----------------------------------------------------
+    
+            proporcao_relevante = (
+                frases_relevantes
+                /
+                len(frases)
+            )
+    
+    
+            # ----------------------------------------------------
+            # REGRA PARA TEMAS COMPOSTOS
+            #
+            # Exemplo:
+            #
+            # "bomba centrífuga"
+            #
+            # Os dois termos precisam aparecer juntos em pelo
+            # menos uma frase quando isso for possível.
+            # ----------------------------------------------------
+    
+            if len(radicais_tema) >= 2:
+    
+                if not encontrou_proximidade:
+    
+                    return False
+    
+    
+            # ----------------------------------------------------
+            # REGRA DE PREDOMINÂNCIA
+            #
+            # Fragmentos muito curtos podem ter somente uma frase.
+            # Nesse caso, a presença contextual é suficiente.
+            #
+            # Em fragmentos com várias frases, o tema precisa
+            # aparecer em uma parcela relevante do conteúdo.
+            # ----------------------------------------------------
+    
+            if len(frases) == 1:
+    
+                return (
+                    maior_aderencia_frase >= 0.5
+                )
+    
+    
+            if len(frases) == 2:
+    
+                return (
+                    proporcao_relevante >= 0.5
+                )
+    
+    
+            if len(frases) >= 3:
+    
+                return (
+                    proporcao_relevante >= 0.5
+                    or
+                    (
+                        maior_aderencia_frase >= 1.0
+                        and
+                        proporcao_relevante >= 0.34
+                    )
+                )
+    
+    
+            return False        
     # ========================================================
     # 06.4 ORGANIZAR CANDIDATOS POR BLOCO
     # ========================================================
