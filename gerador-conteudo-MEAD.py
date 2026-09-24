@@ -31095,6 +31095,124 @@ def executar():
 
                 })
 
+
+    # ========================================================
+    # 16.9 IDENTIFICAR EMPRESA FONTE
+    # ========================================================
+    
+    def identificar_empresa_fonte(
+        texto,
+        url
+    ):
+        """
+        Identifica a empresa/entidade associada à fonte.
+    
+        IMPORTANTE:
+        - Não inventa nomes.
+        - Não considera automaticamente o domínio como fabricante.
+        - Retorna informações suficientes para serem vinculadas
+        posteriormente ao fragmento/hash.
+        """
+    
+        texto = str(
+            texto or ""
+        ).strip()
+    
+        url = str(
+            url or ""
+        ).strip()
+    
+        resultado = {
+            "nome": "",
+            "dominio": "",
+            "papel": "",
+            "origem_identificacao": "",
+            "confianca": "baixa"
+        }
+    
+        if not texto and not url:
+            return resultado
+    
+        # --------------------------------------------------------
+        # DOMÍNIO DA FONTE
+        # --------------------------------------------------------
+    
+        dominio = ""
+    
+        try:
+            from urllib.parse import urlparse
+    
+            dominio = (
+                urlparse(url)
+                .netloc
+                .lower()
+                .strip()
+            )
+    
+            if dominio.startswith("www."):
+                dominio = dominio[4:]
+    
+        except Exception:
+            dominio = ""
+    
+        resultado["dominio"] = dominio
+    
+        # --------------------------------------------------------
+        # PADRÕES DE IDENTIFICAÇÃO EXPLÍCITA
+        # --------------------------------------------------------
+    
+        padroes = [
+    
+            r"(?:fabricado|fabricante)\s+(?:pela|por)\s+([A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.' -]{2,80})",
+    
+            r"(?:produzido|produzida)\s+(?:pela|por)\s+([A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.' -]{2,80})",
+    
+            r"(?:distribuído|distribuída)\s+(?:pela|por)\s+([A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.' -]{2,80})",
+    
+            r"(?:empresa|fabricante|fornecedor)\s*:\s*([A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.' -]{2,80})",
+    
+            r"(?:razão social)\s*:\s*([A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.' -]{2,100})",
+    
+        ]
+    
+        for padrao in padroes:
+    
+            try:
+                correspondencia = re.search(
+                    padrao,
+                    texto,
+                    flags=re.IGNORECASE
+                )
+    
+            except Exception:
+                correspondencia = None
+    
+            if not correspondencia:
+                continue
+    
+            nome = (
+                correspondencia.group(1)
+                .strip()
+                .strip(".,;:-")
+            )
+    
+            if not nome:
+                continue
+    
+            resultado["nome"] = nome
+            resultado["papel"] = "empresa"
+            resultado["origem_identificacao"] = "texto"
+            resultado["confianca"] = "alta"
+    
+            return resultado
+    
+        # --------------------------------------------------------
+        # NENHUMA IDENTIFICAÇÃO SEGURA
+        # --------------------------------------------------------
+    
+        return resultado
+    
+    
     # ========================================================
     # 17. LIMPAR REFERÊNCIAS
     # ========================================================
