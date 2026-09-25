@@ -11146,7 +11146,8 @@ def selecionar_informacoes_relevantes(
     # ========================================================
 
     def fragmento_eh_comercialmente_limpo(
-        texto
+        texto,
+        identidade_fonte=None
     ):
 
         texto = str(
@@ -11161,6 +11162,44 @@ def selecionar_informacoes_relevantes(
                 texto
             )
         )
+
+        # ----------------------------------------------------
+        # 00. BLOQUEAR NOME DA EMPRESA DA FONTE
+        # ----------------------------------------------------
+        #
+        # A identidade da fonte existe para rastreabilidade,
+        # mas o nome da empresa não deve entrar no patrimônio
+        # informacional utilizado na redação.
+        # ----------------------------------------------------
+
+        if isinstance(
+            identidade_fonte,
+            dict
+        ):
+
+            nome_empresa = str(
+                identidade_fonte.get(
+                    "nome",
+                    ""
+                )
+            ).strip()
+
+            if nome_empresa:
+
+                nome_empresa_normalizado = (
+                    normalizar_assunto_texto(
+                        nome_empresa
+                    )
+                )
+
+                if (
+                    nome_empresa_normalizado
+                    and
+                    nome_empresa_normalizado
+                    in texto_normalizado
+                ):
+
+                    return False
 
         # ----------------------------------------------------
         # 01. URL / DOMÍNIO / E-MAIL
@@ -11502,7 +11541,8 @@ def selecionar_informacoes_relevantes(
     # ========================================================
 
     def fragmento_eh_editorialmente_valido(
-        texto
+        texto,
+        identidade_fonte=None
     ):
     
         texto_original = str(
@@ -11520,12 +11560,13 @@ def selecionar_informacoes_relevantes(
         # código, referência ou identificação comercial,
         # ele não entra na seleção.
         # ----------------------------------------------------
-    
+
         if not fragmento_eh_comercialmente_limpo(
-            texto_original
+            texto_original,
+            identidade_fonte
         ):
             return False
-    
+
         return True
 
 
@@ -11860,7 +11901,11 @@ def selecionar_informacoes_relevantes(
             # ------------------------------------------------
 
             if not fragmento_eh_editorialmente_valido(
-                texto_fragmento
+                texto_fragmento,
+                fonte.get(
+                    "identidade_fonte",
+                    {}
+                )
             ):
 
                 print()
