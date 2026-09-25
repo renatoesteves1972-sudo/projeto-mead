@@ -20893,14 +20893,36 @@ def identificar_empresa_fonte(
 ):
 
     """
-    Identifica uma empresa ou entidade explicitamente mencionada
-    como fabricante, fornecedor, distribuidor ou empresa responsável
-    pela informação.
+    Identifica de forma conservadora uma empresa ou marca
+    explicitamente mencionada no conteúdo da fonte.
 
-    IMPORTANTE:
+    REGRAS:
+
     - Não inventa nomes.
-    - Não transforma automaticamente o domínio em fabricante.
-    - A identidade fica vinculada posteriormente ao fragmento/hash.
+    - Não considera automaticamente o domínio como empresa.
+    - O domínio é preservado apenas como informação da fonte.
+    - Prioriza identificações explícitas no texto.
+    - Aceita construções como:
+        "fabricado pela Empresa X"
+        "produzido pela Empresa X"
+        "distribuído pela Empresa X"
+        "fornecedor: Empresa X"
+        "fabricante: Empresa X"
+        "razão social: Empresa X"
+        "A Pumps Brasil é..."
+        "Pumps Brasil é..."
+        "As bombas Sanitárias BOMBINOX são..."
+        "BOMBINOX, uma empresa..."
+
+    Retorno:
+
+    {
+        "nome": "",
+        "dominio": "",
+        "papel": "",
+        "origem_identificacao": "",
+        "confianca": "baixa"
+    }
     """
 
     texto = str(
@@ -20910,7 +20932,6 @@ def identificar_empresa_fonte(
     url = str(
         url or ""
     ).strip()
-
 
     resultado = {
 
@@ -20922,14 +20943,12 @@ def identificar_empresa_fonte(
 
     }
 
-
     if not texto and not url:
 
         return resultado
 
-
     # ========================================================
-    # EXTRAIR DOMÍNIO
+    # 01. IDENTIFICAR DOMÍNIO
     # ========================================================
 
     dominio = ""
@@ -20938,115 +20957,416 @@ def identificar_empresa_fonte(
 
         from urllib.parse import urlparse
 
-        dominio = urlparse(
-            url
-        ).netloc.lower().strip()
+        dominio = (
+            urlparse(url)
+            .netloc
+            .lower()
+            .strip()
+        )
 
         if dominio.startswith("www."):
 
             dominio = dominio[4:]
 
-
     except Exception:
 
         dominio = ""
 
-
-    resultado["dominio"] = dominio
-
+    resultado[
+        "dominio"
+    ] = dominio
 
     # ========================================================
-    # IDENTIFICAÇÃO EXPLÍCITA NO TEXTO
+    # 02. NORMALIZAR TEXTO
     # ========================================================
 
-    padroes = [
+    texto_analise = re.sub(
+        r"\s+",
+        " ",
+        texto
+    ).strip()
+
+    if not texto_analise:
+
+        return resultado
+
+    # ========================================================
+    # 03. IDENTIFICAÇÕES EXPLÍCITAS
+    # ========================================================
+    #
+    # São os casos de maior confiança.
+    # ========================================================
+
+    padroes_explicitos = [
+
+        # ----------------------------------------------------
+        # fabricado por / fabricado pela
+        # ----------------------------------------------------
 
         (
-            r"(?:fabricado|fabricada|fabricante)"
+            r"(?:fabricado|fabricada|fabricados|fabricadas)"
             r"\s+(?:pela|pelo|por)\s+"
-            r"([A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.' -]{2,80})",
+            r"([A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.'’\- ]{2,100}?)"
+            r"(?=\s+(?:e|é|são|possui|atua|oferece|"
+            r"fabrica|produz|fornece|distribui)|[.,;:])",
+
             "fabricante"
         ),
+
+        # ----------------------------------------------------
+        # produzido por / produzido pela
+        # ----------------------------------------------------
 
         (
             r"(?:produzido|produzida|produzidos|produzidas)"
             r"\s+(?:pela|pelo|por)\s+"
-            r"([A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.' -]{2,80})",
+            r"([A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.'’\- ]{2,100}?)"
+            r"(?=\s+(?:e|é|são|possui|atua|oferece|"
+            r"fabrica|produz|fornece|distribui)|[.,;:])",
+
             "fabricante"
         ),
 
+        # ----------------------------------------------------
+        # distribuído por / distribuído pela
+        # ----------------------------------------------------
+
         (
-            r"(?:distribuído|distribuída|distribuidor)"
+            r"(?:distribuído|distribuída|distribuídos|distribuídas)"
             r"\s+(?:pela|pelo|por)\s+"
-            r"([A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.' -]{2,80})",
+            r"([A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.'’\- ]{2,100}?)"
+            r"(?=\s+(?:e|é|são|possui|atua|oferece|"
+            r"fabrica|produz|fornece|distribui)|[.,;:])",
+
             "distribuidor"
         ),
 
+        # ----------------------------------------------------
+        # fornecido por / fornecido pela
+        # ----------------------------------------------------
+
         (
-            r"(?:fornecido|fornecida|fornecedor)"
+            r"(?:fornecido|fornecida|fornecidos|fornecidas)"
             r"\s+(?:pela|pelo|por)\s+"
-            r"([A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.' -]{2,80})",
+            r"([A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.'’\- ]{2,100}?)"
+            r"(?=\s+(?:e|é|são|possui|atua|oferece|"
+            r"fabrica|produz|fornece|distribui)|[.,;:])",
+
             "fornecedor"
         ),
+
+        # ----------------------------------------------------
+        # fabricante / fornecedor / empresa: X
+        # ----------------------------------------------------
 
         (
             r"(?:empresa|fabricante|fornecedor)"
             r"\s*:\s*"
-            r"([A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.' -]{2,80})",
+            r"([A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.'’\- ]{2,100}?)"
+            r"(?=\s+(?:e|é|são|atua|oferece|fabrica|produz|"
+            r"fornece|distribui)|[.,;:])",
+
             "empresa"
         ),
 
+        # ----------------------------------------------------
+        # razão social: X
+        # ----------------------------------------------------
+
         (
-            r"(?:razão social)"
+            r"razão\s+social"
             r"\s*:\s*"
-            r"([A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.' -]{2,100})",
+            r"([A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.'’\- ]{2,120}?)"
+            r"(?=\s+(?:e|é|são|atua|oferece)|[.,;:])",
+
             "empresa"
         )
 
     ]
 
+    # ========================================================
+    # 04. EXECUTAR IDENTIFICAÇÕES EXPLÍCITAS
+    # ========================================================
 
-    for padrao, papel in padroes:
+    for padrao, papel in padroes_explicitos:
 
         try:
 
             correspondencia = re.search(
                 padrao,
-                texto
+                texto_analise,
+                flags=re.IGNORECASE
             )
 
         except Exception:
 
             correspondencia = None
 
-
         if not correspondencia:
 
             continue
 
-
-        nome = correspondencia.group(
-            1
-        ).strip().strip(
-            ".,;:-"
+        nome = (
+            correspondencia.group(1)
+            .strip()
+            .strip(" .,;:-")
         )
-
 
         if not nome:
 
             continue
 
+        if len(nome) > 120:
 
-        resultado["nome"] = nome
+            continue
 
-        resultado["papel"] = papel
+        resultado[
+            "nome"
+        ] = nome
 
-        resultado["origem_identificacao"] = "texto"
+        resultado[
+            "papel"
+        ] = papel
 
-        resultado["confianca"] = "alta"
+        resultado[
+            "origem_identificacao"
+        ] = "texto"
+
+        resultado[
+            "confianca"
+        ] = "alta"
 
         return resultado
 
+    # ========================================================
+    # 05. EMPRESA APRESENTADA COMO SUJEITO
+    # ========================================================
+    #
+    # Exemplos:
+    #
+    #   "A Pumps Brasil é capacitada..."
+    #   "A Pumps Brasil é especializada..."
+    #   "Pumps Brasil é fabricante..."
+    #
+    # O nome precisa estar associado a uma construção
+    # característica de apresentação empresarial.
+    # ========================================================
+
+    padroes_apresentacao = [
+
+        # ----------------------------------------------------
+        # "a Pumps Brasil é..."
+        # "o Grupo X oferece..."
+        # ----------------------------------------------------
+
+        (
+            r"\b(?:a|o)\s+"
+            r"([A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.'’\-]+"
+            r"(?:\s+[A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.'’\-]+){0,5})"
+            r"\s*,?\s+"
+            r"(?:é|são|atua|oferece|fornece|fabrica|produz|"
+            r"distribui|comercializa|especializada|especializado)"
+            r"\b"
+        ),
+
+        # ----------------------------------------------------
+        # "Pumps Brasil é..."
+        # ----------------------------------------------------
+
+        (
+            r"\b"
+            r"([A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.'’\-]+"
+            r"(?:\s+[A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.'’\-]+){0,5})"
+            r"\s+"
+            r"(?:é|são|atua|oferece|fornece|fabrica|produz|"
+            r"distribui|comercializa|especializada|especializado)"
+            r"\b"
+        )
+
+    ]
+
+    palavras_invalidas = {
+
+        "empresa",
+        "fabricante",
+        "fornecedor",
+        "produto",
+        "produtos",
+        "bomba",
+        "bombas",
+        "equipamento",
+        "equipamentos",
+        "sistema",
+        "sistemas",
+        "indústria",
+        "industria",
+        "indústrias",
+        "industrias",
+        "mercado",
+        "setor",
+        "segmento",
+        "solução",
+        "solucao",
+        "soluções",
+        "solucoes"
+
+    }
+
+    for padrao in padroes_apresentacao:
+
+        try:
+
+            correspondencia = re.search(
+                padrao,
+                texto_analise
+            )
+
+        except Exception:
+
+            correspondencia = None
+
+        if not correspondencia:
+
+            continue
+
+        nome = (
+            correspondencia.group(1)
+            .strip()
+            .strip(" .,;:-")
+        )
+
+        if not nome:
+
+            continue
+
+        if len(nome) > 100:
+
+            continue
+
+        if nome.casefold() in palavras_invalidas:
+
+            continue
+
+        resultado[
+            "nome"
+        ] = nome
+
+        resultado[
+            "papel"
+        ] = "empresa"
+        
+        resultado[
+            "origem_identificacao"
+        ] = "texto"
+
+        resultado[
+            "confianca"
+        ] = "alta"
+
+        return resultado
+
+    # ========================================================
+    # 06. MARCA EM CAIXA ALTA
+    # ========================================================
+    #
+    # Exemplos:
+    #
+    #   "As bombas Sanitárias BOMBINOX são..."
+    #   "BOMBINOX são..."
+    #   "BOMBINOX, uma empresa..."
+    #
+    # Não considerar qualquer palavra em caixa alta
+    # isoladamente como empresa.
+    # ========================================================
+
+    padroes_marca = [
+
+        # ----------------------------------------------------
+        # "BOMBINOX são..."
+        # ----------------------------------------------------
+
+        (
+            r"\b"
+            r"([A-ZÁÀÃÂÉÊÍÓÔÕÚÇ]{3,}"
+            r"[A-Z0-9ÁÀÃÂÉÊÍÓÔÕÚÇ&.\-]*)"
+            r"\s+"
+            r"(?:é|são|atua|oferece|fabrica|produz|"
+            r"fornece|distribui|comercializa)"
+            r"\b"
+        ),
+
+        # ----------------------------------------------------
+        # "BOMBINOX, uma empresa..."
+        # ----------------------------------------------------
+
+        (
+            r"\b"
+            r"([A-ZÁÀÃÂÉÊÍÓÔÕÚÇ]{3,}"
+            r"[A-Z0-9ÁÀÃÂÉÊÍÓÔÕÚÇ&.\-]*)"
+            r"\s*,?\s+"
+            r"(?:uma|um)\s+"
+            r"(?:empresa|fabricante|fornecedor|marca)"
+            r"\b"
+        )
+
+    ]
+
+    for padrao in padroes_marca:
+
+        try:
+
+            correspondencia = re.search(
+                padrao,
+                texto_analise
+            )
+
+        except Exception:
+
+            correspondencia = None
+
+        if not correspondencia:
+
+            continue
+
+        nome = (
+            correspondencia.group(1)
+            .strip()
+            .strip(" .,;:-")
+        )
+
+        if not nome:
+
+            continue
+
+        if len(nome) < 3:
+
+            continue
+
+        resultado[
+            "nome"
+        ] = nome
+
+        resultado[
+            "papel"
+        ] = "empresa"
+
+        resultado[
+            "origem_identificacao"
+        ] = "texto"
+
+        resultado[
+            "confianca"
+        ] = "media"
+
+        return resultado
+
+    # ========================================================
+    # 07. NENHUMA EMPRESA IDENTIFICADA
+    # ========================================================
+    #
+    # Não inventar nada.
+    # O domínio permanece preservado.
+    # ========================================================
 
     return resultado
     
