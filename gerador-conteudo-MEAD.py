@@ -11351,35 +11351,51 @@ def selecionar_informacoes_relevantes(
 
 
             # ------------------------------------------------
+            # IDENTIFICAR IDENTIDADE DA FONTE
+            # ------------------------------------------------
+            
+            identidade_fonte = fonte.get(
+                "identidade_fonte",
+                {}
+            )
+            
+            if not isinstance(identidade_fonte, dict):
+                identidade_fonte = {}
+            
+            if not identidade_fonte:
+                identidade_fonte = identificar_empresa_fonte(
+                    texto_fragmento,
+                    fonte.get("url", "")
+                )
+                
+            
+            # ------------------------------------------------
             # SALVAR CANDIDATO
             # ------------------------------------------------
-
+            
             candidatos.append({
-
+            
                 "texto":
                     texto_fragmento,
-
+            
                 "fonte":
                     fonte["indice"],
-
+            
                 "url":
                     fonte["url"],
-
+            
                 "tipo":
                     fonte["tipo"],
-
+            
                 "pdf":
                     fonte["eh_pdf"],
-
+            
                 "palavras":
                     quantidade,
-
+            
                 "identidade_fonte":
-                    fonte.get(
-                        "identidade_fonte",
-                        {}
-                    )
-
+                    identidade_fonte
+            
             })
 
 
