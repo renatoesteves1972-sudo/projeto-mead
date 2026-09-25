@@ -4742,7 +4742,14 @@ def salvar_bruto(
                     "tipo": tipo,
                     "texto": texto
                 }
-
+                
+                identidade_fonte = pagina.get(
+                    "identidade_fonte"
+                )
+                
+                if isinstance(identidade_fonte, dict):
+                    fonte["identidade_fonte"] = identidade_fonte
+                    
                 # ------------------------------------------------
                 # PRESERVAR METADADOS DA FONTE EXISTENTE
                 # ------------------------------------------------
@@ -5163,17 +5170,20 @@ def carregar_bruto(tema):
             textos.append({
 
                 "texto": texto,
-
+            
                 "url": item.get(
-
                     "url",
-
                     ""
-
                 ),
-
-                "tipo": tipo
-
+            
+                "tipo": tipo,
+            
+                "identidade_fonte":
+                    item.get(
+                        "identidade_fonte",
+                        {}
+                    )
+            
             })
 
 
@@ -32056,6 +32066,24 @@ def executar():
     # 12.a SALVAR NOVO BRUTO
     # ========================================================
     
+    
+    identidades_por_url = {
+        item.get("url", ""):
+            item.get("identidade_fonte")
+        for item in paginas
+        if isinstance(item, dict)
+    }
+    
+    for item in textos:
+    
+        identidade = identidades_por_url.get(
+            item.get("url", "")
+        )
+    
+        if isinstance(identidade, dict):
+            item["identidade_fonte"] = identidade
+        
+        
     if paginas:
     
         print()
