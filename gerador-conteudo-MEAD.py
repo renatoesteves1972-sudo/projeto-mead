@@ -15410,7 +15410,7 @@ def selecionar_informacoes_relevantes(
         # PRESERVAR O FRAGMENTO COMPLETO
         # ----------------------------------------------------
 
-                dados_fragmento = {
+        dados_fragmento = {
 
             "id":
                 fragmento["id"],
