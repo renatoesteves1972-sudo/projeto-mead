@@ -2633,7 +2633,534 @@ def url_valida(url):
     return True
     
     
+# ============================================================
+# IDENTIFICAR EMPRESA DENTRO DO PRÓPRIO SITE
+# ============================================================
+#
+# A pesquisa principal encontra fontes técnicas.
+#
+# Esta etapa é complementar:
+# - pega os domínios das fontes aprovadas;
+# - procura páginas institucionais dentro do mesmo domínio;
+# - tenta identificar a empresa oficialmente;
+# - grava a identidade na própria fonte.
+#
+# Não utiliza outro domínio.
+# Não utiliza pesquisa externa para descobrir a empresa.
+# ============================================================
 
+def identificar_empresa_no_site(paginas):
+
+    if not isinstance(paginas, list):
+        return paginas
+
+    # --------------------------------------------------------
+    # Palavras que indicam páginas institucionais
+    # --------------------------------------------------------
+
+    termos_institucionais = [
+        "empresa",
+        "quem somos",
+        "sobre",
+        "institucional",
+        "a empresa",
+        "sobre nós",
+        "sobre-nos",
+        "quem-somos"
+    ]
+
+    # --------------------------------------------------------
+    # Domínios já processados
+    # --------------------------------------------------------
+
+    identidades_por_dominio = {}
+
+    # --------------------------------------------------------
+    # Normalizar domínio
+    # --------------------------------------------------------
+
+    def obter_dominio(url):
+
+        try:
+
+            from urllib.parse import urlparse
+
+            resultado = urlparse(
+                str(url or "").strip()
+            )
+
+            dominio = resultado.netloc.lower()
+
+            dominio = re.sub(
+                r"^www\.",
+                "",
+                dominio
+            )
+
+            return dominio.strip()
+
+        except Exception:
+
+            return ""
+
+    # --------------------------------------------------------
+    # Procurar links institucionais dentro da página
+    # --------------------------------------------------------
+
+    def localizar_links_institucionais(
+        url,
+        html
+    ):
+
+        links_encontrados = []
+
+        try:
+
+            soup = BeautifulSoup(
+                html,
+                "html.parser"
+            )
+
+            dominio_origem = obter_dominio(
+                url
+            )
+
+            for a in soup.find_all(
+                "a",
+                href=True
+            ):
+
+                href = str(
+                    a.get(
+                        "href",
+                        ""
+                    )
+                ).strip()
+
+                texto_link = a.get_text(
+                    " ",
+                    strip=True
+                ).casefold()
+
+                if not href:
+                    continue
+
+                # --------------------------------------------
+                # O link precisa indicar uma página institucional
+                # --------------------------------------------
+
+                eh_institucional = False
+
+                for termo in termos_institucionais:
+
+                    if termo in texto_link:
+
+                        eh_institucional = True
+                        break
+
+                # Também verifica o próprio endereço
+                href_lower = href.casefold()
+
+                if not eh_institucional:
+
+                    for termo in termos_institucionais:
+
+                        termo_url = (
+                            termo
+                            .replace(" ", "-")
+                        )
+
+                        if termo_url in href_lower:
+
+                            eh_institucional = True
+                            break
+
+                if not eh_institucional:
+                    continue
+
+                # --------------------------------------------
+                # Transformar URL relativa em absoluta
+                # --------------------------------------------
+
+                from urllib.parse import urljoin
+
+                url_final = urljoin(
+                    url,
+                    href
+                )
+
+                dominio_link = obter_dominio(
+                    url_final
+                )
+
+                # --------------------------------------------
+                # Segurança:
+                # permanecer no mesmo domínio
+                # --------------------------------------------
+
+                if not dominio_link:
+                    continue
+
+                if dominio_link != dominio_origem:
+                    continue
+
+                if url_final not in links_encontrados:
+
+                    links_encontrados.append(
+                        url_final
+                    )
+
+                # Limite para não fazer buscas excessivas
+                if len(links_encontrados) >= 5:
+                    break
+
+        except Exception as erro:
+
+            print(
+                "⚠️ Erro ao localizar página institucional:",
+                erro
+            )
+
+        return links_encontrados
+
+    # --------------------------------------------------------
+    # Processar cada fonte
+    # --------------------------------------------------------
+
+    for pagina in paginas:
+
+        if not isinstance(
+            pagina,
+            dict
+        ):
+            continue
+
+        url_fonte = str(
+            pagina.get(
+                "url",
+                ""
+            )
+        ).strip()
+
+        if not url_fonte:
+            continue
+
+        dominio = obter_dominio(
+            url_fonte
+        )
+
+        if not dominio:
+            continue
+
+        # ----------------------------------------------------
+        # Se este domínio já foi processado,
+        # reutilizar a identidade.
+        # ----------------------------------------------------
+
+        if dominio in identidades_por_dominio:
+
+            pagina[
+                "identidade_fonte"
+            ] = identidades_por_dominio[
+                dominio
+            ]
+
+            continue
+
+        print()
+        print(
+            "========================================"
+        )
+        print(
+            "PESQUISA INSTITUCIONAL DO SITE"
+        )
+        print(
+            "========================================"
+        )
+
+        print(
+            "DOMÍNIO:",
+            dominio
+        )
+
+        identidade = {
+            "nome": "",
+            "dominio": dominio,
+            "papel": "",
+            "origem_identificacao": "",
+            "confianca": "baixa"
+        }
+
+        urls_institucionais = []
+
+        # ----------------------------------------------------
+        # Primeiro tenta a própria página da fonte.
+        # Ela pode conter o link "Empresa".
+        # ----------------------------------------------------
+
+        try:
+
+            resposta = requests.get(
+                url_fonte,
+                timeout=20,
+                headers={
+                    "User-Agent":
+                        "Mozilla/5.0"
+                }
+            )
+
+            if resposta.ok:
+
+                urls_institucionais = (
+                    localizar_links_institucionais(
+                        url_fonte,
+                        resposta.text
+                    )
+                )
+
+        except Exception as erro:
+
+            print(
+                "⚠️ Não foi possível analisar a fonte:",
+                erro
+            )
+
+        # ----------------------------------------------------
+        # Se não encontrou link, tenta caminhos conhecidos
+        # dentro do MESMO domínio.
+        # ----------------------------------------------------
+
+        if not urls_institucionais:
+
+            base_url = (
+                f"https://{dominio}"
+            )
+
+            caminhos = [
+                "/empresa",
+                "/quem-somos",
+                "/quem_somos",
+                "/sobre",
+                "/sobre-nos",
+                "/sobre_nos",
+                "/institucional",
+                "/a-empresa",
+                "/a_empresa"
+            ]
+
+            for caminho in caminhos:
+
+                url_teste = (
+                    base_url
+                    +
+                    caminho
+                )
+
+                try:
+
+                    resposta = requests.get(
+                        url_teste,
+                        timeout=15,
+                        headers={
+                            "User-Agent":
+                                "Mozilla/5.0"
+                        },
+                        allow_redirects=True
+                    )
+
+                    if not resposta.ok:
+                        continue
+
+                    url_real = str(
+                        resposta.url or ""
+                    ).strip()
+
+                    dominio_real = obter_dominio(
+                        url_real
+                    )
+
+                    if dominio_real != dominio:
+                        continue
+
+                    if len(
+                        resposta.text
+                    ) < 500:
+
+                        continue
+
+                    urls_institucionais.append(
+                        url_real
+                    )
+
+                    if len(
+                        urls_institucionais
+                    ) >= 3:
+
+                        break
+
+                except Exception:
+
+                    continue
+
+        # ----------------------------------------------------
+        # Analisar páginas institucionais encontradas
+        # ----------------------------------------------------
+
+        for url_institucional in (
+            urls_institucionais
+        ):
+
+            print(
+                "PÁGINA INSTITUCIONAL:",
+                url_institucional
+            )
+
+            try:
+
+                resposta = requests.get(
+                    url_institucional,
+                    timeout=20,
+                    headers={
+                        "User-Agent":
+                            "Mozilla/5.0"
+                    },
+                    allow_redirects=True
+                )
+
+                if not resposta.ok:
+                    continue
+
+                texto_institucional = ""
+
+                try:
+
+                    soup = BeautifulSoup(
+                        resposta.text,
+                        "html.parser"
+                    )
+
+                    for elemento in soup(
+                        [
+                            "script",
+                            "style",
+                            "noscript"
+                        ]
+                    ):
+
+                        elemento.decompose()
+
+                    texto_institucional = soup.get_text(
+                        " ",
+                        strip=True
+                    )
+
+                except Exception:
+
+                    texto_institucional = ""
+
+                texto_institucional = re.sub(
+                    r"\s+",
+                    " ",
+                    texto_institucional
+                ).strip()
+
+                if len(
+                    texto_institucional
+                ) < 100:
+
+                    continue
+
+                # ------------------------------------------------
+                # Usa a função de identificação já existente.
+                # ------------------------------------------------
+
+                resultado = identificar_empresa_fonte(
+                    texto_institucional,
+                    url_institucional
+                )
+
+                if isinstance(
+                    resultado,
+                    dict
+                ):
+
+                    nome = str(
+                        resultado.get(
+                            "nome",
+                            ""
+                        )
+                    ).strip()
+
+                    dominio_resultado = str(
+                        resultado.get(
+                            "dominio",
+                            ""
+                        )
+                    ).strip()
+
+                    if nome:
+
+                        identidade = {
+                            "nome": nome,
+                            "dominio":
+                                dominio_resultado
+                                or dominio,
+                            "papel":
+                                str(
+                                    resultado.get(
+                                        "papel",
+                                        ""
+                                    )
+                                ).strip(),
+                            "origem_identificacao":
+                                "pagina_institucional",
+                            "confianca":
+                                "alta"
+                        }
+
+                        break
+
+            except Exception as erro:
+
+                print(
+                    "⚠️ Erro na página institucional:",
+                    erro
+                )
+
+        # ----------------------------------------------------
+        # Se não encontrou nome, pelo menos preserva domínio.
+        # ----------------------------------------------------
+
+        if not identidade.get(
+            "dominio"
+        ):
+
+            identidade[
+                "dominio"
+            ] = dominio
+
+        # ----------------------------------------------------
+        # Guardar identidade por domínio
+        # ----------------------------------------------------
+
+        identidades_por_dominio[
+            dominio
+        ] = identidade
+
+        # ----------------------------------------------------
+        # Anexar à fonte atual
+        # ----------------------------------------------------
+
+        pagina[
+            "identidade_fonte"
+        ] = identidade
+
+        print(
+            "IDENTIDADE ENCONTRADA:",
+            identidade
+        )
+
+    return paginas
 
     
 
@@ -31511,21 +32038,36 @@ def executar():
             )
 
     # ========================================================
-    # 12. SALVAR NOVO BRUTO
+    # 12. IDENTIFICAR EMPRESAS NOS SITES DAS FONTES
     # ========================================================
-
+    
     if paginas:
-
+    
+        print()
+        print("==============================")
+        print("IDENTIFICANDO EMPRESAS NOS SITES")
+        print("==============================")
+    
+        paginas = identificar_empresa_no_site(
+            paginas
+        )
+    
+    # ========================================================
+    # 12.a SALVAR NOVO BRUTO
+    # ========================================================
+    
+    if paginas:
+    
         print()
         print("==============================")
         print("SALVANDO NOVO BRUTO")
         print("==============================")
-
+    
         salvar_bruto(
             tema,
             paginas
         )
-
+        
     else:
 
         print()
