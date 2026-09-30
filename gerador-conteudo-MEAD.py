@@ -1,4 +1,4 @@
-# versão 2.2 - 30/09
+# versão 4 - 30/09
 
 import json
 import os
@@ -12050,417 +12050,437 @@ def selecionar_informacoes_relevantes(
         return True
         
         
-    # ----------------------------------------------------
-    # CRIAR CANDIDATO A PARTIR DA POSIÇÃO ORIGINAL
-    # ----------------------------------------------------
+        # ----------------------------------------------------
+        # CRIAR CANDIDATO A PARTIR DA POSIÇÃO ORIGINAL
+        # ----------------------------------------------------
 
-    def adicionar_candidato_por_palavras(
-        indice_inicio,
-        indice_fim
-    ):
-
-        nonlocal estatisticas_qualidade
-
-        estatisticas_qualidade["avaliados"] += 1
-
-        if (
-            indice_inicio < 0
-            or
-            indice_fim <= indice_inicio
-            or
-            indice_inicio >= len(mapa_palavras)
-            or
-            indice_fim > len(mapa_palavras)
+        def adicionar_candidato_por_palavras(
+            indice_inicio,
+            indice_fim
         ):
-            return
+
+            nonlocal estatisticas_qualidade
+
+            if (
+                indice_inicio < 0
+                or
+                indice_fim <= indice_inicio
+                or
+                indice_inicio >= len(mapa_palavras)
+                or
+                indice_fim > len(mapa_palavras)
+            ):
+                return
 
 
-        # ------------------------------------------------
-        # POSIÇÃO REAL NO TEXTO ORIGINAL
-        # ------------------------------------------------
-
-        inicio_original = (
-            mapa_palavras[
-                indice_inicio
-            ]["original_inicio"]
-        )
-
-        fim_original = (
-            mapa_palavras[
-                indice_fim - 1
-            ]["original_fim"]
-        )
-
-
-        # ------------------------------------------------
-        # EXTRAIR DO TEXTO ORIGINAL
-        # ------------------------------------------------
-        #
-        # Aqui está a correção principal.
-        #
-        # O candidato não é reconstruído.
-        # Ele é recortado diretamente da fonte original.
-        # ------------------------------------------------
-
-        texto_fragmento = (
-            texto_original[
-                inicio_original:fim_original
-            ]
-        ).strip()
-
-        if not texto_fragmento:
-            return
-
-
-        quantidade = len(
-            re.findall(
-                r"\S+",
-                texto_fragmento
-            )
-        )
-
-        if (
-            quantidade
-            <
-            MIN_PALAVRAS_FRAGMENTO
-            or
-            quantidade
-            >
-            MAX_PALAVRAS_FRAGMENTO
-        ):
-            return
-                
-                
-            
-        # ------------------------------------------------
-        # IDENTIFICAR IDENTIDADE DA FONTE
-        # ------------------------------------------------
-            
-        identidade_fonte = fonte.get(
-            "identidade_fonte",
-            {}
-        )
-            
-        if not isinstance(identidade_fonte, dict):
-            identidade_fonte = {}
-            
-        if not identidade_fonte:
-            identidade_fonte = identificar_empresa_fonte(
-                texto_fragmento,
-                fonte.get("url", "")
-            )
-                
-                
-
-        # ------------------------------------------------
-        # FILTRO EDITORIAL
-        # ------------------------------------------------
-        #
-        # O fragmento precisa ser tecnicamente aproveitável,
-        # mas não podemos eliminar todo o patrimônio antes
-        # da etapa de seleção.
-        #
-        # A seleção posterior ainda aplica:
-        # - aderência ao tema;
-        # - qualidade estrutural;
-        # - diversidade;
-        # - repetição;
-        # - pontuação editorial.
-        #
-        # ------------------------------------------------
-            
-        editorialmente_valido = (
-            fragmento_eh_editorialmente_valido(
-                texto_fragmento,
-                identidade_fonte
-            )
-        )
-            
-        if not editorialmente_valido:
-            
-            estatisticas_qualidade[
-                "qualidade_estrutural"
-            ] += 1
-            
             # ------------------------------------------------
-            # FALLBACK CONTROLADO
+            # POSIÇÃO REAL NO TEXTO ORIGINAL
+            # ------------------------------------------------
+
+            inicio_original = (
+                mapa_palavras[
+                    indice_inicio
+                ]["original_inicio"]
+            )
+
+            fim_original = (
+                mapa_palavras[
+                    indice_fim - 1
+                ]["original_fim"]
+            )
+
+
+            # ------------------------------------------------
+            # EXTRAIR DO TEXTO ORIGINAL
             # ------------------------------------------------
             #
-            # Se o filtro editorial rejeitar o trecho, fazemos
-            # uma segunda verificação mais simples.
+            # Aqui está a correção principal.
             #
-            # O objetivo NÃO é aceitar lixo.
-            #
-            # O trecho ainda precisa:
-            # - ter tamanho correto;
-            # - pertencer ao tema;
-            # - não conter URL;
-            # - não conter telefone;
-            # - não conter e-mail;
-            # - não conter código comercial evidente.
-            #
+            # O candidato não é reconstruído.
+            # Ele é recortado diretamente da fonte original.
             # ------------------------------------------------
-            
-            texto_normalizado_fallback = (
-                normalizar_assunto_texto(
+
+            texto_fragmento = (
+                texto_original[
+                    inicio_original:fim_original
+                ]
+            ).strip()
+
+            if not texto_fragmento:
+                return
+
+
+            quantidade = len(
+                re.findall(
+                    r"\S+",
                     texto_fragmento
                 )
             )
-            
-            if not texto_normalizado_fallback:
-                return
-            
-            # -----------------------------------------------
-            # TEMA OBRIGATÓRIO
-            # -----------------------------------------------
-            
-            if not fragmento_pertence_ao_tema(
-                texto_fragmento,
-                tema
-            ):
-                return
-            
-            # -----------------------------------------------
-            # URL
-            # -----------------------------------------------
-            
-            if re.search(
-                r"(https?://|www\.)\S+",
-                texto_fragmento,
-                re.IGNORECASE
-            ):
-                return
-            
-            # -----------------------------------------------
-            # E-MAIL
-            # -----------------------------------------------
-            
-            if re.search(
-                r"\b[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}\b",
-                texto_fragmento,
-                re.IGNORECASE
-            ):
-                return
-            
-            # -----------------------------------------------
-            # TELEFONE
-            # -----------------------------------------------
-            
-            if re.search(
-                r"(?<!\d)"
-                r"(?:\+?55[\s.-]*)?"
-                r"\(?\d{2}\)?[\s.-]*"
-                r"\d{4,5}[\s.-]*\d{4}"
-                r"(?!\d)",
-                texto_fragmento
-            ):
-                return
-            
-            # -----------------------------------------------
-            # CNPJ
-            # -----------------------------------------------
-            
-            if re.search(
-                r"\b\d{2}\.?\d{3}\.?\d{3}/?\d{4}-?\d{2}\b",
-                texto_fragmento
-            ):
-                return
-            
-            # -----------------------------------------------
-            # CÓDIGOS COMERCIAIS EVIDENTES
-            # -----------------------------------------------
-            
-            codigo_comercial = re.search(
-                r"\b(?:SKU|MPN|"
-                r"PART[\s-]*NUMBER|"
-                r"SERIAL[\s-]*NUMBER|"
-                r"MODELO\s*[:\-]|"
-                r"C[ÓO]DIGO\s+(?:DO\s+)?PRODUTO|"
-                r"REFER[ÊE]NCIA\s+(?:DO\s+)?PRODUTO)"
-                r"\b",
-                texto_fragmento,
-                re.IGNORECASE
-            )
-            
-            if codigo_comercial:
-                return
-            
-            # -----------------------------------------------
-            # NOME DA EMPRESA DA FONTE
-            # -----------------------------------------------
-            
-            if isinstance(
-                identidade_fonte,
-                dict
-            ):
-            
-                nome_empresa = str(
-                    identidade_fonte.get(
-                        "nome",
-                        ""
-                    )
-                ).strip()
-            
-                if nome_empresa:
-            
-                    nome_empresa_normalizado = (
-                        normalizar_assunto_texto(
-                            nome_empresa
-                        )
-                    )
-            
-                    if (
-                        nome_empresa_normalizado
-                        and
-                        nome_empresa_normalizado
-                        in texto_normalizado_fallback
-                    ):
-                        return
-            
-            # -----------------------------------------------
-            # FALLBACK APROVADO
-            # -----------------------------------------------
-            
-            print()
-            print(
-                "⚠️ FALLBACK EDITORIAL ACEITO"
-            )
-            
-            print(
-                "FONTE:",
-                fonte.get("indice", "")
-            )
-            
-            print(
-                "PALAVRAS:",
-                quantidade
-            )
-            
-            print(
-                "MOTIVO:",
-                "filtro editorial rígido rejeitou, "
-                "mas trecho passou pela validação mínima"
-            )
-
-
-            
-        # ------------------------------------------------
-        # SALVAR CANDIDATO
-        # ------------------------------------------------
-            
-        candidatos.append({
-            
-            "texto":
-                texto_fragmento,
-            
-            "fonte":
-                fonte["indice"],
-            
-            "url":
-                fonte["url"],
-            
-            "tipo":
-                fonte["tipo"],
-            
-            "pdf":
-                fonte["eh_pdf"],
-            
-            "palavras":
-                quantidade,
-            
-            "identidade_fonte":
-                identidade_fonte
-            
-        })
-
-
-    # ----------------------------------------------------
-    # CONVERTER FRASES EM INTERVALOS DE PALAVRAS
-    # ----------------------------------------------------
-
-    intervalos_frases = []
-
-    for frase in frases_analise:
-
-        palavras_da_frase = [
-
-            indice
-
-            for indice, palavra
-            in enumerate(mapa_palavras)
 
             if (
-                palavra["analise_inicio"]
-                >=
-                frase["inicio"]
-
-                and
-
-                palavra["analise_fim"]
-                <=
-                frase["fim"]
-            )
-
-        ]
-
-        if not palavras_da_frase:
-            continue
-
-        intervalos_frases.append({
-
-            "inicio":
-                palavras_da_frase[0],
-
-            "fim":
-                palavras_da_frase[-1] + 1
-
-        })
-
-
-    # ----------------------------------------------------
-    # ACUMULAR FRASES
-    # ----------------------------------------------------
-
-    acumulado_inicio = None
-    acumulado_fim = None
-    palavras_acumuladas = 0
-
-
-    for intervalo in intervalos_frases:
-
-        inicio = intervalo["inicio"]
-        fim = intervalo["fim"]
-
-        quantidade = (
-            fim - inicio
-        )
-
-
-        # ------------------------------------------------
-        # FRASE PEQUENA / MÉDIA
-        # ------------------------------------------------
-
-        if quantidade <= MAX_PALAVRAS_FRAGMENTO:
-
-            if acumulado_inicio is None:
-
-                acumulado_inicio = inicio
-                acumulado_fim = fim
-                palavras_acumuladas = quantidade
-
-            elif (
-                palavras_acumuladas
-                + quantidade
-                <= MAX_PALAVRAS_FRAGMENTO
+                quantidade
+                <
+                MIN_PALAVRAS_FRAGMENTO
+                or
+                quantidade
+                >
+                MAX_PALAVRAS_FRAGMENTO
             ):
+                return
+                
+                
+            
+            # ------------------------------------------------
+            # IDENTIFICAR IDENTIDADE DA FONTE
+            # ------------------------------------------------
+            
+            identidade_fonte = fonte.get(
+                "identidade_fonte",
+                {}
+            )
+            
+            if not isinstance(identidade_fonte, dict):
+                identidade_fonte = {}
+            
+            if not identidade_fonte:
+                identidade_fonte = identificar_empresa_fonte(
+                    texto_fragmento,
+                    fonte.get("url", "")
+                )
+                
+                
 
-                acumulado_fim = fim
-
-                palavras_acumuladas += (
+            # ------------------------------------------------
+            # FILTRO EDITORIAL
+            # ------------------------------------------------
+            #
+            # O fragmento precisa ser tecnicamente aproveitável,
+            # mas não podemos eliminar todo o patrimônio antes
+            # da etapa de seleção.
+            #
+            # A seleção posterior ainda aplica:
+            # - aderência ao tema;
+            # - qualidade estrutural;
+            # - diversidade;
+            # - repetição;
+            # - pontuação editorial.
+            #
+            # ------------------------------------------------
+            
+            editorialmente_valido = (
+                fragmento_eh_editorialmente_valido(
+                    texto_fragmento,
+                    identidade_fonte
+                )
+            )
+            
+            if not editorialmente_valido:
+            
+                estatisticas_qualidade[
+                    "qualidade_estrutural"
+                ] += 1
+            
+                # ------------------------------------------------
+                # FALLBACK CONTROLADO
+                # ------------------------------------------------
+                #
+                # Se o filtro editorial rejeitar o trecho, fazemos
+                # uma segunda verificação mais simples.
+                #
+                # O objetivo NÃO é aceitar lixo.
+                #
+                # O trecho ainda precisa:
+                # - ter tamanho correto;
+                # - pertencer ao tema;
+                # - não conter URL;
+                # - não conter telefone;
+                # - não conter e-mail;
+                # - não conter código comercial evidente.
+                #
+                # ------------------------------------------------
+            
+                texto_normalizado_fallback = (
+                    normalizar_assunto_texto(
+                        texto_fragmento
+                    )
+                )
+            
+                if not texto_normalizado_fallback:
+                    return
+            
+                # -----------------------------------------------
+                # TEMA OBRIGATÓRIO
+                # -----------------------------------------------
+            
+                if not fragmento_pertence_ao_tema(
+                    texto_fragmento,
+                    tema
+                ):
+                    return
+            
+                # -----------------------------------------------
+                # URL
+                # -----------------------------------------------
+            
+                if re.search(
+                    r"(https?://|www\.)\S+",
+                    texto_fragmento,
+                    re.IGNORECASE
+                ):
+                    return
+            
+                # -----------------------------------------------
+                # E-MAIL
+                # -----------------------------------------------
+            
+                if re.search(
+                    r"\b[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}\b",
+                    texto_fragmento,
+                    re.IGNORECASE
+                ):
+                    return
+            
+                # -----------------------------------------------
+                # TELEFONE
+                # -----------------------------------------------
+            
+                if re.search(
+                    r"(?<!\d)"
+                    r"(?:\+?55[\s.-]*)?"
+                    r"\(?\d{2}\)?[\s.-]*"
+                    r"\d{4,5}[\s.-]*\d{4}"
+                    r"(?!\d)",
+                    texto_fragmento
+                ):
+                    return
+            
+                # -----------------------------------------------
+                # CNPJ
+                # -----------------------------------------------
+            
+                if re.search(
+                    r"\b\d{2}\.?\d{3}\.?\d{3}/?\d{4}-?\d{2}\b",
+                    texto_fragmento
+                ):
+                    return
+            
+                # -----------------------------------------------
+                # CÓDIGOS COMERCIAIS EVIDENTES
+                # -----------------------------------------------
+            
+                codigo_comercial = re.search(
+                    r"\b(?:SKU|MPN|"
+                    r"PART[\s-]*NUMBER|"
+                    r"SERIAL[\s-]*NUMBER|"
+                    r"MODELO\s*[:\-]|"
+                    r"C[ÓO]DIGO\s+(?:DO\s+)?PRODUTO|"
+                    r"REFER[ÊE]NCIA\s+(?:DO\s+)?PRODUTO)"
+                    r"\b",
+                    texto_fragmento,
+                    re.IGNORECASE
+                )
+            
+                if codigo_comercial:
+                    return
+            
+                # -----------------------------------------------
+                # NOME DA EMPRESA DA FONTE
+                # -----------------------------------------------
+            
+                if isinstance(
+                    identidade_fonte,
+                    dict
+                ):
+            
+                    nome_empresa = str(
+                        identidade_fonte.get(
+                            "nome",
+                            ""
+                        )
+                    ).strip()
+            
+                    if nome_empresa:
+            
+                        nome_empresa_normalizado = (
+                            normalizar_assunto_texto(
+                                nome_empresa
+                            )
+                        )
+            
+                        if (
+                            nome_empresa_normalizado
+                            and
+                            nome_empresa_normalizado
+                            in texto_normalizado_fallback
+                        ):
+                            return
+            
+                # -----------------------------------------------
+                # FALLBACK APROVADO
+                # -----------------------------------------------
+            
+                print()
+                print(
+                    "⚠️ FALLBACK EDITORIAL ACEITO"
+                )
+            
+                print(
+                    "FONTE:",
+                    fonte.get("indice", "")
+                )
+            
+                print(
+                    "PALAVRAS:",
                     quantidade
                 )
+            
+                print(
+                    "MOTIVO:",
+                    "filtro editorial rígido rejeitou, "
+                    "mas trecho passou pela validação mínima"
+                )
 
-            else:
+
+            
+            # ------------------------------------------------
+            # SALVAR CANDIDATO
+            # ------------------------------------------------
+            
+            candidatos.append({
+            
+                "texto":
+                    texto_fragmento,
+            
+                "fonte":
+                    fonte["indice"],
+            
+                "url":
+                    fonte["url"],
+            
+                "tipo":
+                    fonte["tipo"],
+            
+                "pdf":
+                    fonte["eh_pdf"],
+            
+                "palavras":
+                    quantidade,
+            
+                "identidade_fonte":
+                    identidade_fonte
+            
+            })
+
+
+        # ----------------------------------------------------
+        # CONVERTER FRASES EM INTERVALOS DE PALAVRAS
+        # ----------------------------------------------------
+
+        intervalos_frases = []
+
+        for frase in frases_analise:
+
+            palavras_da_frase = [
+
+                indice
+
+                for indice, palavra
+                in enumerate(mapa_palavras)
+
+                if (
+                    palavra["analise_inicio"]
+                    >=
+                    frase["inicio"]
+
+                    and
+
+                    palavra["analise_fim"]
+                    <=
+                    frase["fim"]
+                )
+
+            ]
+
+            if not palavras_da_frase:
+                continue
+
+            intervalos_frases.append({
+
+                "inicio":
+                    palavras_da_frase[0],
+
+                "fim":
+                    palavras_da_frase[-1] + 1
+
+            })
+
+
+        # ----------------------------------------------------
+        # ACUMULAR FRASES
+        # ----------------------------------------------------
+
+        acumulado_inicio = None
+        acumulado_fim = None
+        palavras_acumuladas = 0
+
+
+        for intervalo in intervalos_frases:
+
+            inicio = intervalo["inicio"]
+            fim = intervalo["fim"]
+
+            quantidade = (
+                fim - inicio
+            )
+
+
+            # ------------------------------------------------
+            # FRASE PEQUENA / MÉDIA
+            # ------------------------------------------------
+
+            if quantidade <= MAX_PALAVRAS_FRAGMENTO:
+
+                if acumulado_inicio is None:
+
+                    acumulado_inicio = inicio
+                    acumulado_fim = fim
+                    palavras_acumuladas = quantidade
+
+                elif (
+                    palavras_acumuladas
+                    + quantidade
+                    <= MAX_PALAVRAS_FRAGMENTO
+                ):
+
+                    acumulado_fim = fim
+
+                    palavras_acumuladas += (
+                        quantidade
+                    )
+
+                else:
+
+                    if (
+                        MIN_PALAVRAS_FRAGMENTO
+                        <=
+                        palavras_acumuladas
+                        <=
+                        MAX_PALAVRAS_FRAGMENTO
+                    ):
+
+                        adicionar_candidato_por_palavras(
+                            acumulado_inicio,
+                            acumulado_fim
+                        )
+
+                    acumulado_inicio = inicio
+                    acumulado_fim = fim
+                    palavras_acumuladas = quantidade
+
+
+                # --------------------------------------------
+                # CANDIDATO PRONTO
+                # --------------------------------------------
 
                 if (
                     MIN_PALAVRAS_FRAGMENTO
@@ -12475,149 +12495,127 @@ def selecionar_informacoes_relevantes(
                         acumulado_fim
                     )
 
-                acumulado_inicio = inicio
-                acumulado_fim = fim
-                palavras_acumuladas = quantidade
+                    acumulado_inicio = None
+                    acumulado_fim = None
+                    palavras_acumuladas = 0
 
 
-            # --------------------------------------------
-            # CANDIDATO PRONTO
-            # --------------------------------------------
+            # ------------------------------------------------
+            # FRASE GRANDE
+            # ------------------------------------------------
 
-            if (
-                MIN_PALAVRAS_FRAGMENTO
-                <=
-                palavras_acumuladas
-                <=
-                MAX_PALAVRAS_FRAGMENTO
-            ):
+            else:
 
-                adicionar_candidato_por_palavras(
-                    acumulado_inicio,
-                    acumulado_fim
-                )
+                # --------------------------------------------
+                # SALVAR ACUMULADO ANTERIOR
+                # --------------------------------------------
+
+                if (
+                    acumulado_inicio is not None
+                    and
+                    MIN_PALAVRAS_FRAGMENTO
+                    <=
+                    palavras_acumuladas
+                    <=
+                    MAX_PALAVRAS_FRAGMENTO
+                ):
+
+                    adicionar_candidato_por_palavras(
+                        acumulado_inicio,
+                        acumulado_fim
+                    )
+
 
                 acumulado_inicio = None
                 acumulado_fim = None
                 palavras_acumuladas = 0
 
 
-        # ------------------------------------------------
-        # FRASE GRANDE
-        # ------------------------------------------------
+                # --------------------------------------------
+                # DIVIDIR FRASE GRANDE
+                # --------------------------------------------
 
-        else:
+                inicio_parte = inicio
 
-            # --------------------------------------------
-            # SALVAR ACUMULADO ANTERIOR
-            # --------------------------------------------
+                while inicio_parte < fim:
 
-            if (
-                acumulado_inicio is not None
-                and
-                MIN_PALAVRAS_FRAGMENTO
-                <=
-                palavras_acumuladas
-                <=
-                MAX_PALAVRAS_FRAGMENTO
-            ):
-
-                adicionar_candidato_por_palavras(
-                    acumulado_inicio,
-                    acumulado_fim
-                )
-
-
-            acumulado_inicio = None
-            acumulado_fim = None
-            palavras_acumuladas = 0
-
-
-            # --------------------------------------------
-            # DIVIDIR FRASE GRANDE
-            # --------------------------------------------
-
-            inicio_parte = inicio
-
-            while inicio_parte < fim:
-
-                fim_parte = min(
-                    inicio_parte
-                    + MAX_PALAVRAS_FRAGMENTO,
-                    fim
-                )
-
-                quantidade_parte = (
-                    fim_parte
-                    -
-                    inicio_parte
-                )
-
-                # ----------------------------------------
-                # PARTE COMPLETA
-                # ----------------------------------------
-
-                if (
-                    MIN_PALAVRAS_FRAGMENTO
-                    <=
-                    quantidade_parte
-                    <=
-                    MAX_PALAVRAS_FRAGMENTO
-                ):
-
-                    adicionar_candidato_por_palavras(
-                        inicio_parte,
-                        fim_parte
+                    fim_parte = min(
+                        inicio_parte
+                        + MAX_PALAVRAS_FRAGMENTO,
+                        fim
                     )
 
-                # ----------------------------------------
-                # PARTE FINAL PEQUENA
-                # ----------------------------------------
-                #
-                # Não descartamos imediatamente.
-                # Guardamos para tentar combinar com a
-                # próxima frase.
-                # ----------------------------------------
-
-                elif (
-                    quantidade_parte
-                    <
-                    MIN_PALAVRAS_FRAGMENTO
-                ):
-
-                    acumulado_inicio = (
+                    quantidade_parte = (
+                        fim_parte
+                        -
                         inicio_parte
                     )
 
-                    acumulado_fim = (
-                        fim_parte
-                    )
+                    # ----------------------------------------
+                    # PARTE COMPLETA
+                    # ----------------------------------------
 
-                    palavras_acumuladas = (
+                    if (
+                        MIN_PALAVRAS_FRAGMENTO
+                        <=
                         quantidade_parte
-                    )
+                        <=
+                        MAX_PALAVRAS_FRAGMENTO
+                    ):
 
-                inicio_parte = fim_parte
+                        adicionar_candidato_por_palavras(
+                            inicio_parte,
+                            fim_parte
+                        )
+
+                    # ----------------------------------------
+                    # PARTE FINAL PEQUENA
+                    # ----------------------------------------
+                    #
+                    # Não descartamos imediatamente.
+                    # Guardamos para tentar combinar com a
+                    # próxima frase.
+                    # ----------------------------------------
+
+                    elif (
+                        quantidade_parte
+                        <
+                        MIN_PALAVRAS_FRAGMENTO
+                    ):
+
+                        acumulado_inicio = (
+                            inicio_parte
+                        )
+
+                        acumulado_fim = (
+                            fim_parte
+                        )
+
+                        palavras_acumuladas = (
+                            quantidade_parte
+                        )
+
+                    inicio_parte = fim_parte
 
 
-    # ----------------------------------------------------
-    # ÚLTIMO ACUMULADO
-    # ----------------------------------------------------
+        # ----------------------------------------------------
+        # ÚLTIMO ACUMULADO
+        # ----------------------------------------------------
 
-    if (
-        acumulado_inicio is not None
-        and
-        MIN_PALAVRAS_FRAGMENTO
-        <=
-        palavras_acumuladas
-        <=
-        MAX_PALAVRAS_FRAGMENTO
-    ):
+        if (
+            acumulado_inicio is not None
+            and
+            MIN_PALAVRAS_FRAGMENTO
+            <=
+            palavras_acumuladas
+            <=
+            MAX_PALAVRAS_FRAGMENTO
+        ):
 
-        adicionar_candidato_por_palavras(
-            acumulado_inicio,
-            acumulado_fim
-        )
+            adicionar_candidato_por_palavras(
+                acumulado_inicio,
+                acumulado_fim
+            )
 
     # ========================================================
     # 05. REMOVER DUPLICADOS
@@ -12668,235 +12666,6 @@ def selecionar_informacoes_relevantes(
         )
 
     candidatos = candidatos_unicos
-
-    # ========================================================
-    # 05.1. GARANTIR PATRIMÔNIO MÍNIMO DE CANDIDATOS
-    #
-    # Alguns patrimônios possuem textos longos, menus, tabelas
-    # ou blocos em que a divisão por frases não produz fragmentos
-    # suficientes para a seleção.
-    #
-    # Fazemos uma segunda passagem diretamente nas fontes para
-    # localizar janelas de 45–75 palavras que contenham o tema.
-    # O trecho continua sendo recortado do texto original.
-    # Esta etapa somente amplia o universo de candidatos; ela não
-    # escolhe os 15 fragmentos finais.
-    # ========================================================
-
-    if len(candidatos) < 15:
-
-        hashes_existentes = {
-            normalizar_texto_hash(
-                candidato.get("texto", "")
-            )
-            for candidato in candidatos
-            if isinstance(candidato, dict)
-        }
-
-        palavras_tema_fallback = re.findall(
-            r"\b[a-z0-9]{3,}\b",
-            normalizar_assunto_texto(tema)
-        )
-
-        palavras_tema_fallback = [
-            palavra
-            for palavra in palavras_tema_fallback
-            if palavra not in {
-                "de", "da", "das", "do", "dos",
-                "em", "na", "nas", "no", "nos",
-                "para", "por", "com", "sem",
-                "e", "a", "o", "as", "os"
-            }
-        ]
-
-        def radical_fallback(palavra):
-            radical = palavra
-            if len(radical) >= 5:
-                if radical.endswith("es"):
-                    radical = radical[:-2]
-                elif radical.endswith("s"):
-                    radical = radical[:-1]
-                elif radical.endswith("a"):
-                    radical = radical[:-1]
-                elif radical.endswith("o"):
-                    radical = radical[:-1]
-            return radical
-
-        radicais_tema_fallback = [
-            radical_fallback(palavra)
-            for palavra in palavras_tema_fallback
-        ]
-
-        for fonte in fontes:
-
-            if len(candidatos) >= 30:
-                break
-
-            texto_fonte = str(
-                fonte.get("texto", "")
-                or ""
-            )
-
-            if not texto_fonte.strip():
-                continue
-
-            palavras_fonte = list(
-                re.finditer(
-                    r"\S+",
-                    texto_fonte
-                )
-            )
-
-            if len(palavras_fonte) < MIN_PALAVRAS_FRAGMENTO:
-                continue
-
-            palavras_normalizadas = [
-                normalizar_assunto_texto(
-                    palavra.group()
-                )
-                for palavra in palavras_fonte
-            ]
-
-            posicoes_tema = [
-                indice
-                for indice, palavra in enumerate(palavras_normalizadas)
-                if any(
-                    palavra.startswith(radical)
-                    for radical in radicais_tema_fallback
-                )
-            ]
-
-            if not posicoes_tema:
-                continue
-
-            indice_central = posicoes_tema[0]
-
-            if len(radicais_tema_fallback) >= 2:
-                for indice_palavra in posicoes_tema:
-                    inicio_janela = max(
-                        0,
-                        indice_palavra - 12
-                    )
-                    fim_janela = min(
-                        len(palavras_normalizadas),
-                        indice_palavra + 13
-                    )
-                    janela_local = palavras_normalizadas[
-                        inicio_janela:fim_janela
-                    ]
-                    if all(
-                        any(
-                            palavra.startswith(radical)
-                            for palavra in janela_local
-                        )
-                        for radical in radicais_tema_fallback
-                    ):
-                        indice_central = indice_palavra
-                        break
-
-            inicio = max(
-                0,
-                indice_central - 25
-            )
-            fim = min(
-                len(palavras_fonte),
-                inicio + 60
-            )
-
-            if fim - inicio < MIN_PALAVRAS_FRAGMENTO:
-                fim = min(
-                    len(palavras_fonte),
-                    inicio + MIN_PALAVRAS_FRAGMENTO
-                )
-
-            if fim - inicio < MIN_PALAVRAS_FRAGMENTO:
-                continue
-
-            if fim - inicio > MAX_PALAVRAS_FRAGMENTO:
-                fim = inicio + MAX_PALAVRAS_FRAGMENTO
-
-            texto_fragmento = texto_fonte[
-                palavras_fonte[inicio].start():
-                palavras_fonte[fim - 1].end()
-            ].strip()
-
-            chave_fragmento = normalizar_texto_hash(
-                texto_fragmento
-            )
-
-            if not chave_fragmento or chave_fragmento in hashes_existentes:
-                continue
-
-            if not fragmento_pertence_ao_tema(
-                texto_fragmento,
-                tema
-            ):
-                continue
-
-            if re.search(
-                r"(https?://|www\.)\S+",
-                texto_fragmento,
-                re.IGNORECASE
-            ):
-                continue
-
-            if re.search(
-                r"\b[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}\b",
-                texto_fragmento,
-                re.IGNORECASE
-            ):
-                continue
-
-            if re.search(
-                r"(?<!\d)(?:\+?55[\s.-]*)?\(?\d{2}\)?[\s.-]*"
-                r"\d{4,5}[\s.-]*\d{4}(?!\d)",
-                texto_fragmento
-            ):
-                continue
-
-            identidade_fonte = fonte.get(
-                "identidade_fonte",
-                {}
-            )
-
-            if not isinstance(identidade_fonte, dict):
-                identidade_fonte = {}
-
-            nome_empresa = str(
-                identidade_fonte.get("nome", "")
-                or ""
-            ).strip()
-
-            if nome_empresa:
-                nome_empresa_normalizado = normalizar_assunto_texto(
-                    nome_empresa
-                )
-                if (
-                    nome_empresa_normalizado
-                    and nome_empresa_normalizado
-                    in normalizar_assunto_texto(texto_fragmento)
-                ):
-                    continue
-
-            hash_trecho = gerar_hash_trecho(
-                texto_fragmento
-            )
-
-            candidatos.append({
-                "texto": texto_fragmento,
-                "fonte": fonte["indice"],
-                "url": fonte["url"],
-                "tipo": fonte["tipo"],
-                "pdf": fonte["eh_pdf"],
-                "palavras": len(re.findall(r"\S+", texto_fragmento)),
-                "identidade_fonte": identidade_fonte,
-                "id": gerar_id_trecho(hash_trecho),
-                "hash": hash_trecho
-            })
-
-            hashes_existentes.add(
-                chave_fragmento
-            )
 
     print()
     print("==============================")
@@ -16189,6 +15958,154 @@ def selecionar_informacoes_relevantes(
             fragmentos_selecionados.append(
                 candidato
             )
+
+    # ========================================================
+    # QUARTA PASSAGEM — COMPLETAR BLOCOS OBRIGATÓRIOS
+    #
+    # A seleção principal prioriza qualidade e diversidade.
+    # Em alguns patrimônios, porém, o filtro estrutural final
+    # pode deixar um bloco sem os 3 fragmentos necessários,
+    # mesmo existindo candidatos válidos no ranking daquele
+    # bloco.
+    #
+    # Aqui fazemos somente uma recuperação controlada:
+    # - usa candidatos já construídos pelo Python;
+    # - mantém aderência ao tema;
+    # - mantém 35–75 palavras;
+    # - mantém proteção contra identidade da fonte;
+    # - bloqueia URL, e-mail, telefone e CNPJ;
+    # - nunca repete hash;
+    # - completa cada bloco até 3 fragmentos.
+    #
+    # Não cria texto novo e não altera a arquitetura do Ollama.
+    # ========================================================
+
+    if len(fragmentos_selecionados) < 15:
+
+        for numero_bloco in range(1, 6):
+
+            chave_bloco = f"bloco_{numero_bloco}"
+
+            quantidade_bloco = sum(
+                1
+                for fragmento in fragmentos_selecionados
+                if fragmento.get("bloco_mead") == chave_bloco
+            )
+
+            if quantidade_bloco >= 3:
+                continue
+
+            candidatos_resgate = candidatos_por_bloco.get(
+                chave_bloco,
+                []
+            )
+
+            for item in candidatos_resgate:
+
+                if quantidade_bloco >= 3:
+                    break
+
+                candidato = item.get("candidato")
+
+                if not isinstance(candidato, dict):
+                    continue
+
+                texto_resgate = str(
+                    candidato.get("texto", "") or ""
+                ).strip()
+
+                if not texto_resgate:
+                    continue
+
+                quantidade_palavras_resgate = len(
+                    re.findall(r"\S+", texto_resgate)
+                )
+
+                if not (
+                    MIN_PALAVRAS_FRAGMENTO
+                    <=
+                    quantidade_palavras_resgate
+                    <=
+                    MAX_PALAVRAS_FRAGMENTO
+                ):
+                    continue
+
+                if not fragmento_pertence_ao_tema(
+                    texto_resgate,
+                    tema
+                ):
+                    continue
+
+                identidade_resgate = candidato.get(
+                    "identidade_fonte",
+                    {}
+                )
+
+                if not fragmento_eh_comercialmente_limpo(
+                    texto_resgate,
+                    identidade_resgate
+                ):
+                    continue
+
+                if re.search(
+                    r"(https?://|www\.)\S+",
+                    texto_resgate,
+                    re.IGNORECASE
+                ):
+                    continue
+
+                if re.search(
+                    r"\b[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}\b",
+                    texto_resgate,
+                    re.IGNORECASE
+                ):
+                    continue
+
+                if re.search(
+                    r"(?<!\d)(?:\+?55[\s.-]*)?\(?\d{2}\)?[\s.-]*\d{4,5}[\s.-]*\d{4}(?!\d)",
+                    texto_resgate
+                ):
+                    continue
+
+                if re.search(
+                    r"\b\d{2}\.?\d{3}\.?\d{3}/?\d{4}-?\d{2}\b",
+                    texto_resgate
+                ):
+                    continue
+
+                hash_trecho = candidato.get("hash", "")
+
+                if not hash_trecho:
+                    hash_trecho = gerar_hash_trecho(
+                        texto_resgate
+                    )
+                    candidato["hash"] = hash_trecho
+
+                if hash_trecho in hashes_selecionados:
+                    continue
+
+                candidato["bloco_mead"] = chave_bloco
+                candidato["pontuacao_selecao"] = item.get(
+                    "pontuacao",
+                    0
+                )
+
+                hashes_selecionados.add(hash_trecho)
+
+                fonte = candidato.get("fonte")
+                fontes_utilizadas[fonte] = (
+                    fontes_utilizadas.get(fonte, 0) + 1
+                )
+
+                fragmentos_selecionados.append(candidato)
+                quantidade_bloco += 1
+
+                print()
+                print("⚠️ RESGATE DE DISTRIBUIÇÃO")
+                print("BLOCO:", chave_bloco)
+                print("FONTE:", fonte)
+                print("PALAVRAS:", quantidade_palavras_resgate)
+                print("MOTIVO:", "bloco obrigatório ainda não possuía 3 fragmentos")
 
     # ========================================================
     # CONTROLE FINAL
