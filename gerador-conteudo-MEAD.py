@@ -12061,6 +12061,8 @@ def selecionar_informacoes_relevantes(
 
         nonlocal estatisticas_qualidade
 
+        estatisticas_qualidade["avaliados"] += 1
+
         if (
             indice_inicio < 0
             or
@@ -12666,6 +12668,235 @@ def selecionar_informacoes_relevantes(
         )
 
     candidatos = candidatos_unicos
+
+    # ========================================================
+    # 05.1. GARANTIR PATRIMÔNIO MÍNIMO DE CANDIDATOS
+    #
+    # Alguns patrimônios possuem textos longos, menus, tabelas
+    # ou blocos em que a divisão por frases não produz fragmentos
+    # suficientes para a seleção.
+    #
+    # Fazemos uma segunda passagem diretamente nas fontes para
+    # localizar janelas de 45–75 palavras que contenham o tema.
+    # O trecho continua sendo recortado do texto original.
+    # Esta etapa somente amplia o universo de candidatos; ela não
+    # escolhe os 15 fragmentos finais.
+    # ========================================================
+
+    if len(candidatos) < 15:
+
+        hashes_existentes = {
+            normalizar_texto_hash(
+                candidato.get("texto", "")
+            )
+            for candidato in candidatos
+            if isinstance(candidato, dict)
+        }
+
+        palavras_tema_fallback = re.findall(
+            r"\b[a-z0-9]{3,}\b",
+            normalizar_assunto_texto(tema)
+        )
+
+        palavras_tema_fallback = [
+            palavra
+            for palavra in palavras_tema_fallback
+            if palavra not in {
+                "de", "da", "das", "do", "dos",
+                "em", "na", "nas", "no", "nos",
+                "para", "por", "com", "sem",
+                "e", "a", "o", "as", "os"
+            }
+        ]
+
+        def radical_fallback(palavra):
+            radical = palavra
+            if len(radical) >= 5:
+                if radical.endswith("es"):
+                    radical = radical[:-2]
+                elif radical.endswith("s"):
+                    radical = radical[:-1]
+                elif radical.endswith("a"):
+                    radical = radical[:-1]
+                elif radical.endswith("o"):
+                    radical = radical[:-1]
+            return radical
+
+        radicais_tema_fallback = [
+            radical_fallback(palavra)
+            for palavra in palavras_tema_fallback
+        ]
+
+        for fonte in fontes:
+
+            if len(candidatos) >= 30:
+                break
+
+            texto_fonte = str(
+                fonte.get("texto", "")
+                or ""
+            )
+
+            if not texto_fonte.strip():
+                continue
+
+            palavras_fonte = list(
+                re.finditer(
+                    r"\S+",
+                    texto_fonte
+                )
+            )
+
+            if len(palavras_fonte) < MIN_PALAVRAS_FRAGMENTO:
+                continue
+
+            palavras_normalizadas = [
+                normalizar_assunto_texto(
+                    palavra.group()
+                )
+                for palavra in palavras_fonte
+            ]
+
+            posicoes_tema = [
+                indice
+                for indice, palavra in enumerate(palavras_normalizadas)
+                if any(
+                    palavra.startswith(radical)
+                    for radical in radicais_tema_fallback
+                )
+            ]
+
+            if not posicoes_tema:
+                continue
+
+            indice_central = posicoes_tema[0]
+
+            if len(radicais_tema_fallback) >= 2:
+                for indice_palavra in posicoes_tema:
+                    inicio_janela = max(
+                        0,
+                        indice_palavra - 12
+                    )
+                    fim_janela = min(
+                        len(palavras_normalizadas),
+                        indice_palavra + 13
+                    )
+                    janela_local = palavras_normalizadas[
+                        inicio_janela:fim_janela
+                    ]
+                    if all(
+                        any(
+                            palavra.startswith(radical)
+                            for palavra in janela_local
+                        )
+                        for radical in radicais_tema_fallback
+                    ):
+                        indice_central = indice_palavra
+                        break
+
+            inicio = max(
+                0,
+                indice_central - 25
+            )
+            fim = min(
+                len(palavras_fonte),
+                inicio + 60
+            )
+
+            if fim - inicio < MIN_PALAVRAS_FRAGMENTO:
+                fim = min(
+                    len(palavras_fonte),
+                    inicio + MIN_PALAVRAS_FRAGMENTO
+                )
+
+            if fim - inicio < MIN_PALAVRAS_FRAGMENTO:
+                continue
+
+            if fim - inicio > MAX_PALAVRAS_FRAGMENTO:
+                fim = inicio + MAX_PALAVRAS_FRAGMENTO
+
+            texto_fragmento = texto_fonte[
+                palavras_fonte[inicio].start():
+                palavras_fonte[fim - 1].end()
+            ].strip()
+
+            chave_fragmento = normalizar_texto_hash(
+                texto_fragmento
+            )
+
+            if not chave_fragmento or chave_fragmento in hashes_existentes:
+                continue
+
+            if not fragmento_pertence_ao_tema(
+                texto_fragmento,
+                tema
+            ):
+                continue
+
+            if re.search(
+                r"(https?://|www\.)\S+",
+                texto_fragmento,
+                re.IGNORECASE
+            ):
+                continue
+
+            if re.search(
+                r"\b[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}\b",
+                texto_fragmento,
+                re.IGNORECASE
+            ):
+                continue
+
+            if re.search(
+                r"(?<!\d)(?:\+?55[\s.-]*)?\(?\d{2}\)?[\s.-]*"
+                r"\d{4,5}[\s.-]*\d{4}(?!\d)",
+                texto_fragmento
+            ):
+                continue
+
+            identidade_fonte = fonte.get(
+                "identidade_fonte",
+                {}
+            )
+
+            if not isinstance(identidade_fonte, dict):
+                identidade_fonte = {}
+
+            nome_empresa = str(
+                identidade_fonte.get("nome", "")
+                or ""
+            ).strip()
+
+            if nome_empresa:
+                nome_empresa_normalizado = normalizar_assunto_texto(
+                    nome_empresa
+                )
+                if (
+                    nome_empresa_normalizado
+                    and nome_empresa_normalizado
+                    in normalizar_assunto_texto(texto_fragmento)
+                ):
+                    continue
+
+            hash_trecho = gerar_hash_trecho(
+                texto_fragmento
+            )
+
+            candidatos.append({
+                "texto": texto_fragmento,
+                "fonte": fonte["indice"],
+                "url": fonte["url"],
+                "tipo": fonte["tipo"],
+                "pdf": fonte["eh_pdf"],
+                "palavras": len(re.findall(r"\S+", texto_fragmento)),
+                "identidade_fonte": identidade_fonte,
+                "id": gerar_id_trecho(hash_trecho),
+                "hash": hash_trecho
+            })
+
+            hashes_existentes.add(
+                chave_fragmento
+            )
 
     print()
     print("==============================")
