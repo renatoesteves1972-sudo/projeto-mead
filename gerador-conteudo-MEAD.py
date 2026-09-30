@@ -1,4 +1,4 @@
-# versão 4 - 30/09
+# versão 5 - 30/09
 
 import json
 import os
@@ -12127,6 +12127,9 @@ def selecionar_informacoes_relevantes(
                 MAX_PALAVRAS_FRAGMENTO
             ):
                 return
+
+
+            estatisticas_qualidade["avaliados"] += 1
                 
                 
             
@@ -12616,6 +12619,130 @@ def selecionar_informacoes_relevantes(
                 acumulado_inicio,
                 acumulado_fim
             )
+
+    # ========================================================
+    # 04.1. RECUPERAÇÃO DE PATRIMÔNIO
+    #
+    # A segmentação por frases é a primeira estratégia.
+    # Alguns PDFs, porém, chegam com pontuação quebrada ou
+    # estrutura de texto que impede a formação dos intervalos.
+    #
+    # Quando isso acontece, não podemos concluir que o patrimônio
+    # não possui informação. Fazemos uma segunda leitura diretamente
+    # sobre o texto original, usando janelas de 60 palavras.
+    #
+    # A janela continua sujeita aos mesmos filtros: tema, identidade
+    # da fonte, conteúdo comercial, URL, e-mail, telefone e CNPJ.
+    # Nenhum texto é criado ou reescrito.
+    # ========================================================
+
+    if len(candidatos) < 15:
+
+        print()
+        print("==============================")
+        print("RECUPERAÇÃO DE PATRIMÔNIO")
+        print("==============================")
+        print("CANDIDATOS ANTES:", len(candidatos))
+
+        for fonte in fontes:
+
+            texto_original = str(
+                fonte.get("texto", "")
+            )
+
+            if not texto_original.strip():
+                continue
+
+            palavras_fonte = list(
+                re.finditer(
+                    r"\S+",
+                    texto_original
+                )
+            )
+
+            if len(palavras_fonte) < MIN_PALAVRAS_FRAGMENTO:
+                continue
+
+            passo = 50
+
+            for inicio_janela in range(
+                0,
+                len(palavras_fonte),
+                passo
+            ):
+
+                fim_janela = min(
+                    inicio_janela + 60,
+                    len(palavras_fonte)
+                )
+
+                quantidade_janela = (
+                    fim_janela - inicio_janela
+                )
+
+                if quantidade_janela < MIN_PALAVRAS_FRAGMENTO:
+                    break
+
+                inicio_original = palavras_fonte[
+                    inicio_janela
+                ].start()
+
+                fim_original = palavras_fonte[
+                    fim_janela - 1
+                ].end()
+
+                texto_fragmento = texto_original[
+                    inicio_original:fim_original
+                ].strip()
+
+                estatisticas_qualidade["avaliados"] += 1
+
+                if not texto_fragmento:
+                    continue
+
+                if not fragmento_pertence_ao_tema(
+                    texto_fragmento,
+                    tema
+                ):
+                    continue
+
+                identidade_fonte = fonte.get(
+                    "identidade_fonte",
+                    {}
+                )
+
+                if not isinstance(identidade_fonte, dict):
+                    identidade_fonte = {}
+
+                if not fragmento_eh_comercialmente_limpo(
+                    texto_fragmento,
+                    identidade_fonte
+                ):
+                    continue
+
+                if not fragmento_eh_editorialmente_valido(
+                    texto_fragmento,
+                    identidade_fonte
+                ):
+                    continue
+
+                candidatos.append({
+                    "texto": texto_fragmento,
+                    "fonte": fonte["indice"],
+                    "url": fonte["url"],
+                    "tipo": fonte["tipo"],
+                    "pdf": fonte["eh_pdf"],
+                    "palavras": quantidade_janela,
+                    "identidade_fonte": identidade_fonte
+                })
+
+                if len(candidatos) >= 60:
+                    break
+
+            if len(candidatos) >= 60:
+                break
+
+        print("CANDIDATOS APÓS RECUPERAÇÃO:", len(candidatos))
 
     # ========================================================
     # 05. REMOVER DUPLICADOS
