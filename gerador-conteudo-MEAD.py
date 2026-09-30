@@ -1,4 +1,4 @@
-# versão 6 - 30/09
+# versão 6.1 - 30/09
 
 import json
 import os
@@ -18221,6 +18221,22 @@ def gerar_conteudo_completo(
     nome_site=""
 ):
 
+    # ========================================================
+    # 00. IDENTIDADE DO SITE
+    # ========================================================
+    # O nome informado na interface deve acompanhar toda a
+    # execução até a estrutura oficial da página.
+    # ========================================================
+
+    nome_site = preparar_identidade_editorial(
+        nome_site
+    )
+
+    print(
+        "NOME DO SITE RECEBIDO NO GERADOR:",
+        nome_site
+    )
+
     # Grupo principal vem da interface e precisa existir antes
     # de qualquer salvamento intermediário desta função.
     grupo_principal_projeto = normalizar_grupo_principal_projeto(
@@ -18286,38 +18302,44 @@ def gerar_conteudo_completo(
     # ========================================================
     
     if not arquivo_origem:
-    
+
         if isinstance(textos, dict):
-    
+
             fragmentos = textos.get(
                 "fragmentos",
                 []
             )
-    
-            if isinstance(fragmentos, list):
-    
-                for fragmento in fragmentos:
-    
-                    if not isinstance(
-                        fragmento,
-                        dict
-                    ):
-                        continue
-    
-                    url = str(
-                        fragmento.get(
-                            "url",
-                            ""
-                        ) or ""
-                    ).strip()
-    
-                    if url:
-    
-                        arquivo_origem = url
-    
-                        break
-    
-    
+
+        elif isinstance(textos, list):
+
+            fragmentos = textos
+
+        else:
+
+            fragmentos = []
+
+        if isinstance(fragmentos, list):
+
+            for fragmento in fragmentos:
+
+                if not isinstance(
+                    fragmento,
+                    dict
+                ):
+                    continue
+
+                url = str(
+                    fragmento.get(
+                        "url",
+                        ""
+                    ) or ""
+                ).strip()
+
+                if url:
+                    arquivo_origem = url
+                    break
+
+
     print(
         "ARQUIVO_ORIGEM RECUPERADO:",
         arquivo_origem
@@ -24505,6 +24527,28 @@ def salvar_banco(
         else:
 
             nome_site = ""
+
+    # ========================================================
+    # NOME DO SITE NA ESTRUTURA OFICIAL DA PÁGINA
+    # ========================================================
+    # Não basta manter o valor em informacoes_adicionais.
+    # O campo oficial pagina.nome_site precisa receber o nome
+    # informado pela interface para aparecer no JSON final.
+    # ========================================================
+
+    if nome_site:
+
+        pagina[
+            "nome_site"
+        ] = nome_site
+
+    print(
+        "NOME DO SITE NO SALVAMENTO DA PÁGINA:",
+        pagina.get(
+            "nome_site",
+            ""
+        )
+    )
 
     # ========================================================
     # GRUPO PRINCIPAL DO PROJETO
