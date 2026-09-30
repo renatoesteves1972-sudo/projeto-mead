@@ -1,4 +1,4 @@
-# versão 6.3 - 30/09/2026
+# versão 6.4 - 30/09/2026
 
 import json
 import os
@@ -17164,6 +17164,123 @@ def fragmento_eh_aproveitavel_editorialmente(
     )
 
     # ========================================================
+    # 00.1 BARREIRA CONTRA MARKETPLACE / COMPARADOR
+    # ========================================================
+    # Fragmentos de marketplace carregam preço, avaliação,
+    # quantidade mínima, compradores e outros resíduos comerciais.
+    # Esse conteúdo não é patrimônio técnico editorial.
+
+    marcadores_marketplace = [
+        "compras repetidas",
+        "clientes interesados",
+        "clientes interessados",
+        "cantidad min",
+        "cantidad mín",
+        "quantidade mín",
+        "quantidade min",
+        "anos cn",
+        "aos cn",
+        "unidad",
+        "unidade",
+        "preço",
+        "precio",
+        "compras realizadas",
+        "interessados",
+        "interesados"
+    ]
+
+    ocorrencias_marketplace = sum(
+        normalizar_assunto_texto(m) in texto_normalizado
+        for m in marcadores_marketplace
+    )
+
+    tem_moeda = bool(
+        re.search(r"(?:[$€£]|\b(?:usd|eur|brl)\b)\s*\d", texto_original, re.IGNORECASE)
+        or
+        re.search(r"\d[\d.,]*\s*(?:usd|eur|brl)", texto_original, re.IGNORECASE)
+    )
+
+    tem_avaliacao = bool(
+        re.search(r"\b\d(?:[.,]\d)?\s*/\s*5(?:[.,]\d)?\b", texto_original)
+    )
+
+    if ocorrencias_marketplace >= 2 or (tem_moeda and (ocorrencias_marketplace >= 1 or tem_avaliacao)) or tem_avaliacao and ocorrencias_marketplace >= 1:
+        return False
+
+    # ========================================================
+    # 00.2 BARREIRA CONTRA MARCAS EM CAIXA ALTA
+    # ========================================================
+    # Siglas técnicas conhecidas permanecem permitidas. Nomes
+    # comerciais como GRUNDFOS, DPUMPS, BOMBINOX e SHXINHUO
+    # deixam de entrar no patrimônio editorial.
+
+    tokens_caixa_alta = re.findall(
+        r"(?<![A-Za-zÀ-ÿ])[A-ZÀ-Ý]{4,}(?:[-/][A-Z0-9À-Ý]{2,})*(?![A-Za-zÀ-ÿ])",
+        texto_original
+    )
+
+    caixa_alta_tecnica_permitida = {
+        "BOMBA", "BOMBAS", "CENTRIFUGA", "CENTRIFUGAS",
+        "NPSH", "ISO", "ANSI", "ASTM", "DIN", "API",
+        "NBR", "PVC", "PEAD", "CPVC", "PPR", "RPM",
+        "MCA", "KW", "CV", "HP", "DN", "PN", "HVAC",
+        "PDF", "HTML", "URL", "MEAD", "IA"
+    }
+
+    for token in tokens_caixa_alta:
+        if token.casefold() not in {x.casefold() for x in caixa_alta_tecnica_permitida}:
+            return False
+
+    # ========================================================
+    # 00.3 BARREIRA CONTRA MANUAL / DATASHEET ESTRANGEIRO
+    # ========================================================
+
+    marcadores_manual_estrangeiro = [
+        "manual del propietario",
+        "manual de usuario",
+        "manual de mantenimiento",
+        "sección de seguridad",
+        "seccion de seguridad",
+        "consideraciones relativas a la seguridad",
+        "generalidades las bombas",
+        "inspeccione el embarque",
+        "confirmacion de pedido",
+        "la garantía no cubre",
+        "la garantia no cubre",
+        "emplazamiento defectuoso"
+    ]
+
+    if any(
+        normalizar_assunto_texto(m) in texto_normalizado
+        for m in marcadores_manual_estrangeiro
+    ):
+        return False
+
+    # ========================================================
+    # 00.4 BARREIRA CONTRA LISTAS / ÍNDICES DE ARTIGOS
+    # ========================================================
+
+    marcadores_indice_artigos = [
+        "como escolher o ideal para",
+        "como escolher a ideal para",
+        "tudo sobre bomba",
+        "guia completo",
+        "vantagens imperdiveis",
+        "vantagens imperdíveis",
+        "unidade hidraulica",
+        "unidade hidráulica",
+        "recalque de esgoto residencial",
+        "sistema de pressurizacao predial",
+        "sistema de pressurização predial"
+    ]
+
+    if any(
+        normalizar_assunto_texto(m) in texto_normalizado
+        for m in marcadores_indice_artigos
+    ):
+        return False
+
+    # ========================================================
     # 00. BARREIRA EDITORIAL FORTE
     #
     # O filtro anterior eliminava vários resíduos, porém alguns
@@ -21710,7 +21827,16 @@ RETORNE SOMENTE O BLOCO.
     salvar_banco(
         tema,
         "mapa_mead",
-        mapa_texto
+        mapa_texto,
+        informacoes_adicionais={
+            "nome_site": nome_site,
+            "arquivo_origem": nome_arquivo,
+            "grupo_principal_projeto": normalizar_grupo_principal_projeto(
+                entrada_grupo.get()
+                if "entrada_grupo" in globals()
+                else ""
+            )
+        }
     )
 
     # ========================================================
@@ -22415,6 +22541,10 @@ def limpar_lista_referencias(
                 "texto"
             )
 
+            identidade_fonte_recebida = item.get(
+                "identidade_fonte",
+                {}
+            )
 
         else:
 
@@ -22423,6 +22553,8 @@ def limpar_lista_referencias(
             url = ""
 
             tipo = "texto"
+
+            identidade_fonte_recebida = {}
 
 
 
@@ -22497,10 +22629,22 @@ def limpar_lista_referencias(
     # 05. IDENTIFICAR IDENTIDADE DA FONTE
     # ========================================================
 
-        identidade_fonte = identificar_empresa_fonte(
-            texto,
-            url
-        )
+        identidade_fonte = identidade_fonte_recebida
+
+        if not isinstance(
+            identidade_fonte,
+            dict
+        ):
+            identidade_fonte = {}
+
+        # A identidade já identificada na coleta tem prioridade.
+        # Só executar a identificação local quando não houver
+        # identidade recebida, evitando apagar a rastreabilidade.
+        if not identidade_fonte:
+            identidade_fonte = identificar_empresa_fonte(
+                texto,
+                url
+            )
 
 
     # ========================================================
@@ -26307,6 +26451,29 @@ def salvar_banco(
         "subtitulo_listas",
         None
     )
+
+    # ========================================================
+    # GARANTIA FINAL DA IDENTIDADE DA PÁGINA
+    # ========================================================
+    # A identidade recebida nesta execução não pode desaparecer
+    # em uma segunda chamada de salvar_banco (ex.: mapa_mead).
+
+    if not str(pagina.get("nome_site", "") or "").strip():
+        nome_site_fallback = str(
+            informacoes_adicionais.get("nome_site", "")
+            or dados_tema.get("nome_site", "")
+            or ""
+        ).strip()
+        if nome_site_fallback:
+            pagina["nome_site"] = nome_site_fallback
+
+    if not str(pagina.get("arquivo_origem", "") or "").strip():
+        arquivo_origem_fallback = str(
+            informacoes_adicionais.get("arquivo_origem", "")
+            or ""
+        ).strip()
+        if arquivo_origem_fallback:
+            pagina["arquivo_origem"] = arquivo_origem_fallback
 
     # ========================================================
     # MONTAR PÁGINA FINAL
