@@ -1,4 +1,4 @@
-# versão 6.4 - 30/09/2026
+# versão 6.5 - 30/09
 
 import json
 import os
@@ -12127,9 +12127,6 @@ def selecionar_informacoes_relevantes(
                 MAX_PALAVRAS_FRAGMENTO
             ):
                 return
-
-
-            estatisticas_qualidade["avaliados"] += 1
                 
                 
             
@@ -12178,15 +12175,174 @@ def selecionar_informacoes_relevantes(
             )
             
             if not editorialmente_valido:
+            
                 estatisticas_qualidade[
                     "qualidade_estrutural"
                 ] += 1
+            
+                # ------------------------------------------------
+                # FALLBACK CONTROLADO
+                # ------------------------------------------------
+                #
+                # Se o filtro editorial rejeitar o trecho, fazemos
+                # uma segunda verificação mais simples.
+                #
+                # O objetivo NÃO é aceitar lixo.
+                #
+                # O trecho ainda precisa:
+                # - ter tamanho correto;
+                # - pertencer ao tema;
+                # - não conter URL;
+                # - não conter telefone;
+                # - não conter e-mail;
+                # - não conter código comercial evidente.
+                #
+                # ------------------------------------------------
+            
+                texto_normalizado_fallback = (
+                    normalizar_assunto_texto(
+                        texto_fragmento
+                    )
+                )
+            
+                if not texto_normalizado_fallback:
+                    return
+            
+                # -----------------------------------------------
+                # TEMA OBRIGATÓRIO
+                # -----------------------------------------------
+            
+                if not fragmento_pertence_ao_tema(
+                    texto_fragmento,
+                    tema
+                ):
+                    return
+            
+                # -----------------------------------------------
+                # URL
+                # -----------------------------------------------
+            
+                if re.search(
+                    r"(https?://|www\.)\S+",
+                    texto_fragmento,
+                    re.IGNORECASE
+                ):
+                    return
+            
+                # -----------------------------------------------
+                # E-MAIL
+                # -----------------------------------------------
+            
+                if re.search(
+                    r"\b[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}\b",
+                    texto_fragmento,
+                    re.IGNORECASE
+                ):
+                    return
+            
+                # -----------------------------------------------
+                # TELEFONE
+                # -----------------------------------------------
+            
+                if re.search(
+                    r"(?<!\d)"
+                    r"(?:\+?55[\s.-]*)?"
+                    r"\(?\d{2}\)?[\s.-]*"
+                    r"\d{4,5}[\s.-]*\d{4}"
+                    r"(?!\d)",
+                    texto_fragmento
+                ):
+                    return
+            
+                # -----------------------------------------------
+                # CNPJ
+                # -----------------------------------------------
+            
+                if re.search(
+                    r"\b\d{2}\.?\d{3}\.?\d{3}/?\d{4}-?\d{2}\b",
+                    texto_fragmento
+                ):
+                    return
+            
+                # -----------------------------------------------
+                # CÓDIGOS COMERCIAIS EVIDENTES
+                # -----------------------------------------------
+            
+                codigo_comercial = re.search(
+                    r"\b(?:SKU|MPN|"
+                    r"PART[\s-]*NUMBER|"
+                    r"SERIAL[\s-]*NUMBER|"
+                    r"MODELO\s*[:\-]|"
+                    r"C[ÓO]DIGO\s+(?:DO\s+)?PRODUTO|"
+                    r"REFER[ÊE]NCIA\s+(?:DO\s+)?PRODUTO)"
+                    r"\b",
+                    texto_fragmento,
+                    re.IGNORECASE
+                )
+            
+                if codigo_comercial:
+                    return
+            
+                # -----------------------------------------------
+                # NOME DA EMPRESA DA FONTE
+                # -----------------------------------------------
+            
+                if isinstance(
+                    identidade_fonte,
+                    dict
+                ):
+            
+                    nome_empresa = str(
+                        identidade_fonte.get(
+                            "nome",
+                            ""
+                        )
+                    ).strip()
+            
+                    if nome_empresa:
+            
+                        nome_empresa_normalizado = (
+                            normalizar_assunto_texto(
+                                nome_empresa
+                            )
+                        )
+            
+                        if (
+                            nome_empresa_normalizado
+                            and
+                            nome_empresa_normalizado
+                            in texto_normalizado_fallback
+                        ):
+                            return
+            
+                # -----------------------------------------------
+                # FALLBACK APROVADO
+                # -----------------------------------------------
+            
+                print()
+                print(
+                    "⚠️ FALLBACK EDITORIAL ACEITO"
+                )
+            
+                print(
+                    "FONTE:",
+                    fonte.get("indice", "")
+                )
+            
+                print(
+                    "PALAVRAS:",
+                    quantidade
+                )
+            
+                print(
+                    "MOTIVO:",
+                    "filtro editorial rígido rejeitou, "
+                    "mas trecho passou pela validação mínima"
+                )
 
-                # BARREIRA EDITORIAL DEFINITIVA: fragmento rejeitado
-                # não pode retornar por um fallback permissivo.
-                return
 
-
+            
+            # ------------------------------------------------
             # SALVAR CANDIDATO
             # ------------------------------------------------
             
@@ -12460,130 +12616,6 @@ def selecionar_informacoes_relevantes(
                 acumulado_inicio,
                 acumulado_fim
             )
-
-    # ========================================================
-    # 04.1. RECUPERAÇÃO DE PATRIMÔNIO
-    #
-    # A segmentação por frases é a primeira estratégia.
-    # Alguns PDFs, porém, chegam com pontuação quebrada ou
-    # estrutura de texto que impede a formação dos intervalos.
-    #
-    # Quando isso acontece, não podemos concluir que o patrimônio
-    # não possui informação. Fazemos uma segunda leitura diretamente
-    # sobre o texto original, usando janelas de 60 palavras.
-    #
-    # A janela continua sujeita aos mesmos filtros: tema, identidade
-    # da fonte, conteúdo comercial, URL, e-mail, telefone e CNPJ.
-    # Nenhum texto é criado ou reescrito.
-    # ========================================================
-
-    if len(candidatos) < 15:
-
-        print()
-        print("==============================")
-        print("RECUPERAÇÃO DE PATRIMÔNIO")
-        print("==============================")
-        print("CANDIDATOS ANTES:", len(candidatos))
-
-        for fonte in fontes:
-
-            texto_original = str(
-                fonte.get("texto", "")
-            )
-
-            if not texto_original.strip():
-                continue
-
-            palavras_fonte = list(
-                re.finditer(
-                    r"\S+",
-                    texto_original
-                )
-            )
-
-            if len(palavras_fonte) < MIN_PALAVRAS_FRAGMENTO:
-                continue
-
-            passo = 50
-
-            for inicio_janela in range(
-                0,
-                len(palavras_fonte),
-                passo
-            ):
-
-                fim_janela = min(
-                    inicio_janela + 60,
-                    len(palavras_fonte)
-                )
-
-                quantidade_janela = (
-                    fim_janela - inicio_janela
-                )
-
-                if quantidade_janela < MIN_PALAVRAS_FRAGMENTO:
-                    break
-
-                inicio_original = palavras_fonte[
-                    inicio_janela
-                ].start()
-
-                fim_original = palavras_fonte[
-                    fim_janela - 1
-                ].end()
-
-                texto_fragmento = texto_original[
-                    inicio_original:fim_original
-                ].strip()
-
-                estatisticas_qualidade["avaliados"] += 1
-
-                if not texto_fragmento:
-                    continue
-
-                if not fragmento_pertence_ao_tema(
-                    texto_fragmento,
-                    tema
-                ):
-                    continue
-
-                identidade_fonte = fonte.get(
-                    "identidade_fonte",
-                    {}
-                )
-
-                if not isinstance(identidade_fonte, dict):
-                    identidade_fonte = {}
-
-                if not fragmento_eh_comercialmente_limpo(
-                    texto_fragmento,
-                    identidade_fonte
-                ):
-                    continue
-
-                if not fragmento_eh_editorialmente_valido(
-                    texto_fragmento,
-                    identidade_fonte
-                ):
-                    continue
-
-                candidatos.append({
-                    "texto": texto_fragmento,
-                    "fonte": fonte["indice"],
-                    "url": fonte["url"],
-                    "tipo": fonte["tipo"],
-                    "pdf": fonte["eh_pdf"],
-                    "palavras": quantidade_janela,
-                    "identidade_fonte": identidade_fonte
-                })
-
-                if len(candidatos) >= 60:
-                    break
-
-            if len(candidatos) >= 60:
-                break
-
-        print("CANDIDATOS APÓS RECUPERAÇÃO:", len(candidatos))
 
     # ========================================================
     # 05. REMOVER DUPLICADOS
@@ -15928,154 +15960,6 @@ def selecionar_informacoes_relevantes(
             )
 
     # ========================================================
-    # QUARTA PASSAGEM — COMPLETAR BLOCOS OBRIGATÓRIOS
-    #
-    # A seleção principal prioriza qualidade e diversidade.
-    # Em alguns patrimônios, porém, o filtro estrutural final
-    # pode deixar um bloco sem os 3 fragmentos necessários,
-    # mesmo existindo candidatos válidos no ranking daquele
-    # bloco.
-    #
-    # Aqui fazemos somente uma recuperação controlada:
-    # - usa candidatos já construídos pelo Python;
-    # - mantém aderência ao tema;
-    # - mantém 35–75 palavras;
-    # - mantém proteção contra identidade da fonte;
-    # - bloqueia URL, e-mail, telefone e CNPJ;
-    # - nunca repete hash;
-    # - completa cada bloco até 3 fragmentos.
-    #
-    # Não cria texto novo e não altera a arquitetura do Ollama.
-    # ========================================================
-
-    if len(fragmentos_selecionados) < 15:
-
-        for numero_bloco in range(1, 6):
-
-            chave_bloco = f"bloco_{numero_bloco}"
-
-            quantidade_bloco = sum(
-                1
-                for fragmento in fragmentos_selecionados
-                if fragmento.get("bloco_mead") == chave_bloco
-            )
-
-            if quantidade_bloco >= 3:
-                continue
-
-            candidatos_resgate = candidatos_por_bloco.get(
-                chave_bloco,
-                []
-            )
-
-            for item in candidatos_resgate:
-
-                if quantidade_bloco >= 3:
-                    break
-
-                candidato = item.get("candidato")
-
-                if not isinstance(candidato, dict):
-                    continue
-
-                texto_resgate = str(
-                    candidato.get("texto", "") or ""
-                ).strip()
-
-                if not texto_resgate:
-                    continue
-
-                quantidade_palavras_resgate = len(
-                    re.findall(r"\S+", texto_resgate)
-                )
-
-                if not (
-                    MIN_PALAVRAS_FRAGMENTO
-                    <=
-                    quantidade_palavras_resgate
-                    <=
-                    MAX_PALAVRAS_FRAGMENTO
-                ):
-                    continue
-
-                if not fragmento_pertence_ao_tema(
-                    texto_resgate,
-                    tema
-                ):
-                    continue
-
-                identidade_resgate = candidato.get(
-                    "identidade_fonte",
-                    {}
-                )
-
-                if not fragmento_eh_comercialmente_limpo(
-                    texto_resgate,
-                    identidade_resgate
-                ):
-                    continue
-
-                if re.search(
-                    r"(https?://|www\.)\S+",
-                    texto_resgate,
-                    re.IGNORECASE
-                ):
-                    continue
-
-                if re.search(
-                    r"\b[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}\b",
-                    texto_resgate,
-                    re.IGNORECASE
-                ):
-                    continue
-
-                if re.search(
-                    r"(?<!\d)(?:\+?55[\s.-]*)?\(?\d{2}\)?[\s.-]*\d{4,5}[\s.-]*\d{4}(?!\d)",
-                    texto_resgate
-                ):
-                    continue
-
-                if re.search(
-                    r"\b\d{2}\.?\d{3}\.?\d{3}/?\d{4}-?\d{2}\b",
-                    texto_resgate
-                ):
-                    continue
-
-                hash_trecho = candidato.get("hash", "")
-
-                if not hash_trecho:
-                    hash_trecho = gerar_hash_trecho(
-                        texto_resgate
-                    )
-                    candidato["hash"] = hash_trecho
-
-                if hash_trecho in hashes_selecionados:
-                    continue
-
-                candidato["bloco_mead"] = chave_bloco
-                candidato["pontuacao_selecao"] = item.get(
-                    "pontuacao",
-                    0
-                )
-
-                hashes_selecionados.add(hash_trecho)
-
-                fonte = candidato.get("fonte")
-                fontes_utilizadas[fonte] = (
-                    fontes_utilizadas.get(fonte, 0) + 1
-                )
-
-                fragmentos_selecionados.append(candidato)
-                quantidade_bloco += 1
-
-                print()
-                print("⚠️ RESGATE DE DISTRIBUIÇÃO")
-                print("BLOCO:", chave_bloco)
-                print("FONTE:", fonte)
-                print("PALAVRAS:", quantidade_palavras_resgate)
-                print("MOTIVO:", "bloco obrigatório ainda não possuía 3 fragmentos")
-
-    # ========================================================
     # CONTROLE FINAL
     # ========================================================
 
@@ -17164,274 +17048,6 @@ def fragmento_eh_aproveitavel_editorialmente(
     )
 
     # ========================================================
-    # 00.1 BARREIRA CONTRA MARKETPLACE / COMPARADOR
-    # ========================================================
-    # Fragmentos de marketplace carregam preço, avaliação,
-    # quantidade mínima, compradores e outros resíduos comerciais.
-    # Esse conteúdo não é patrimônio técnico editorial.
-
-    marcadores_marketplace = [
-        "compras repetidas",
-        "clientes interesados",
-        "clientes interessados",
-        "cantidad min",
-        "cantidad mín",
-        "quantidade mín",
-        "quantidade min",
-        "anos cn",
-        "aos cn",
-        "unidad",
-        "unidade",
-        "preço",
-        "precio",
-        "compras realizadas",
-        "interessados",
-        "interesados"
-    ]
-
-    ocorrencias_marketplace = sum(
-        normalizar_assunto_texto(m) in texto_normalizado
-        for m in marcadores_marketplace
-    )
-
-    tem_moeda = bool(
-        re.search(r"(?:[$€£]|\b(?:usd|eur|brl)\b)\s*\d", texto_original, re.IGNORECASE)
-        or
-        re.search(r"\d[\d.,]*\s*(?:usd|eur|brl)", texto_original, re.IGNORECASE)
-    )
-
-    tem_avaliacao = bool(
-        re.search(r"\b\d(?:[.,]\d)?\s*/\s*5(?:[.,]\d)?\b", texto_original)
-    )
-
-    if ocorrencias_marketplace >= 2 or (tem_moeda and (ocorrencias_marketplace >= 1 or tem_avaliacao)) or tem_avaliacao and ocorrencias_marketplace >= 1:
-        return False
-
-    # ========================================================
-    # 00.2 BARREIRA CONTRA MARCAS EM CAIXA ALTA
-    # ========================================================
-    # Siglas técnicas conhecidas permanecem permitidas. Nomes
-    # comerciais como GRUNDFOS, DPUMPS, BOMBINOX e SHXINHUO
-    # deixam de entrar no patrimônio editorial.
-
-    tokens_caixa_alta = re.findall(
-        r"(?<![A-Za-zÀ-ÿ])[A-ZÀ-Ý]{4,}(?:[-/][A-Z0-9À-Ý]{2,})*(?![A-Za-zÀ-ÿ])",
-        texto_original
-    )
-
-    caixa_alta_tecnica_permitida = {
-        "BOMBA", "BOMBAS", "CENTRIFUGA", "CENTRIFUGAS",
-        "NPSH", "ISO", "ANSI", "ASTM", "DIN", "API",
-        "NBR", "PVC", "PEAD", "CPVC", "PPR", "RPM",
-        "MCA", "KW", "CV", "HP", "DN", "PN", "HVAC",
-        "PDF", "HTML", "URL", "MEAD", "IA"
-    }
-
-    for token in tokens_caixa_alta:
-        if token.casefold() not in {x.casefold() for x in caixa_alta_tecnica_permitida}:
-            return False
-
-    # ========================================================
-    # 00.3 BARREIRA CONTRA MANUAL / DATASHEET ESTRANGEIRO
-    # ========================================================
-
-    marcadores_manual_estrangeiro = [
-        "manual del propietario",
-        "manual de usuario",
-        "manual de mantenimiento",
-        "sección de seguridad",
-        "seccion de seguridad",
-        "consideraciones relativas a la seguridad",
-        "generalidades las bombas",
-        "inspeccione el embarque",
-        "confirmacion de pedido",
-        "la garantía no cubre",
-        "la garantia no cubre",
-        "emplazamiento defectuoso"
-    ]
-
-    if any(
-        normalizar_assunto_texto(m) in texto_normalizado
-        for m in marcadores_manual_estrangeiro
-    ):
-        return False
-
-    # ========================================================
-    # 00.4 BARREIRA CONTRA LISTAS / ÍNDICES DE ARTIGOS
-    # ========================================================
-
-    marcadores_indice_artigos = [
-        "como escolher o ideal para",
-        "como escolher a ideal para",
-        "tudo sobre bomba",
-        "guia completo",
-        "vantagens imperdiveis",
-        "vantagens imperdíveis",
-        "unidade hidraulica",
-        "unidade hidráulica",
-        "recalque de esgoto residencial",
-        "sistema de pressurizacao predial",
-        "sistema de pressurização predial"
-    ]
-
-    if any(
-        normalizar_assunto_texto(m) in texto_normalizado
-        for m in marcadores_indice_artigos
-    ):
-        return False
-
-    # ========================================================
-    # 00. BARREIRA EDITORIAL FORTE
-    #
-    # O filtro anterior eliminava vários resíduos, porém alguns
-    # trechos de catálogo/manual ainda conseguiam passar porque
-    # não continham um marcador isolado suficiente para reprovação.
-    # Aqui usamos sinais de CONTEXTO: quando o fragmento apresenta
-    # estrutura típica de catálogo, navegação, empresa/fabricante,
-    # manual ou material estrangeiro, ele não entra no patrimônio
-    # editorial destinado ao Ollama.
-    # ========================================================
-
-    sinais_catalogo = [
-        "tabela para selecao",
-        "tabela para seleção",
-        "tabla para seleccion",
-        "tabla para selección",
-        "guia para la seleccion",
-        "guia para la selección",
-        "guia para a selecao",
-        "guia para a seleção",
-        "curvas de rendimiento",
-        "curvas de rendimiento",
-        "curva #",
-        "hoja ",
-        "hoja de ",
-        "table of contents",
-        "indice de modelos",
-        "índice de modelos",
-        "especificacao tecnica bombas",
-        "especificação técnica bombas",
-        "quem somos",
-        "somos uma empresa",
-        "somos uma empresa multinacional",
-        "descripciones generales de las companias",
-        "descripciones generales de las compañías",
-        "principais fabricantes",
-        "principales fabricantes",
-        "marcas mais reconhecidas",
-        "marcas mas reconocidas"
-    ]
-
-    ocorrencias_catalogo_forte = sum(
-        normalizar_assunto_texto(sinal) in texto_normalizado
-        for sinal in sinais_catalogo
-    )
-
-    if ocorrencias_catalogo_forte >= 1:
-        return False
-
-    # Navegação típica de páginas capturadas por scraping.
-    sinais_navegacao_scraping = [
-        "[image]",
-        "home categorias",
-        "home category",
-        "categorias centrifugas",
-        "artigos ",
-        "aluguel de bomba",
-        "beneficios do pressurizador",
-        "vantagens da bomba",
-        "como escolher a bomba certa",
-        "5 tipos de bomba",
-        "6 dicas essenciais"
-    ]
-
-    if any(
-        normalizar_assunto_texto(sinal) in texto_normalizado
-        for sinal in sinais_navegacao_scraping
-    ):
-        return False
-
-    # Conteúdo institucional de fabricante/empresa não deve virar
-    # argumento comercial da página sem uma fonte editorial específica.
-    sinais_institucionais = [
-        "fundada em",
-        "fundado em",
-        "fundada en",
-        "fundado en",
-        "presenca em todas",
-        "presença em todas",
-        "presencia en",
-        "fabricas instaladas",
-        "fábricas instaladas",
-        "fabricas en",
-        "nuestras fabricas",
-        "nuestras fábricas",
-        "líder mundial",
-        "lider mundial",
-        "lider mundial en",
-        "presença mundial",
-        "presencia mundial",
-        "a nivel mundial",
-        "nível mundial"
-    ]
-
-    if any(
-        normalizar_assunto_texto(sinal) in texto_normalizado
-        for sinal in sinais_institucionais
-    ):
-        return False
-
-    # Manual de instruções: uma advertência isolada pode ser técnica,
-    # mas duas ou mais marcas de manual indicam que o fragmento é
-    # material operacional e não texto editorial pronto para reedição.
-    sinais_manual = [
-        "choque eletrico",
-        "choque eléctrico",
-        "antes de ligar a bomba",
-        "nunca movimente a bomba",
-        "suspenda imediatamente o uso",
-        "leia atentamente este manual",
-        "area de trabalho",
-        "área de trabalho",
-        "verifique se o cabo",
-        "verifique se a tensao",
-        "verifique se a tensão",
-        "qualquer irregularidade"
-    ]
-
-    ocorrencias_manual = sum(
-        normalizar_assunto_texto(sinal) in texto_normalizado
-        for sinal in sinais_manual
-    )
-
-    if ocorrencias_manual >= 2:
-        return False
-
-    # Material em espanhol: não basta uma palavra estrangeira; dois
-    # marcadores técnicos/estruturais já indicam que o trecho pertence
-    # a uma fonte estrangeira e deve ser excluído nesta etapa.
-    sinais_espanhol_forte = [
-        "prueba realizada con agua",
-        "gravedad especifica",
-        "otros liquidos",
-        "la bomba centrifuga",
-        "esta disenada para operar",
-        "rendimiento de la bomba",
-        "sistemas de calefaccion",
-        "fabricacion de bombas",
-        "sectores industriales",
-        "articulo profundiza"
-    ]
-
-    ocorrencias_espanhol = sum(
-        normalizar_assunto_texto(sinal) in texto_normalizado
-        for sinal in sinais_espanhol_forte
-    )
-
-    if ocorrencias_espanhol >= 2:
-        return False
-
-    # ========================================================
     # 01. NAVEGAÇÃO
     # ========================================================
 
@@ -17532,46 +17148,6 @@ def fragmento_eh_aproveitavel_editorialmente(
             return False
 
     # ========================================================
-    # 04. CATÁLOGO / ÍNDICE / INTERFACE / DOWNLOAD
-    # ========================================================
-
-    marcadores_lixo_editorial = [
-        "guia para a seleção", "guia para la selección",
-        "guia para la seleccion", "tabla de la página",
-        "tabla de la pagina", "tabla de selección",
-        "tabla de seleccion", "descripciones generales de las compañías",
-        "descripciones generales de las companias", "table of contents",
-        "download", "descarregar", "baixar pdf", "baixar o pdf",
-        "descargar", "compartilhar", "login", "log in", "carrinho",
-        "cookie", "linkedin", "facebook", "instagram", "twitter",
-        "whatsapp", "pinterest", "telegram", "tiktok", "reddit"
-    ]
-
-    for marcador in marcadores_lixo_editorial:
-        if normalizar_assunto_texto(marcador) in texto_normalizado:
-            return False
-
-    if re.search(r"\.{5,}\s*\d{1,4}\b", texto_original):
-        return False
-
-    marcadores_indice = [
-        "sumário", "sumario", "índice", "indice",
-        "página", "pagina", "pág.", "pag."
-    ]
-    ocorrencias_indice = sum(
-        normalizar_assunto_texto(m) in texto_normalizado
-        for m in marcadores_indice
-    )
-    if ocorrencias_indice >= 2:
-        return False
-
-    if len(re.findall(
-        r"(?:^|\s)[•·▪◦–—-](?:\s|$)",
-        texto_original,
-        re.MULTILINE
-    )) >= 2:
-        return False
-
     # 04. MODELOS / CÓDIGOS COMERCIAIS
     # ========================================================
 
@@ -18370,22 +17946,6 @@ def gerar_conteudo_completo(
     nome_site=""
 ):
 
-    # ========================================================
-    # 00. IDENTIDADE DO SITE
-    # ========================================================
-    # O nome informado na interface deve acompanhar toda a
-    # execução até a estrutura oficial da página.
-    # ========================================================
-
-    nome_site = preparar_identidade_editorial(
-        nome_site
-    )
-
-    print(
-        "NOME DO SITE RECEBIDO NO GERADOR:",
-        nome_site
-    )
-
     # Grupo principal vem da interface e precisa existir antes
     # de qualquer salvamento intermediário desta função.
     grupo_principal_projeto = normalizar_grupo_principal_projeto(
@@ -18451,44 +18011,38 @@ def gerar_conteudo_completo(
     # ========================================================
     
     if not arquivo_origem:
-
+    
         if isinstance(textos, dict):
-
+    
             fragmentos = textos.get(
                 "fragmentos",
                 []
             )
-
-        elif isinstance(textos, list):
-
-            fragmentos = textos
-
-        else:
-
-            fragmentos = []
-
-        if isinstance(fragmentos, list):
-
-            for fragmento in fragmentos:
-
-                if not isinstance(
-                    fragmento,
-                    dict
-                ):
-                    continue
-
-                url = str(
-                    fragmento.get(
-                        "url",
-                        ""
-                    ) or ""
-                ).strip()
-
-                if url:
-                    arquivo_origem = url
-                    break
-
-
+    
+            if isinstance(fragmentos, list):
+    
+                for fragmento in fragmentos:
+    
+                    if not isinstance(
+                        fragmento,
+                        dict
+                    ):
+                        continue
+    
+                    url = str(
+                        fragmento.get(
+                            "url",
+                            ""
+                        ) or ""
+                    ).strip()
+    
+                    if url:
+    
+                        arquivo_origem = url
+    
+                        break
+    
+    
     print(
         "ARQUIVO_ORIGEM RECUPERADO:",
         arquivo_origem
@@ -20436,18 +19990,6 @@ RETORNE SOMENTE O BLOCO.
                 marcador_fechamento.lower(),
                 inicio_conteudo
             )
-
-            if (
-                fim == -1
-                and
-                indice_paragrafo == 3
-            ):
-                fim = len(resultado_ollama)
-                print()
-                print(
-                    "⚠️ FECHAMENTO DO PARÁGRAFO 3 NÃO ENCONTRADO — "
-                    "USANDO FIM DA RESPOSTA COMO LIMITE."
-                )
             
             # ----------------------------------------------------
             # COMPATIBILIDADE:
@@ -20526,13 +20068,6 @@ RETORNE SOMENTE O BLOCO.
 
             texto_paragrafo = str(
                 texto_paragrafo or ""
-            ).strip()
-
-            texto_paragrafo = re.sub(
-                r"\s*\[/BLOCO\]\s*$",
-                "",
-                texto_paragrafo,
-                flags=re.IGNORECASE
             ).strip()
 
 
@@ -21827,16 +21362,7 @@ RETORNE SOMENTE O BLOCO.
     salvar_banco(
         tema,
         "mapa_mead",
-        mapa_texto,
-        informacoes_adicionais={
-            "nome_site": nome_site,
-            "arquivo_origem": nome_arquivo,
-            "grupo_principal_projeto": normalizar_grupo_principal_projeto(
-                entrada_grupo.get()
-                if "entrada_grupo" in globals()
-                else ""
-            )
-        }
+        mapa_texto
     )
 
     # ========================================================
@@ -22360,19 +21886,7 @@ def identificar_empresa_fonte(
 
             continue
 
-        palavras_nome = set(
-            normalizar_assunto_texto(
-                nome
-            ).split()
-        )
-
-        if (
-            nome.casefold() in palavras_invalidas
-            or
-            palavras_nome.intersection(
-                palavras_invalidas
-            )
-        ):
+        if nome.casefold() in palavras_invalidas:
 
             continue
 
@@ -22541,10 +22055,6 @@ def limpar_lista_referencias(
                 "texto"
             )
 
-            identidade_fonte_recebida = item.get(
-                "identidade_fonte",
-                {}
-            )
 
         else:
 
@@ -22553,8 +22063,6 @@ def limpar_lista_referencias(
             url = ""
 
             tipo = "texto"
-
-            identidade_fonte_recebida = {}
 
 
 
@@ -22629,22 +22137,10 @@ def limpar_lista_referencias(
     # 05. IDENTIFICAR IDENTIDADE DA FONTE
     # ========================================================
 
-        identidade_fonte = identidade_fonte_recebida
-
-        if not isinstance(
-            identidade_fonte,
-            dict
-        ):
-            identidade_fonte = {}
-
-        # A identidade já identificada na coleta tem prioridade.
-        # Só executar a identificação local quando não houver
-        # identidade recebida, evitando apagar a rastreabilidade.
-        if not identidade_fonte:
-            identidade_fonte = identificar_empresa_fonte(
-                texto,
-                url
-            )
+        identidade_fonte = identificar_empresa_fonte(
+            texto,
+            url
+        )
 
 
     # ========================================================
@@ -24724,28 +24220,6 @@ def salvar_banco(
             nome_site = ""
 
     # ========================================================
-    # NOME DO SITE NA ESTRUTURA OFICIAL DA PÁGINA
-    # ========================================================
-    # Não basta manter o valor em informacoes_adicionais.
-    # O campo oficial pagina.nome_site precisa receber o nome
-    # informado pela interface para aparecer no JSON final.
-    # ========================================================
-
-    if nome_site:
-
-        pagina[
-            "nome_site"
-        ] = nome_site
-
-    print(
-        "NOME DO SITE NO SALVAMENTO DA PÁGINA:",
-        pagina.get(
-            "nome_site",
-            ""
-        )
-    )
-
-    # ========================================================
     # GRUPO PRINCIPAL DO PROJETO
     # ========================================================
 
@@ -26451,29 +25925,6 @@ def salvar_banco(
         "subtitulo_listas",
         None
     )
-
-    # ========================================================
-    # GARANTIA FINAL DA IDENTIDADE DA PÁGINA
-    # ========================================================
-    # A identidade recebida nesta execução não pode desaparecer
-    # em uma segunda chamada de salvar_banco (ex.: mapa_mead).
-
-    if not str(pagina.get("nome_site", "") or "").strip():
-        nome_site_fallback = str(
-            informacoes_adicionais.get("nome_site", "")
-            or dados_tema.get("nome_site", "")
-            or ""
-        ).strip()
-        if nome_site_fallback:
-            pagina["nome_site"] = nome_site_fallback
-
-    if not str(pagina.get("arquivo_origem", "") or "").strip():
-        arquivo_origem_fallback = str(
-            informacoes_adicionais.get("arquivo_origem", "")
-            or ""
-        ).strip()
-        if arquivo_origem_fallback:
-            pagina["arquivo_origem"] = arquivo_origem_fallback
 
     # ========================================================
     # MONTAR PÁGINA FINAL
