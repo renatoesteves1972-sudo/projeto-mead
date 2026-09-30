@@ -1,4 +1,4 @@
-# versão 6.1 - 30/09
+# versão 6.3 - 30/09/2026
 
 import json
 import os
@@ -12178,174 +12178,15 @@ def selecionar_informacoes_relevantes(
             )
             
             if not editorialmente_valido:
-            
                 estatisticas_qualidade[
                     "qualidade_estrutural"
                 ] += 1
-            
-                # ------------------------------------------------
-                # FALLBACK CONTROLADO
-                # ------------------------------------------------
-                #
-                # Se o filtro editorial rejeitar o trecho, fazemos
-                # uma segunda verificação mais simples.
-                #
-                # O objetivo NÃO é aceitar lixo.
-                #
-                # O trecho ainda precisa:
-                # - ter tamanho correto;
-                # - pertencer ao tema;
-                # - não conter URL;
-                # - não conter telefone;
-                # - não conter e-mail;
-                # - não conter código comercial evidente.
-                #
-                # ------------------------------------------------
-            
-                texto_normalizado_fallback = (
-                    normalizar_assunto_texto(
-                        texto_fragmento
-                    )
-                )
-            
-                if not texto_normalizado_fallback:
-                    return
-            
-                # -----------------------------------------------
-                # TEMA OBRIGATÓRIO
-                # -----------------------------------------------
-            
-                if not fragmento_pertence_ao_tema(
-                    texto_fragmento,
-                    tema
-                ):
-                    return
-            
-                # -----------------------------------------------
-                # URL
-                # -----------------------------------------------
-            
-                if re.search(
-                    r"(https?://|www\.)\S+",
-                    texto_fragmento,
-                    re.IGNORECASE
-                ):
-                    return
-            
-                # -----------------------------------------------
-                # E-MAIL
-                # -----------------------------------------------
-            
-                if re.search(
-                    r"\b[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}\b",
-                    texto_fragmento,
-                    re.IGNORECASE
-                ):
-                    return
-            
-                # -----------------------------------------------
-                # TELEFONE
-                # -----------------------------------------------
-            
-                if re.search(
-                    r"(?<!\d)"
-                    r"(?:\+?55[\s.-]*)?"
-                    r"\(?\d{2}\)?[\s.-]*"
-                    r"\d{4,5}[\s.-]*\d{4}"
-                    r"(?!\d)",
-                    texto_fragmento
-                ):
-                    return
-            
-                # -----------------------------------------------
-                # CNPJ
-                # -----------------------------------------------
-            
-                if re.search(
-                    r"\b\d{2}\.?\d{3}\.?\d{3}/?\d{4}-?\d{2}\b",
-                    texto_fragmento
-                ):
-                    return
-            
-                # -----------------------------------------------
-                # CÓDIGOS COMERCIAIS EVIDENTES
-                # -----------------------------------------------
-            
-                codigo_comercial = re.search(
-                    r"\b(?:SKU|MPN|"
-                    r"PART[\s-]*NUMBER|"
-                    r"SERIAL[\s-]*NUMBER|"
-                    r"MODELO\s*[:\-]|"
-                    r"C[ÓO]DIGO\s+(?:DO\s+)?PRODUTO|"
-                    r"REFER[ÊE]NCIA\s+(?:DO\s+)?PRODUTO)"
-                    r"\b",
-                    texto_fragmento,
-                    re.IGNORECASE
-                )
-            
-                if codigo_comercial:
-                    return
-            
-                # -----------------------------------------------
-                # NOME DA EMPRESA DA FONTE
-                # -----------------------------------------------
-            
-                if isinstance(
-                    identidade_fonte,
-                    dict
-                ):
-            
-                    nome_empresa = str(
-                        identidade_fonte.get(
-                            "nome",
-                            ""
-                        )
-                    ).strip()
-            
-                    if nome_empresa:
-            
-                        nome_empresa_normalizado = (
-                            normalizar_assunto_texto(
-                                nome_empresa
-                            )
-                        )
-            
-                        if (
-                            nome_empresa_normalizado
-                            and
-                            nome_empresa_normalizado
-                            in texto_normalizado_fallback
-                        ):
-                            return
-            
-                # -----------------------------------------------
-                # FALLBACK APROVADO
-                # -----------------------------------------------
-            
-                print()
-                print(
-                    "⚠️ FALLBACK EDITORIAL ACEITO"
-                )
-            
-                print(
-                    "FONTE:",
-                    fonte.get("indice", "")
-                )
-            
-                print(
-                    "PALAVRAS:",
-                    quantidade
-                )
-            
-                print(
-                    "MOTIVO:",
-                    "filtro editorial rígido rejeitou, "
-                    "mas trecho passou pela validação mínima"
-                )
+
+                # BARREIRA EDITORIAL DEFINITIVA: fragmento rejeitado
+                # não pode retornar por um fallback permissivo.
+                return
 
 
-            
-            # ------------------------------------------------
             # SALVAR CANDIDATO
             # ------------------------------------------------
             
@@ -17323,6 +17164,157 @@ def fragmento_eh_aproveitavel_editorialmente(
     )
 
     # ========================================================
+    # 00. BARREIRA EDITORIAL FORTE
+    #
+    # O filtro anterior eliminava vários resíduos, porém alguns
+    # trechos de catálogo/manual ainda conseguiam passar porque
+    # não continham um marcador isolado suficiente para reprovação.
+    # Aqui usamos sinais de CONTEXTO: quando o fragmento apresenta
+    # estrutura típica de catálogo, navegação, empresa/fabricante,
+    # manual ou material estrangeiro, ele não entra no patrimônio
+    # editorial destinado ao Ollama.
+    # ========================================================
+
+    sinais_catalogo = [
+        "tabela para selecao",
+        "tabela para seleção",
+        "tabla para seleccion",
+        "tabla para selección",
+        "guia para la seleccion",
+        "guia para la selección",
+        "guia para a selecao",
+        "guia para a seleção",
+        "curvas de rendimiento",
+        "curvas de rendimiento",
+        "curva #",
+        "hoja ",
+        "hoja de ",
+        "table of contents",
+        "indice de modelos",
+        "índice de modelos",
+        "especificacao tecnica bombas",
+        "especificação técnica bombas",
+        "quem somos",
+        "somos uma empresa",
+        "somos uma empresa multinacional",
+        "descripciones generales de las companias",
+        "descripciones generales de las compañías",
+        "principais fabricantes",
+        "principales fabricantes",
+        "marcas mais reconhecidas",
+        "marcas mas reconocidas"
+    ]
+
+    ocorrencias_catalogo_forte = sum(
+        normalizar_assunto_texto(sinal) in texto_normalizado
+        for sinal in sinais_catalogo
+    )
+
+    if ocorrencias_catalogo_forte >= 1:
+        return False
+
+    # Navegação típica de páginas capturadas por scraping.
+    sinais_navegacao_scraping = [
+        "[image]",
+        "home categorias",
+        "home category",
+        "categorias centrifugas",
+        "artigos ",
+        "aluguel de bomba",
+        "beneficios do pressurizador",
+        "vantagens da bomba",
+        "como escolher a bomba certa",
+        "5 tipos de bomba",
+        "6 dicas essenciais"
+    ]
+
+    if any(
+        normalizar_assunto_texto(sinal) in texto_normalizado
+        for sinal in sinais_navegacao_scraping
+    ):
+        return False
+
+    # Conteúdo institucional de fabricante/empresa não deve virar
+    # argumento comercial da página sem uma fonte editorial específica.
+    sinais_institucionais = [
+        "fundada em",
+        "fundado em",
+        "fundada en",
+        "fundado en",
+        "presenca em todas",
+        "presença em todas",
+        "presencia en",
+        "fabricas instaladas",
+        "fábricas instaladas",
+        "fabricas en",
+        "nuestras fabricas",
+        "nuestras fábricas",
+        "líder mundial",
+        "lider mundial",
+        "lider mundial en",
+        "presença mundial",
+        "presencia mundial",
+        "a nivel mundial",
+        "nível mundial"
+    ]
+
+    if any(
+        normalizar_assunto_texto(sinal) in texto_normalizado
+        for sinal in sinais_institucionais
+    ):
+        return False
+
+    # Manual de instruções: uma advertência isolada pode ser técnica,
+    # mas duas ou mais marcas de manual indicam que o fragmento é
+    # material operacional e não texto editorial pronto para reedição.
+    sinais_manual = [
+        "choque eletrico",
+        "choque eléctrico",
+        "antes de ligar a bomba",
+        "nunca movimente a bomba",
+        "suspenda imediatamente o uso",
+        "leia atentamente este manual",
+        "area de trabalho",
+        "área de trabalho",
+        "verifique se o cabo",
+        "verifique se a tensao",
+        "verifique se a tensão",
+        "qualquer irregularidade"
+    ]
+
+    ocorrencias_manual = sum(
+        normalizar_assunto_texto(sinal) in texto_normalizado
+        for sinal in sinais_manual
+    )
+
+    if ocorrencias_manual >= 2:
+        return False
+
+    # Material em espanhol: não basta uma palavra estrangeira; dois
+    # marcadores técnicos/estruturais já indicam que o trecho pertence
+    # a uma fonte estrangeira e deve ser excluído nesta etapa.
+    sinais_espanhol_forte = [
+        "prueba realizada con agua",
+        "gravedad especifica",
+        "otros liquidos",
+        "la bomba centrifuga",
+        "esta disenada para operar",
+        "rendimiento de la bomba",
+        "sistemas de calefaccion",
+        "fabricacion de bombas",
+        "sectores industriales",
+        "articulo profundiza"
+    ]
+
+    ocorrencias_espanhol = sum(
+        normalizar_assunto_texto(sinal) in texto_normalizado
+        for sinal in sinais_espanhol_forte
+    )
+
+    if ocorrencias_espanhol >= 2:
+        return False
+
+    # ========================================================
     # 01. NAVEGAÇÃO
     # ========================================================
 
@@ -17423,6 +17415,46 @@ def fragmento_eh_aproveitavel_editorialmente(
             return False
 
     # ========================================================
+    # 04. CATÁLOGO / ÍNDICE / INTERFACE / DOWNLOAD
+    # ========================================================
+
+    marcadores_lixo_editorial = [
+        "guia para a seleção", "guia para la selección",
+        "guia para la seleccion", "tabla de la página",
+        "tabla de la pagina", "tabla de selección",
+        "tabla de seleccion", "descripciones generales de las compañías",
+        "descripciones generales de las companias", "table of contents",
+        "download", "descarregar", "baixar pdf", "baixar o pdf",
+        "descargar", "compartilhar", "login", "log in", "carrinho",
+        "cookie", "linkedin", "facebook", "instagram", "twitter",
+        "whatsapp", "pinterest", "telegram", "tiktok", "reddit"
+    ]
+
+    for marcador in marcadores_lixo_editorial:
+        if normalizar_assunto_texto(marcador) in texto_normalizado:
+            return False
+
+    if re.search(r"\.{5,}\s*\d{1,4}\b", texto_original):
+        return False
+
+    marcadores_indice = [
+        "sumário", "sumario", "índice", "indice",
+        "página", "pagina", "pág.", "pag."
+    ]
+    ocorrencias_indice = sum(
+        normalizar_assunto_texto(m) in texto_normalizado
+        for m in marcadores_indice
+    )
+    if ocorrencias_indice >= 2:
+        return False
+
+    if len(re.findall(
+        r"(?:^|\s)[•·▪◦–—-](?:\s|$)",
+        texto_original,
+        re.MULTILINE
+    )) >= 2:
+        return False
+
     # 04. MODELOS / CÓDIGOS COMERCIAIS
     # ========================================================
 
@@ -20287,6 +20319,18 @@ RETORNE SOMENTE O BLOCO.
                 marcador_fechamento.lower(),
                 inicio_conteudo
             )
+
+            if (
+                fim == -1
+                and
+                indice_paragrafo == 3
+            ):
+                fim = len(resultado_ollama)
+                print()
+                print(
+                    "⚠️ FECHAMENTO DO PARÁGRAFO 3 NÃO ENCONTRADO — "
+                    "USANDO FIM DA RESPOSTA COMO LIMITE."
+                )
             
             # ----------------------------------------------------
             # COMPATIBILIDADE:
@@ -20365,6 +20409,13 @@ RETORNE SOMENTE O BLOCO.
 
             texto_paragrafo = str(
                 texto_paragrafo or ""
+            ).strip()
+
+            texto_paragrafo = re.sub(
+                r"\s*\[/BLOCO\]\s*$",
+                "",
+                texto_paragrafo,
+                flags=re.IGNORECASE
             ).strip()
 
 
