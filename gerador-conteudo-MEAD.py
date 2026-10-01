@@ -20942,21 +20942,27 @@ RETORNE SOMENTE O BLOCO.
         
         
         # ========================================================
-        # VALIDAÇÃO DE TAMANHO DOS PARÁGRAFOS — v7.8
+        # VALIDAÇÃO DE TAMANHO DOS PARÁGRAFOS — v7.9
         # ========================================================
         #
-        # A quantidade de palavras é uma meta editorial, não uma licença
-        # para inventar conteúdo.
+        # FAIXA IDEAL:
+        # 60–70 palavras
         #
-        # FAIXA IDEAL: 60–70 palavras
-        # FAIXA ACEITÁVEL: 45–80 palavras
+        # FAIXA ACEITÁVEL:
+        # 45–80 palavras
         #
-        # Abaixo de 45 ou acima de 80:
-        # o bloco é rejeitado.
+        # ABAIXO DE 45:
+        # rejeitar e regenerar o bloco.
         #
-        # Entre 45 e 59 ou entre 71 e 80:
-        # o parágrafo pode ser aceito, desde que passe
-        # normalmente pela validação factual.
+        # ACIMA DE 80:
+        # rejeitar e regenerar o bloco.
+        #
+        # IMPORTANTE:
+        # Nenhum parágrafo rejeitado pode chegar a
+        # "GUARDAR OS 3 RESULTADOS".
+        #
+        # O retry é limitado a 1 nova chamada para este bloco,
+        # evitando loop infinito e explosão do tempo total.
         # ========================================================
 
         MIN_PALAVRAS_PARAGRAFO = 45
@@ -20965,117 +20971,382 @@ RETORNE SOMENTE O BLOCO.
         MIN_PALAVRAS_IDEAL = 60
         MAX_PALAVRAS_IDEAL = 70
 
-        for indice_paragrafo, resultado_paragrafo in enumerate(
-            paragrafos_extraidos
-        ):
+        RETRY_TAMANHO_MAX = 1
 
-            quantidade_palavras = len(
-                str(
-                    resultado_paragrafo or ""
-                ).split()
-            )
+        retry_tamanho_realizado = 0
 
-            # ----------------------------------------------------
-            # ABAIXO DO MÍNIMO
-            # ----------------------------------------------------
+        while True:
 
-            if quantidade_palavras < MIN_PALAVRAS_PARAGRAFO:
+            paragrafos_invalidos = []
 
-                print()
-                print(
-                    "❌ VALIDAÇÃO DE TAMANHO: "
-                    "parágrafo curto demais."
-                )
-
-                print(
-                    "BLOCO:",
-                    chave_bloco,
-                    "PARÁGRAFO:",
-                    indice_paragrafo + 1
-                )
-
-                print(
-                    "PALAVRAS:",
-                    quantidade_palavras
-                )
-
-                print(
-                    "MÍNIMO ACEITÁVEL:",
-                    MIN_PALAVRAS_PARAGRAFO
-                )
-
-                print(
-                    "FAIXA IDEAL:",
-                    f"{MIN_PALAVRAS_IDEAL}-"
-                    f"{MAX_PALAVRAS_IDEAL}"
-                )
-
-                return None
-
-            # ----------------------------------------------------
-            # ACIMA DO MÁXIMO
-            # ----------------------------------------------------
-
-            if quantidade_palavras > MAX_PALAVRAS_PARAGRAFO:
-
-                print()
-                print(
-                    "❌ VALIDAÇÃO DE TAMANHO: "
-                    "parágrafo longo demais."
-                )
-
-                print(
-                    "BLOCO:",
-                    chave_bloco,
-                    "PARÁGRAFO:",
-                    indice_paragrafo + 1
-                )
-
-                print(
-                    "PALAVRAS:",
-                    quantidade_palavras
-                )
-
-                print(
-                    "MÁXIMO ACEITÁVEL:",
-                    MAX_PALAVRAS_PARAGRAFO
-                )
-
-                print(
-                    "FAIXA IDEAL:",
-                    f"{MIN_PALAVRAS_IDEAL}-"
-                    f"{MAX_PALAVRAS_IDEAL}"
-                )
-
-                return None
-
-            # ----------------------------------------------------
-            # CLASSIFICAÇÃO
-            # ----------------------------------------------------
-
-            if (
-                MIN_PALAVRAS_IDEAL
-                <= quantidade_palavras
-                <= MAX_PALAVRAS_IDEAL
+            for indice_paragrafo, resultado_paragrafo in enumerate(
+                paragrafos_extraidos
             ):
 
-                classificacao_tamanho = "IDEAL"
+                quantidade_palavras = len(
+                    str(
+                        resultado_paragrafo or ""
+                    ).split()
+                )
 
-            else:
+                if (
+                    quantidade_palavras < MIN_PALAVRAS_PARAGRAFO
+                    or
+                    quantidade_palavras > MAX_PALAVRAS_PARAGRAFO
+                ):
 
-                classificacao_tamanho = "ACEITÁVEL"
+                    paragrafos_invalidos.append({
+                        "indice":
+                            indice_paragrafo,
 
+                        "palavras":
+                            quantidade_palavras
+                    })
+
+            # ----------------------------------------------------
+            # TODOS OS 3 PARÁGRAFOS ESTÃO NA FAIXA
+            # ----------------------------------------------------
+
+            if not paragrafos_invalidos:
+
+                print()
+                print(
+                    "🟢 TAMANHO DOS 3 PARÁGRAFOS APROVADO"
+                )
+
+                for indice_paragrafo, resultado_paragrafo in enumerate(
+                    paragrafos_extraidos
+                ):
+
+                    quantidade_palavras = len(
+                        str(
+                            resultado_paragrafo or ""
+                        ).split()
+                    )
+
+                    if (
+                        MIN_PALAVRAS_IDEAL
+                        <= quantidade_palavras
+                        <= MAX_PALAVRAS_IDEAL
+                    ):
+
+                        classificacao_tamanho = "IDEAL"
+
+                    else:
+
+                        classificacao_tamanho = "ACEITÁVEL"
+
+                    print(
+                        "PARÁGRAFO",
+                        indice_paragrafo + 1,
+                        ":",
+                        quantidade_palavras,
+                        "palavras",
+                        f"({classificacao_tamanho})"
+                    )
+
+                break
+
+            # ----------------------------------------------------
+            # EXISTE PARÁGRAFO FORA DA FAIXA
+            # ----------------------------------------------------
+
+            print()
             print(
-                "🟢 VALIDAÇÃO DE TAMANHO:",
-                chave_bloco,
-                "PARÁGRAFO",
-                indice_paragrafo + 1,
-                "PALAVRAS",
-                quantidade_palavras,
-                f"({classificacao_tamanho})"
+                "⚠️ PARÁGRAFO(S) FORA DA FAIXA DE TAMANHO"
             )
 
-        
+            print(
+                "BLOCO:",
+                chave_bloco
+            )
+
+            for item_invalido in paragrafos_invalidos:
+
+                print(
+                    "PARÁGRAFO:",
+                    item_invalido["indice"] + 1,
+                    "| PALAVRAS:",
+                    item_invalido["palavras"],
+                    "| FAIXA:",
+                    f"{MIN_PALAVRAS_PARAGRAFO}-"
+                    f"{MAX_PALAVRAS_PARAGRAFO}"
+                )
+
+            # ----------------------------------------------------
+            # RETRY DE TAMANHO
+            # ----------------------------------------------------
+
+            if retry_tamanho_realizado >= RETRY_TAMANHO_MAX:
+
+                print()
+                print(
+                    "❌ RETRY DE TAMANHO JÁ UTILIZADO."
+                )
+
+                print(
+                    "O BLOCO CONTINUA INVÁLIDO."
+                )
+
+                print(
+                    "A PÁGINA NÃO SERÁ GRAVADA."
+                )
+
+                return None
+
+            retry_tamanho_realizado += 1
+
+            print()
+            print(
+                "🔄 INICIANDO RETRY DE TAMANHO"
+            )
+
+            print(
+                "TENTATIVA:",
+                retry_tamanho_realizado,
+                "/",
+                RETRY_TAMANHO_MAX
+            )
+
+            # ----------------------------------------------------
+            # CONSTRUIR PROMPT DE RETRY
+            # ----------------------------------------------------
+
+            prompt_retry_tamanho = (
+                prompt_bloco
+                + "\n\n"
+                + "==================================================\n"
+                + "CORREÇÃO OBRIGATÓRIA DO TAMANHO\n"
+                + "==================================================\n"
+                + "A resposta anterior foi rejeitada porque "
+                + "um ou mais parágrafos ficaram fora da faixa "
+                + "obrigatória de tamanho.\n\n"
+                + "Gere novamente SOMENTE este bloco.\n\n"
+                + "CADA UM DOS 3 PARÁGRAFOS DEVE TER:\n"
+                + f"- mínimo de {MIN_PALAVRAS_PARAGRAFO} palavras;\n"
+                + f"- máximo de {MAX_PALAVRAS_PARAGRAFO} palavras;\n"
+                + f"- preferência editorial entre "
+                + f"{MIN_PALAVRAS_IDEAL} e "
+                + f"{MAX_PALAVRAS_IDEAL} palavras.\n\n"
+                + "NÃO escreva parágrafos curtos apenas para "
+                + "encerrar a resposta.\n"
+                + "NÃO resuma excessivamente os trechos.\n"
+                + "NÃO invente informações para aumentar o tamanho.\n"
+                + "Use somente as informações dos três trechos "
+                + "autorizados.\n\n"
+                + "É obrigatório manter exatamente esta estrutura:\n"
+                + "[BLOCO]\n"
+                + "[PARAGRAFO_1] texto [/PARAGRAFO_1]\n"
+                + "[PARAGRAFO_2] texto [/PARAGRAFO_2]\n"
+                + "[PARAGRAFO_3] texto [/PARAGRAFO_3]\n"
+                + "[/BLOCO]\n"
+                + "==================================================\n"
+            )
+
+            inicio_retry_tamanho = time.time()
+
+            try:
+
+                resposta_retry_tamanho = requests.post(
+                    "http://localhost:11434/api/generate",
+
+                    json={
+                        "model":
+                            "qwen2.5:3b",
+
+                        "prompt":
+                            prompt_retry_tamanho,
+
+                        "stream":
+                            False,
+
+                        "think":
+                            False,
+
+                        "keep_alive":
+                            "10m",
+
+                        "options": {
+                            "num_predict":
+                                420,
+
+                            "num_ctx":
+                                8192,
+
+                            "temperature":
+                                0.15,
+
+                            "top_p":
+                                0.9,
+
+                            "repeat_penalty":
+                                1.05
+                        }
+                    },
+
+                    timeout=(
+                        30,
+                        900
+                    )
+                )
+
+            except requests.exceptions.Timeout:
+
+                print()
+                print(
+                    "❌ TIMEOUT NO RETRY DE TAMANHO."
+                )
+
+                print(
+                    "BLOCO:",
+                    chave_bloco
+                )
+
+                return None
+
+            except Exception as erro_retry_tamanho:
+
+                print()
+                print(
+                    "❌ ERRO NO RETRY DE TAMANHO:"
+                )
+
+                print(
+                    repr(
+                        erro_retry_tamanho
+                    )
+                )
+
+                return None
+
+            tempo_retry_tamanho = (
+                time.time()
+                -
+                inicio_retry_tamanho
+            )
+
+            print(
+                "STATUS HTTP RETRY TAMANHO:",
+                resposta_retry_tamanho.status_code
+            )
+
+            print(
+                "TEMPO RETRY TAMANHO:",
+                round(
+                    tempo_retry_tamanho,
+                    2
+                ),
+                "segundos"
+            )
+
+            if resposta_retry_tamanho.status_code != 200:
+
+                print(
+                    "❌ RETRY DE TAMANHO RETORNOU HTTP INVÁLIDO."
+                )
+
+                print(
+                    resposta_retry_tamanho.text[:1000]
+                )
+
+                return None
+
+            try:
+
+                dados_retry_tamanho = (
+                    resposta_retry_tamanho.json()
+                )
+
+                resultado_retry_tamanho = str(
+                    dados_retry_tamanho.get(
+                        "response",
+                        ""
+                    )
+                    or ""
+                ).strip()
+
+            except Exception as erro_retry_json:
+
+                print(
+                    "❌ ERRO AO LER RETRY DE TAMANHO:"
+                )
+
+                print(
+                    repr(
+                        erro_retry_json
+                    )
+                )
+
+                return None
+
+            print(
+                "CARACTERES RETRY TAMANHO:",
+                len(
+                    resultado_retry_tamanho
+                )
+            )
+
+            # ----------------------------------------------------
+            # PARSER ESTRITO NOVAMENTE
+            # ----------------------------------------------------
+
+            (
+                paragrafos_retry_tamanho,
+                erro_parser_retry_tamanho
+            ) = _extrair_paragrafos_ollama_estrito(
+                resultado_retry_tamanho
+            )
+
+            if paragrafos_retry_tamanho is None:
+
+                print()
+                print(
+                    "❌ RETRY DE TAMANHO REJEITADO PELO PARSER."
+                )
+
+                print(
+                    "MOTIVO:",
+                    erro_parser_retry_tamanho
+                )
+
+                return None
+
+            if len(
+                paragrafos_retry_tamanho
+            ) != 3:
+
+                print()
+                print(
+                    "❌ RETRY DE TAMANHO NÃO RETORNOU 3 PARÁGRAFOS."
+                )
+
+                print(
+                    "RECEBIDOS:",
+                    len(
+                        paragrafos_retry_tamanho
+                    )
+                )
+
+                return None
+
+            # ----------------------------------------------------
+            # SUBSTITUIR SOMENTE DEPOIS DO PARSER APROVAR
+            # ----------------------------------------------------
+
+            paragrafos_extraidos = (
+                paragrafos_retry_tamanho
+            )
+
+            print()
+            print(
+                "🟢 RETRY DE TAMANHO APROVADO PELO PARSER."
+            )
+
+            # ----------------------------------------------------
+            # O WHILE VOLTA E VALIDA NOVAMENTE OS 3
+            # ----------------------------------------------------
+
+            continue
         
         # ========================================================
         # VALIDAÇÃO FACTUAL PÓS-OLLAMA — v7.5
