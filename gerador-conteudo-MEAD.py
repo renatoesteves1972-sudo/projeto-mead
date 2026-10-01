@@ -8670,6 +8670,8 @@ CONTEÚDO
 
     inicio_ollama = time.time()
 
+    fim_ollama = None
+
     try:
 
         resposta = requests.post(
@@ -8868,32 +8870,37 @@ CONTEÚDO
     # ========================================================
     # 06. LIMPAR RESULTADO
     # ========================================================
-
+    
     conteudo_revisado = (
         conteudo_revisado
         .strip()
     )
-
+    
     print()
     print("==============================")
     print("REVISÃO DE NATURALIDADE FINALIZADA")
     print("==============================")
-
-    print(
-        "TEMPO TOTAL:",
-        round(
-            fim_ollama - inicio_ollama,
-            1
-        ),
-        "segundos"
-    )
-
+    
+    if fim_ollama is not None:
+        print(
+            "TEMPO TOTAL:",
+            round(
+                fim_ollama - inicio_ollama,
+                1
+            ),
+            "segundos"
+        )
+    else:
+        print(
+            "TEMPO TOTAL: não disponível"
+        )
+    
     print(
         "CONTEÚDO ORIGINAL:",
         len(conteudo),
         "caracteres"
     )
-
+    
     print(
         "CONTEÚDO REVISADO:",
         len(conteudo_revisado),
@@ -10739,14 +10746,14 @@ def selecionar_informacoes_relevantes(
     # Não basta penalizar índice, comentários, menus ou tabelas.
     # Esses fragmentos devem ser retirados ANTES da pontuação.
     #
-    # Cada candidato terá entre 45 e 75 palavras.
+    # Cada candidato terá entre 80 e 120 palavras.
     #
     # ========================================================
 
     candidatos = []
 
-    MIN_PALAVRAS_FRAGMENTO = 35
-    MAX_PALAVRAS_FRAGMENTO = 75
+    MIN_PALAVRAS_FRAGMENTO = 80
+    MAX_PALAVRAS_FRAGMENTO = 120
     
     
 
