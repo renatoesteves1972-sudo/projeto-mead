@@ -25558,11 +25558,12 @@ def salvar_banco(
     # NOME DO SITE
     # ========================================================
     
-    pagina[
-        "nome_site"
-    ] = str(
-        nome_site or ""
-    ).strip()
+    nome_site_recebido = str(nome_site or "").strip()
+
+    if nome_site_recebido:
+        pagina["nome_site"] = nome_site_recebido
+    elif "nome_site" not in pagina:
+        pagina["nome_site"] = ""
 
 
 
