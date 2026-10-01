@@ -10829,6 +10829,64 @@ def selecionar_informacoes_relevantes(
             texto
         ):
             return False
+            
+        # ========================================================
+        # 03.1. ENTENDIMENTO MEAD + EDITORES ANTES DA SELEÇÃO
+        # ========================================================
+        #
+        # O Python deve considerar o MEAD e as regras editoriais
+        # ANTES de selecionar qualquer fragmento.
+        #
+        # A seleção não deve ocorrer apenas pela presença da
+        # palavra-chave ou por similaridade com o tema.
+        #
+        # O fragmento precisa ser compatível com o conteúdo
+        # solicitado pelo MEAD e pelos editores.
+        # ========================================================
+        
+        contexto_mead_editores = {
+        
+            "tema": tema,
+        
+            "mapa_mead": mapa_texto,
+        
+            "assuntos_editoriais": assuntos,
+        
+            "instrucao_selecao": (
+                "Antes de selecionar qualquer fragmento, "
+                "considerar integralmente o MEAD e os assuntos "
+                "definidos pelos editores. "
+                "Selecionar somente informações que contribuam "
+                "diretamente para o conteúdo editorial solicitado. "
+                "Não selecionar textos apenas por conterem a "
+                "palavra-chave. "
+                "Evitar títulos isolados, menus, textos truncados, "
+                "frases incompletas, conteúdo comercial, conteúdo "
+                "sem desenvolvimento técnico e informações que "
+                "não contribuam para o objetivo editorial."
+            )
+        
+        }
+        
+        print()
+        print("==============================")
+        print("ENTENDIMENTO MEAD + EDITORES")
+        print("==============================")
+        
+        print(
+            "MEAD CONSIDERADO:",
+            "SIM" if mapa_texto else "NÃO"
+        )
+        
+        print(
+            "EDITORES CONSIDERADOS:",
+            "SIM" if assuntos else "NÃO"
+        )
+        
+        print(
+            "SELEÇÃO ORIENTADA PELO MEAD:",
+            "SIM"
+        )    
 
         # ----------------------------------------------------
         # 04. IDENTIFICADORES COMERCIAIS EXPLÍCITOS
