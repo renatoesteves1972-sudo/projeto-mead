@@ -1,4 +1,4 @@
-# versão 7.9 - 30/09/2026
+# versão 8.0 - 30/09/2026
 
 import json
 import os
@@ -19025,18 +19025,19 @@ ATENÇÃO:
 - Não acrescente marcas.
 - Não acrescente empresas.
 - Não acrescente modelos.
-- Não misture os três trechos.
-- TRECHO 1 continua correspondendo ao PARÁGRAFO 1.
-- TRECHO 2 continua correspondendo ao PARÁGRAFO 2.
-- TRECHO 3 continua correspondendo ao PARÁGRAFO 3.
+- Preserve o sentido factual dos trechos autorizados.
+- O parágrafo deve ser uma redação original, não uma paráfrase frase a frase.
+- Você pode reorganizar ideias e variar a construção para melhorar a leitura.
+- Cada parágrafo deve continuar baseado principalmente no seu trecho correspondente.
+- Evite repetição, linguagem mecânica e preenchimento artificial.
 
 Todos os três parágrafos precisam ter entre
 45 e 80 palavras.
 
 A faixa ideal continua sendo de 60 a 70 palavras.
 
-Não aumente artificialmente o texto apenas para atingir
-a quantidade de palavras.
+Se um parágrafo estiver curto, desenvolva melhor uma ideia que já exista no
+trecho; não acrescente fatos novos apenas para atingir a quantidade de palavras.
 
 Retorne novamente somente:
 
@@ -19100,9 +19101,9 @@ Retorne novamente somente:
                                 8192,
 
                             "temperature":
-                                0.15
+                                0.28
                                 if tentativa_bloco > 1
-                                else 0.2,
+                                else 0.35,
 
                             "top_p":
                                 0.9,
@@ -20364,54 +20365,35 @@ TRECHO {fragmento["numero"]}
 
         prompt_bloco = f"""
 
-Você é um redator técnico.
+Você é um REDATOR TÉCNICO-EDITORIAL experiente.
 
-Sua única função é REEDITAR os três trechos fornecidos
-pelo Python.
+Sua tarefa não é fazer uma paráfrase mecânica dos trechos.
+Sua tarefa é transformar o material factual fornecido pelo Python
+em três parágrafos originais, naturais, claros e editorialmente bem escritos.
 
-Não faça pesquisa.
+Use os trechos como BASE FACTUAL e não como frases que precisam ser
+reescritas uma a uma. Você pode interpretar a relação entre as ideias,
+reorganizar a ordem das informações, unir ideias complementares,
+eliminar redundâncias e escolher uma construção textual completamente
+nova, desde que o significado factual seja preservado.
 
-Não selecione informações.
+NÃO faça pesquisa.
+NÃO procure outras fontes.
+NÃO utilize conhecimento externo para preencher lacunas.
+NÃO invente informações.
+NÃO transforme possibilidade em fato.
+NÃO acrescente números, medidas, normas, certificações, marcas, empresas,
+modelos, clientes, resultados, aplicações ou características que não estejam
+explicitamente sustentados pelo material autorizado.
 
-Não procure outras fontes.
+O MEAD abaixo é orientação EDITORIAL, não fonte factual adicional.
+Use-o para entender o foco, a intenção e a abordagem desejada da página.
+Os fatos técnicos devem vir somente dos trechos autorizados.
 
-Não utilize conhecimento externo.
-
-Não invente informações.
-
-Não complete lacunas com conhecimento próprio.
-
-Não crie fatos.
-
-Não acrescente números.
-
-Não acrescente características.
-
-Não acrescente aplicações.
-
-Não acrescente materiais.
-
-Não acrescente normas.
-
-Não acrescente certificações.
-
-Não acrescente marcas.
-
-Não acrescente empresas.
-
-Não acrescente modelos.
-
-Não acrescente clientes.
-
-Não acrescente resultados.
-
-Não acrescente informações que não estejam nos trechos.
-
-O MEAD abaixo é uma orientação editorial da página.
-Ele NÃO é uma fonte factual adicional.
-Use-o para respeitar a intenção editorial, o foco e as regras
-da página, mas obtenha todo conteúdo técnico factual somente
-dos três trechos autorizados pelo Python.
+PRINCÍPIO CENTRAL:
+Escreva como um especialista humano que recebeu estas informações para
+produzir um texto técnico publicável, e não como uma máquina substituindo
+palavras por sinônimos.
 
 ==================================================
 MEAD EDITORIAL DA PÁGINA
@@ -20432,38 +20414,40 @@ BLOCO ATUAL
 {chave_bloco}
 
 ==================================================
-REGRA DE REEDIÇÃO
+LIBERDADE EDITORIAL COM CONTROLE FACTUAL
 ==================================================
 
-TRECHO 1 → PARÁGRAFO 1
+Produza exatamente três parágrafos. Cada parágrafo deve ter como base
+principal o trecho correspondente, mas você NÃO precisa preservar a ordem
+das frases, a estrutura sintática ou a sequência das ideias do trecho.
 
-TRECHO 2 → PARÁGRAFO 2
+TRECHO 1 → base factual principal do PARÁGRAFO 1
+TRECHO 2 → base factual principal do PARÁGRAFO 2
+TRECHO 3 → base factual principal do PARÁGRAFO 3
 
-TRECHO 3 → PARÁGRAFO 3
+Você pode:
+- reorganizar completamente as ideias;
+- começar pelo contexto, pela característica, pela aplicação ou pela consequência
+  quando isso tornar a leitura mais natural;
+- juntar informações que pertençam ao mesmo raciocínio;
+- eliminar repetições;
+- substituir construções artificiais por linguagem natural;
+- variar aberturas e estruturas sintáticas entre os parágrafos;
+- usar conectivos de forma natural;
+- transformar frases curtas e fragmentadas em períodos mais fluidos;
+- dar ao parágrafo uma progressão lógica clara.
 
-Cada trecho deve gerar somente o seu próprio parágrafo.
+Não escreva como se estivesse resumindo o trecho. Desenvolva as ideias que
+já estão presentes nele de forma editorialmente mais madura.
 
-Não misture os trechos.
+NÃO transforme o texto em propaganda.
+NÃO use adjetivos promocionais sem base factual.
+NÃO repita a palavra-chave artificialmente.
+NÃO comece todos os parágrafos com o tema.
+NÃO use fórmulas repetitivas como “é importante destacar”, “vale ressaltar”,
+“nesse contexto” ou equivalentes quando não forem realmente necessárias.
 
-Não utilize informação de outro trecho.
-
-Não utilize informação de outro bloco.
-
-Preserve o sentido técnico original.
-
-Você pode corrigir:
-
-- gramática;
-- concordância;
-- pontuação;
-- ordem das frases;
-- fluidez;
-- repetição desnecessária;
-- construção textual.
-
-Você NÃO pode alterar o conteúdo factual.
-
-O resultado deve ser natural, técnico e claro.
+A fidelidade factual tem prioridade sobre qualquer preferência de estilo.
 
 Não faça listas.
 
@@ -20564,6 +20548,11 @@ RETORNE SOMENTE O BLOCO.
             "SIM"
         )
         
+        # Cronometragem do BLOCO inteiro.
+        # Não usar inicio_ollama/fim_ollama aqui: essas variáveis
+        # pertencem à função de retentativa e não existem neste escopo.
+        inicio_bloco = time.time()
+
         resultado_bloco, erro_bloco = (
             _processar_bloco_ollama_com_retentativas(
                 prompt_bloco,
@@ -20571,6 +20560,8 @@ RETORNE SOMENTE O BLOCO.
                 chave_bloco
             )
         )
+
+        fim_bloco = time.time()
         
         if resultado_bloco is None:
         
@@ -20879,7 +20870,7 @@ RETORNE SOMENTE O BLOCO.
         print(
             "TEMPO TOTAL DO BLOCO:",
             round(
-                fim_ollama - inicio_ollama,
+                fim_bloco - inicio_bloco,
                 2
             ),
             "segundos"
@@ -20951,7 +20942,7 @@ RETORNE SOMENTE O BLOCO.
         print(
             "TEMPO TOTAL DO BLOCO:",
             round(
-                fim_ollama - inicio_ollama,
+                fim_bloco - inicio_bloco,
                 2
             ),
             "segundos"
