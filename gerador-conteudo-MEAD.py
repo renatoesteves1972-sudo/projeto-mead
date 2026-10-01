@@ -19980,6 +19980,144 @@ RETORNE SOMENTE O BLOCO.
             print("❌ QUANTIDADE INCORRETA DE PARÁGRAFOS:", len(paragrafos_extraidos))
             return None
 
+        
+        
+        # ========================================================
+        # VALIDAÇÃO DE TAMANHO DOS PARÁGRAFOS — v7.8
+        # ========================================================
+        #
+        # A quantidade de palavras é uma meta editorial, não uma licença
+        # para inventar conteúdo.
+        #
+        # FAIXA IDEAL: 60–70 palavras
+        # FAIXA ACEITÁVEL: 45–80 palavras
+        #
+        # Abaixo de 45 ou acima de 80:
+        # o bloco é rejeitado.
+        #
+        # Entre 45 e 59 ou entre 71 e 80:
+        # o parágrafo pode ser aceito, desde que passe
+        # normalmente pela validação factual.
+        # ========================================================
+
+        MIN_PALAVRAS_PARAGRAFO = 45
+        MAX_PALAVRAS_PARAGRAFO = 80
+
+        MIN_PALAVRAS_IDEAL = 60
+        MAX_PALAVRAS_IDEAL = 70
+
+        for indice_paragrafo, resultado_paragrafo in enumerate(
+            paragrafos_extraidos
+        ):
+
+            quantidade_palavras = len(
+                str(
+                    resultado_paragrafo or ""
+                ).split()
+            )
+
+            # ----------------------------------------------------
+            # ABAIXO DO MÍNIMO
+            # ----------------------------------------------------
+
+            if quantidade_palavras < MIN_PALAVRAS_PARAGRAFO:
+
+                print()
+                print(
+                    "❌ VALIDAÇÃO DE TAMANHO: "
+                    "parágrafo curto demais."
+                )
+
+                print(
+                    "BLOCO:",
+                    chave_bloco,
+                    "PARÁGRAFO:",
+                    indice_paragrafo + 1
+                )
+
+                print(
+                    "PALAVRAS:",
+                    quantidade_palavras
+                )
+
+                print(
+                    "MÍNIMO ACEITÁVEL:",
+                    MIN_PALAVRAS_PARAGRAFO
+                )
+
+                print(
+                    "FAIXA IDEAL:",
+                    f"{MIN_PALAVRAS_IDEAL}-"
+                    f"{MAX_PALAVRAS_IDEAL}"
+                )
+
+                return None
+
+            # ----------------------------------------------------
+            # ACIMA DO MÁXIMO
+            # ----------------------------------------------------
+
+            if quantidade_palavras > MAX_PALAVRAS_PARAGRAFO:
+
+                print()
+                print(
+                    "❌ VALIDAÇÃO DE TAMANHO: "
+                    "parágrafo longo demais."
+                )
+
+                print(
+                    "BLOCO:",
+                    chave_bloco,
+                    "PARÁGRAFO:",
+                    indice_paragrafo + 1
+                )
+
+                print(
+                    "PALAVRAS:",
+                    quantidade_palavras
+                )
+
+                print(
+                    "MÁXIMO ACEITÁVEL:",
+                    MAX_PALAVRAS_PARAGRAFO
+                )
+
+                print(
+                    "FAIXA IDEAL:",
+                    f"{MIN_PALAVRAS_IDEAL}-"
+                    f"{MAX_PALAVRAS_IDEAL}"
+                )
+
+                return None
+
+            # ----------------------------------------------------
+            # CLASSIFICAÇÃO
+            # ----------------------------------------------------
+
+            if (
+                MIN_PALAVRAS_IDEAL
+                <= quantidade_palavras
+                <= MAX_PALAVRAS_IDEAL
+            ):
+
+                classificacao_tamanho = "IDEAL"
+
+            else:
+
+                classificacao_tamanho = "ACEITÁVEL"
+
+            print(
+                "🟢 VALIDAÇÃO DE TAMANHO:",
+                chave_bloco,
+                "PARÁGRAFO",
+                indice_paragrafo + 1,
+                "PALAVRAS",
+                quantidade_palavras,
+                f"({classificacao_tamanho})"
+            )
+
+        
+        
         # ========================================================
         # VALIDAÇÃO FACTUAL PÓS-OLLAMA — v7.5
         # ========================================================
