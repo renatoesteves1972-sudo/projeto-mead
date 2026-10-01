@@ -1,4 +1,4 @@
-# versão 7.8 - 30/09/2026
+# versão 7.9 - 30/09/2026
 
 import json
 import os
@@ -18872,24 +18872,18 @@ def gerar_conteudo_completo(
     # ============================================================
     # GARANTIR ESTRUTURA DOS 5 BLOCOS
     # ============================================================
-
+    
     if not isinstance(
         informacoes_blocos,
         dict
     ):
-
+    
         print()
         print(
             "❌ ERRO: informacoes_blocos não é um dicionário."
         )
-
-        return None
-
-        for numero_bloco in range(
-        1,
-        total_blocos + 1
-    ):
     
+        return None
 
     # ============================================================
     # RETENTATIVA CONTROLADA DE REDAÇÃO DO BLOCO
