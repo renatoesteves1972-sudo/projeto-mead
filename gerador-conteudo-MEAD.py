@@ -19457,11 +19457,21 @@ Não crie conclusão.
 
 Não crie introdução fora dos três parágrafos.
 
-Procure aproximadamente 60 a 70 palavras por parágrafo,
-mas NUNCA invente conteúdo apenas para atingir tamanho.
+A faixa ideal é de 60 a 70 palavras por parágrafo.
 
-Se o trecho possuir menos informação, produza um
-parágrafo menor.
+A faixa aceitável é de 45 a 80 palavras.
+
+Procure ficar na faixa ideal de 60 a 70 palavras sempre que o conteúdo factual
+dos trechos permitir.
+
+NÃO invente, acrescente ou repita informações apenas para atingir quantidade
+de palavras.
+
+Se o trecho não comportar naturalmente 60 a 70 palavras, permaneça entre
+45 e 80 palavras, priorizando fidelidade factual, clareza e naturalidade.
+
+Um parágrafo com menos de 45 ou mais de 80 palavras será rejeitado pelo
+Python após a redação.
 
 ==================================================
 FORMATO OBRIGATÓRIO
