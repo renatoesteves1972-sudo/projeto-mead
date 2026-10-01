@@ -1,5 +1,4 @@
-# versão 7.7 - 01/10
-
+# versão 7.7 - 30/09/2026
 
 import json
 import os
@@ -50,18 +49,39 @@ from pathlib import Path
 # ============================================================
 
 TAGS_FIXAS_PRODUTOS = [
-    "empresa de [tema]", "fornecedor de [tema]", "onde encontrar [tema]", "onde comprar [tema]",
-    "orçamento de [tema]", "cotação de [tema]", "especificações de [tema]", "características de [tema]",
-    "funcionamento de [tema]", "aplicações de [tema]", "instalação de [tema]", "operação de [tema]",
-    "manutenção de [tema]", "segurança em [tema]", "dimensionamento de [tema]",
+    "empresa de [tema]",
+    "venda de [tema]",
+    "vendemos [tema]",
+    "fornecemos [tema]",
+    "fornecedor de [tema]",
+    "onde encontrar [tema]",
+    "onde comprar [tema]",
+    "orçamento de [tema]",
+    "cotação de [tema]",
+    "[tema] com melhor preço",
+    "[tema] com preço competitivo",
+    "[tema] com preço justo",
+    "[tema] com qualidade",
+    "[tema] resistente",
+    "[tema] durável"
 ]
 
 TAGS_FIXAS_SERVICOS = [
-    "empresa especializada em [tema]", "especialista em [tema]", "onde encontrar [tema]",
-    "onde contratar [tema]", "orçamento para [tema]", "cotação para [tema]", "escopo de [tema]",
-    "etapas de [tema]", "execução de [tema]", "instalação de [tema]", "inspeção de [tema]",
-    "manutenção de [tema]", "segurança em [tema]", "critérios técnicos de [tema]",
-    "suporte técnico em [tema]",
+    "empresa especializada em [tema]",
+    "especialista em [tema]",
+    "realizamos [tema]",
+    "executamos [tema]",
+    "prestação de [tema]",
+    "profissional de [tema]",
+    "onde encontrar [tema]",
+    "onde contratar [tema]",
+    "orçamento para [tema]",
+    "cotação para [tema]",
+    "[tema] com atendimento especializado",
+    "[tema] com suporte técnico",
+    "[tema] preço",
+    "manutenção de [tema]",
+    "assistência técnica em [tema]"
 ]
 
 
@@ -109,25 +129,60 @@ SUBTITULOS_SEGMENTOS_DISPONIVEIS = []
 # ============================================================
 
 SEGMENTOS_PRODUTOS = [
-    "[TEMA] — definição e características", "[TEMA] — funcionamento", "[TEMA] — aplicações",
-    "[TEMA] — critérios de seleção", "[TEMA] — especificações técnicas", "[TEMA] — instalação",
-    "[TEMA] — operação", "[TEMA] — manutenção", "[TEMA] — segurança", "[TEMA] — benefícios documentados",
-    "[TEMA] — cuidados", "[TEMA] — fornecimento e suporte", "[TEMA] — dimensionamento",
-    "[TEMA] — desempenho", "[TEMA] — materiais", "[TEMA] — componentes", "[TEMA] — processos",
-    "[TEMA] — requisitos", "[TEMA] — uso técnico", "[TEMA] — informações técnicas",
+    "Fábrica de [TEMA] para Saneamento",
+    "Fábrica de [TEMA] para Infraestrutura",
+    "[TEMA] para Indústrias",
+    "[TEMA] para Obras de Drenagem",
+    "[TEMA] para Infraestrutura Urbana",
+    "[TEMA] para Vias Públicas",
+    "[TEMA] para Áreas de Circulação",
+    "[TEMA] para Condomínios",
+    "[TEMA] para Empresas de Engenharia",
+    "[TEMA] para Construtoras",
+    "[TEMA] para Obras de Infraestrutura",
+    "Fornecedor de [TEMA] para Indústrias",
+    "Fornecedor de [TEMA] para Empresas de Engenharia",
+    "[TEMA] para Empresas de Saneamento",
+    "[TEMA] para Concessionárias",
+    "[TEMA] para Prefeituras",
+    "[TEMA] em Loteamentos",
+    "[TEMA] em Condomínios",
+    "[TEMA] em Obras de Saneamento",
+    "[TEMA] para Diferentes Aplicações",
 ]
+
 
 SEGMENTOS_SERVICOS = [
-    "[TEMA] — definição do serviço", "[TEMA] — escopo", "[TEMA] — etapas", "[TEMA] — critérios técnicos",
-    "[TEMA] — execução", "[TEMA] — instalação", "[TEMA] — inspeção", "[TEMA] — manutenção",
-    "[TEMA] — segurança", "[TEMA] — cuidados", "[TEMA] — materiais", "[TEMA] — equipamentos",
-    "[TEMA] — requisitos", "[TEMA] — planejamento", "[TEMA] — controle", "[TEMA] — desempenho",
-    "[TEMA] — documentação", "[TEMA] — suporte técnico", "[TEMA] — informações técnicas", "[TEMA] — aplicação",
+    "Empresa de [TEMA] para Indústrias",
+    "Empresa de [TEMA] para Centros Logísticos",
+    "Empresa de [TEMA] para Centros de Distribuição",
+    "[TEMA] para Hospitais",
+    "[TEMA] para Condomínios Empresariais",
+    "[TEMA] para Edifícios Corporativos",
+    "[TEMA] para Centros Comerciais",
+    "[TEMA] para Obras de Retrofit",
+    "[TEMA] para Indústrias Metalúrgicas",
+    "[TEMA] para Indústrias Siderúrgicas",
+    "[TEMA] para Indústrias Químicas",
+    "[TEMA] para Indústrias Alimentícias",
+    "[TEMA] para Papel e Celulose",
+    "[TEMA] para Mineração",
+    "[TEMA] para Montadoras",
+    "[TEMA] para Empresas de Automação Industrial",
+    "[TEMA] para Usinas e Setor de Energia",
+    "[TEMA] para Empresas de Saneamento",
+    "[TEMA] para Centros Logísticos",
+    "[TEMA] para Máquinas Industriais",
 ]
 
+
 SEGMENTOS_CORINGAS = [
-    "[TEMA] — visão geral", "[TEMA] — características", "[TEMA] — aspectos técnicos",
-    "[TEMA] — orientações", "[TEMA] — informações de uso", "[TEMA] — seleção e especificação",
+    "[TEMA] para Diferentes Aplicações",
+    "[TEMA] para Aplicações Industriais",
+    "[TEMA] para Empresas de Engenharia",
+    "[TEMA] para Empresas Especializadas",
+    "[TEMA] para Obras e Projetos",
+    "[TEMA] para Diferentes Necessidades",
 ]
 
 
