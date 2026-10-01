@@ -1,4 +1,5 @@
-# versão 6.6 - 01/10
+# versão 7.7 - 01/10
+
 
 import json
 import os
@@ -49,39 +50,18 @@ from pathlib import Path
 # ============================================================
 
 TAGS_FIXAS_PRODUTOS = [
-    "empresa de [tema]",
-    "venda de [tema]",
-    "vendemos [tema]",
-    "fornecemos [tema]",
-    "fornecedor de [tema]",
-    "onde encontrar [tema]",
-    "onde comprar [tema]",
-    "orçamento de [tema]",
-    "cotação de [tema]",
-    "[tema] com melhor preço",
-    "[tema] com preço competitivo",
-    "[tema] com preço justo",
-    "[tema] com qualidade",
-    "[tema] resistente",
-    "[tema] durável"
+    "empresa de [tema]", "fornecedor de [tema]", "onde encontrar [tema]", "onde comprar [tema]",
+    "orçamento de [tema]", "cotação de [tema]", "especificações de [tema]", "características de [tema]",
+    "funcionamento de [tema]", "aplicações de [tema]", "instalação de [tema]", "operação de [tema]",
+    "manutenção de [tema]", "segurança em [tema]", "dimensionamento de [tema]",
 ]
 
 TAGS_FIXAS_SERVICOS = [
-    "empresa especializada em [tema]",
-    "especialista em [tema]",
-    "realizamos [tema]",
-    "executamos [tema]",
-    "prestação de [tema]",
-    "profissional de [tema]",
-    "onde encontrar [tema]",
-    "onde contratar [tema]",
-    "orçamento para [tema]",
-    "cotação para [tema]",
-    "[tema] com atendimento especializado",
-    "[tema] com suporte técnico",
-    "[tema] preço",
-    "manutenção de [tema]",
-    "assistência técnica em [tema]"
+    "empresa especializada em [tema]", "especialista em [tema]", "onde encontrar [tema]",
+    "onde contratar [tema]", "orçamento para [tema]", "cotação para [tema]", "escopo de [tema]",
+    "etapas de [tema]", "execução de [tema]", "instalação de [tema]", "inspeção de [tema]",
+    "manutenção de [tema]", "segurança em [tema]", "critérios técnicos de [tema]",
+    "suporte técnico em [tema]",
 ]
 
 
@@ -129,60 +109,25 @@ SUBTITULOS_SEGMENTOS_DISPONIVEIS = []
 # ============================================================
 
 SEGMENTOS_PRODUTOS = [
-    "Fábrica de [TEMA] para Saneamento",
-    "Fábrica de [TEMA] para Infraestrutura",
-    "[TEMA] para Indústrias",
-    "[TEMA] para Obras de Drenagem",
-    "[TEMA] para Infraestrutura Urbana",
-    "[TEMA] para Vias Públicas",
-    "[TEMA] para Áreas de Circulação",
-    "[TEMA] para Condomínios",
-    "[TEMA] para Empresas de Engenharia",
-    "[TEMA] para Construtoras",
-    "[TEMA] para Obras de Infraestrutura",
-    "Fornecedor de [TEMA] para Indústrias",
-    "Fornecedor de [TEMA] para Empresas de Engenharia",
-    "[TEMA] para Empresas de Saneamento",
-    "[TEMA] para Concessionárias",
-    "[TEMA] para Prefeituras",
-    "[TEMA] em Loteamentos",
-    "[TEMA] em Condomínios",
-    "[TEMA] em Obras de Saneamento",
-    "[TEMA] para Diferentes Aplicações",
+    "[TEMA] — definição e características", "[TEMA] — funcionamento", "[TEMA] — aplicações",
+    "[TEMA] — critérios de seleção", "[TEMA] — especificações técnicas", "[TEMA] — instalação",
+    "[TEMA] — operação", "[TEMA] — manutenção", "[TEMA] — segurança", "[TEMA] — benefícios documentados",
+    "[TEMA] — cuidados", "[TEMA] — fornecimento e suporte", "[TEMA] — dimensionamento",
+    "[TEMA] — desempenho", "[TEMA] — materiais", "[TEMA] — componentes", "[TEMA] — processos",
+    "[TEMA] — requisitos", "[TEMA] — uso técnico", "[TEMA] — informações técnicas",
 ]
-
 
 SEGMENTOS_SERVICOS = [
-    "Empresa de [TEMA] para Indústrias",
-    "Empresa de [TEMA] para Centros Logísticos",
-    "Empresa de [TEMA] para Centros de Distribuição",
-    "[TEMA] para Hospitais",
-    "[TEMA] para Condomínios Empresariais",
-    "[TEMA] para Edifícios Corporativos",
-    "[TEMA] para Centros Comerciais",
-    "[TEMA] para Obras de Retrofit",
-    "[TEMA] para Indústrias Metalúrgicas",
-    "[TEMA] para Indústrias Siderúrgicas",
-    "[TEMA] para Indústrias Químicas",
-    "[TEMA] para Indústrias Alimentícias",
-    "[TEMA] para Papel e Celulose",
-    "[TEMA] para Mineração",
-    "[TEMA] para Montadoras",
-    "[TEMA] para Empresas de Automação Industrial",
-    "[TEMA] para Usinas e Setor de Energia",
-    "[TEMA] para Empresas de Saneamento",
-    "[TEMA] para Centros Logísticos",
-    "[TEMA] para Máquinas Industriais",
+    "[TEMA] — definição do serviço", "[TEMA] — escopo", "[TEMA] — etapas", "[TEMA] — critérios técnicos",
+    "[TEMA] — execução", "[TEMA] — instalação", "[TEMA] — inspeção", "[TEMA] — manutenção",
+    "[TEMA] — segurança", "[TEMA] — cuidados", "[TEMA] — materiais", "[TEMA] — equipamentos",
+    "[TEMA] — requisitos", "[TEMA] — planejamento", "[TEMA] — controle", "[TEMA] — desempenho",
+    "[TEMA] — documentação", "[TEMA] — suporte técnico", "[TEMA] — informações técnicas", "[TEMA] — aplicação",
 ]
 
-
 SEGMENTOS_CORINGAS = [
-    "[TEMA] para Diferentes Aplicações",
-    "[TEMA] para Aplicações Industriais",
-    "[TEMA] para Empresas de Engenharia",
-    "[TEMA] para Empresas Especializadas",
-    "[TEMA] para Obras e Projetos",
-    "[TEMA] para Diferentes Necessidades",
+    "[TEMA] — visão geral", "[TEMA] — características", "[TEMA] — aspectos técnicos",
+    "[TEMA] — orientações", "[TEMA] — informações de uso", "[TEMA] — seleção e especificação",
 ]
 
 
@@ -2382,58 +2327,6 @@ GRUPOS_TEMATICOS = {
 
 # ============================================================
 # IDENTIFICAR TIPO DO TEMA
-# ============================================================
-
-def identificar_tipo_tema(tema):
-
-    tema = normalizar_texto(tema)
-
-
-    if any(x in tema for x in [
-        "empresa",
-        "especialista",
-        "profissional"
-    ]):
-
-        return "empresa"
-
-
-    elif any(x in tema for x in [
-        "servico",
-        "aplicacao",
-        "instalacao",
-        "aplicar"
-    ]):
-
-        return "servico"
-
-
-    elif any(x in tema for x in [
-        "comprar",
-        "fornecedor",
-        "fabricante"
-    ]):
-
-        return "fornecedor"
-
-
-    elif any(x in tema for x in [
-        "orcamento",
-        "cotacao",
-        "preco",
-        "valor"
-    ]):
-
-        return "orcamento"
-
-
-    return "produto"
-
-
-
-
-# ============================================================
-# PESQUISA
 # ============================================================
 
 def pesquisar(termo, limite=10):
@@ -10797,7 +10690,7 @@ def selecionar_informacoes_relevantes(
 
     candidatos = []
 
-    MIN_PALAVRAS_FRAGMENTO = 45
+    MIN_PALAVRAS_FRAGMENTO = 35
     MAX_PALAVRAS_FRAGMENTO = 75
     
     
@@ -10839,44 +10732,6 @@ def selecionar_informacoes_relevantes(
                 texto
             )
         )
-
-        # ----------------------------------------------------
-        # 00. BLOQUEAR NOME DA EMPRESA DA FONTE
-        # ----------------------------------------------------
-        #
-        # A identidade da fonte existe para rastreabilidade,
-        # mas o nome da empresa não deve entrar no patrimônio
-        # informacional utilizado na redação.
-        # ----------------------------------------------------
-
-        if isinstance(
-            identidade_fonte,
-            dict
-        ):
-
-            nome_empresa = str(
-                identidade_fonte.get(
-                    "nome",
-                    ""
-                )
-            ).strip()
-
-            if nome_empresa:
-
-                nome_empresa_normalizado = (
-                    normalizar_assunto_texto(
-                        nome_empresa
-                    )
-                )
-
-                if (
-                    nome_empresa_normalizado
-                    and
-                    nome_empresa_normalizado
-                    in texto_normalizado
-                ):
-
-                    return False
 
         # ----------------------------------------------------
         # 01. URL / DOMÍNIO / E-MAIL
@@ -11524,7 +11379,6 @@ def selecionar_informacoes_relevantes(
             "nao utilize",
             "desligue o equipamento",
             "desligue a bomba",
-            "antes de iniciar"
         ]
 
         ocorrencias_manual = 0
@@ -11642,9 +11496,29 @@ def selecionar_informacoes_relevantes(
         "qualidade_estrutural": 0,
         "selecionados": 0
     }
+
+    # Diagnóstico detalhado por fonte.
+    # Não altera a seleção; serve para identificar em qual etapa
+    # cada fonte está sendo descartada.
+    diagnostico_fontes = {}
     
     
     for fonte in fontes:
+
+        candidatos_antes_fonte = len(candidatos)
+
+        diagnostico_fonte = {
+            "segmentos": 0,
+            "avaliados": 0,
+            "tema_aprovado": 0,
+            "tema_rejeitado": 0,
+            "editorial_rejeitado": 0,
+            "fallback_aprovado": 0,
+            "candidatos_salvos": 0,
+            "motivos": {}
+        }
+
+        diagnostico_fontes[fonte.get("indice", "")] = diagnostico_fonte
 
         # ----------------------------------------------------
         # TEXTO ORIGINAL
@@ -11724,6 +11598,8 @@ def selecionar_informacoes_relevantes(
             })
 
 
+        diagnostico_fonte["segmentos"] = len(frases_analise)
+
         # ----------------------------------------------------
         # TEXTO SEM PONTUAÇÃO FINAL
         # ----------------------------------------------------
@@ -11769,6 +11645,7 @@ def selecionar_informacoes_relevantes(
                             restante
                     })
 
+        diagnostico_fonte["segmentos"] = len(frases_analise)
 
         # ----------------------------------------------------
         # MAPEAR PALAVRAS DA ANÁLISE
@@ -11867,606 +11744,623 @@ def selecionar_informacoes_relevantes(
 
         
     # ========================================================
-    # PERTENCIMENTO REAL AO TEMA
-    # ========================================================
-    #
-    # Um fragmento somente pode participar da seleção se
-    # realmente tratar do tema pesquisado.
-    #
-    # A pontuação editorial NÃO pode compensar a ausência
-    # do tema.
-    #
-    # Exemplo:
-    #
-    # tema:
-    #     bomba centrífuga
-    #
-    # fragmento:
-    #     bomba submersível solar apresenta...
-    #
-    # Mesmo contendo "bomba", "aplicação", "desempenho",
-    # etc., o fragmento deve ser rejeitado.
-    #
-    # ========================================================
-
-    def fragmento_pertence_ao_tema(
-        texto,
-        tema
-    ):
-
-        texto = str(
-            texto or ""
-        ).strip()
-
-        tema = str(
-            tema or ""
-        ).strip()
-
-        if not texto or not tema:
-            return False
-
-
-        # ----------------------------------------------------
-        # NORMALIZAÇÃO
-        # ----------------------------------------------------
-
-        texto_normalizado = (
-            normalizar_assunto_texto(
-                texto
-            )
-        )
-
-        tema_normalizado = (
-            normalizar_assunto_texto(
-                tema
-            )
-        )
-
-
-        # ----------------------------------------------------
-        # PALAVRAS SIGNIFICATIVAS DO TEMA
-        # ----------------------------------------------------
-
-        palavras_tema = re.findall(
-            r"\b[a-z0-9]{3,}\b",
-            tema_normalizado
-        )
-
-
-        # Remove termos gramaticais.
-        palavras_ignoradas = {
-
-            "de",
-            "da",
-            "das",
-            "do",
-            "dos",
-            "em",
-            "na",
-            "nas",
-            "no",
-            "nos",
-            "para",
-            "por",
-            "com",
-            "sem",
-            "e",
-            "a",
-            "o",
-            "as",
-            "os"
-
-        }
-
-
-        palavras_tema = [
-
-            palavra
-
-            for palavra
-            in palavras_tema
-
-            if palavra
-            not in palavras_ignoradas
-
-        ]
-
-
-        if not palavras_tema:
-            return False
-
-
-        # ----------------------------------------------------
-        # PALAVRAS DO FRAGMENTO
-        # ----------------------------------------------------
-
-        palavras_fragmento = set(
-
-            re.findall(
-                r"\b[a-z0-9]{3,}\b",
-                texto_normalizado
-            )
-
-        )
-
-
-        # ----------------------------------------------------
-        # COMPARAÇÃO POR RADICAL SIMPLES
+        # PERTENCIMENTO REAL AO TEMA
+        # ========================================================
         #
-        # Permite:
+        # Um fragmento somente pode participar da seleção se
+        # realmente tratar do tema pesquisado.
         #
-        # bomba       → bombas
-        # centrifug   → centrifuga
-        # centrifug   → centrifugas
+        # A pontuação editorial NÃO pode compensar a ausência
+        # do tema.
         #
-        # Sem exigir que o texto tenha exatamente a mesma
-        # flexão usada na palavra-chave.
-        # ----------------------------------------------------
+        # Exemplo:
+        #
+        # tema:
+        #     bomba centrífuga
+        #
+        # fragmento:
+        #     bomba submersível solar apresenta...
+        #
+        # Mesmo contendo "bomba", "aplicação", "desempenho",
+        # etc., o fragmento deve ser rejeitado.
+        #
+        # ========================================================
 
-        for palavra_tema in palavras_tema:
+        def fragmento_pertence_ao_tema(
+            texto,
+            tema
+        ):
 
-            radical = palavra_tema
+            texto = str(
+                texto or ""
+            ).strip()
 
-            if len(radical) >= 5:
+            tema = str(
+                tema or ""
+            ).strip()
 
-                # Remove terminações flexionais simples.
-                if radical.endswith("es"):
-                    radical = radical[:-2]
-
-                elif radical.endswith("s"):
-                    radical = radical[:-1]
-
-                elif radical.endswith("a"):
-                    radical = radical[:-1]
-
-                elif radical.endswith("o"):
-                    radical = radical[:-1]
-
-
-            encontrou = False
-
-
-            for palavra_fragmento in palavras_fragmento:
-
-                if palavra_fragmento.startswith(
-                    radical
-                ):
-
-                    encontrou = True
-
-                    break
-
-
-            # ------------------------------------------------
-            # TODAS as palavras significativas do tema
-            # precisam estar representadas no fragmento.
-            # ------------------------------------------------
-
-            if not encontrou:
-
+            if not texto or not tema:
                 return False
 
 
-        return True
-        
-        
-    # ----------------------------------------------------
-    # CRIAR CANDIDATO A PARTIR DA POSIÇÃO ORIGINAL
-    # ----------------------------------------------------
+            # ----------------------------------------------------
+            # NORMALIZAÇÃO
+            # ----------------------------------------------------
 
-    def adicionar_candidato_por_palavras(
-        indice_inicio,
-        indice_fim
-    ):
-
-        nonlocal estatisticas_qualidade
-
-        if (
-            indice_inicio < 0
-            or
-            indice_fim <= indice_inicio
-            or
-            indice_inicio >= len(mapa_palavras)
-            or
-            indice_fim > len(mapa_palavras)
-        ):
-            return
-
-
-        # ------------------------------------------------
-        # POSIÇÃO REAL NO TEXTO ORIGINAL
-        # ------------------------------------------------
-
-        inicio_original = (
-            mapa_palavras[
-                indice_inicio
-            ]["original_inicio"]
-        )
-
-        fim_original = (
-            mapa_palavras[
-                indice_fim - 1
-            ]["original_fim"]
-        )
-
-
-        # ------------------------------------------------
-        # EXTRAIR DO TEXTO ORIGINAL
-        # ------------------------------------------------
-        #
-        # Aqui está a correção principal.
-        #
-        # O candidato não é reconstruído.
-        # Ele é recortado diretamente da fonte original.
-        # ------------------------------------------------
-
-        texto_fragmento = (
-            texto_original[
-                inicio_original:fim_original
-            ]
-        ).strip()
-
-        if not texto_fragmento:
-            return
-
-
-        quantidade = len(
-            re.findall(
-                r"\S+",
-                texto_fragmento
-            )
-        )
-
-        if (
-            quantidade
-            <
-            MIN_PALAVRAS_FRAGMENTO
-            or
-            quantidade
-            >
-            MAX_PALAVRAS_FRAGMENTO
-        ):
-            return
-            
-            
-        
-        # ------------------------------------------------
-        # ------------------------------------------------
-        # CONTABILIZAR TRECHO PARA AUDITORIA
-        # ------------------------------------------------
-
-        estatisticas_qualidade[
-            "avaliados"
-        ] += 1
-
-        # IDENTIFICAR IDENTIDADE DA FONTE
-        # ------------------------------------------------
-        
-        identidade_fonte = fonte.get(
-            "identidade_fonte",
-            {}
-        )
-        
-        if not isinstance(identidade_fonte, dict):
-            identidade_fonte = {}
-        
-        if not identidade_fonte:
-            identidade_fonte = identificar_empresa_fonte(
-                texto_fragmento,
-                fonte.get("url", "")
-            )
-            
-            
-
-        # ------------------------------------------------
-        # FILTRO EDITORIAL
-        # ------------------------------------------------
-        #
-        # O fragmento precisa ser tecnicamente aproveitável,
-        # mas não podemos eliminar todo o patrimônio antes
-        # da etapa de seleção.
-        #
-        # A seleção posterior ainda aplica:
-        # - aderência ao tema;
-        # - qualidade estrutural;
-        # - diversidade;
-        # - repetição;
-        # - pontuação editorial.
-        #
-        # ------------------------------------------------
-        
-        editorialmente_valido = (
-            fragmento_eh_editorialmente_valido(
-                texto_fragmento,
-                identidade_fonte
-            )
-        )
-        
-        if not editorialmente_valido:
-        
-            estatisticas_qualidade[
-                "qualidade_estrutural"
-            ] += 1
-        
-            # ------------------------------------------------
-            # FALLBACK CONTROLADO
-            # ------------------------------------------------
-            #
-            # Se o filtro editorial rejeitar o trecho, fazemos
-            # uma segunda verificação mais simples.
-            #
-            # O objetivo NÃO é aceitar lixo.
-            #
-            # O trecho ainda precisa:
-            # - ter tamanho correto;
-            # - pertencer ao tema;
-            # - não conter URL;
-            # - não conter telefone;
-            # - não conter e-mail;
-            # - não conter código comercial evidente.
-            #
-            # ------------------------------------------------
-        
-            texto_normalizado_fallback = (
+            texto_normalizado = (
                 normalizar_assunto_texto(
+                    texto
+                )
+            )
+
+            tema_normalizado = (
+                normalizar_assunto_texto(
+                    tema
+                )
+            )
+
+
+            # ----------------------------------------------------
+            # PALAVRAS SIGNIFICATIVAS DO TEMA
+            # ----------------------------------------------------
+
+            palavras_tema = re.findall(
+                r"\b[a-z0-9]{3,}\b",
+                tema_normalizado
+            )
+
+
+            # Remove termos gramaticais.
+            palavras_ignoradas = {
+
+                "de",
+                "da",
+                "das",
+                "do",
+                "dos",
+                "em",
+                "na",
+                "nas",
+                "no",
+                "nos",
+                "para",
+                "por",
+                "com",
+                "sem",
+                "e",
+                "a",
+                "o",
+                "as",
+                "os"
+
+            }
+
+
+            palavras_tema = [
+
+                palavra
+
+                for palavra
+                in palavras_tema
+
+                if palavra
+                not in palavras_ignoradas
+
+            ]
+
+
+            if not palavras_tema:
+                return False
+
+
+            # ----------------------------------------------------
+            # PALAVRAS DO FRAGMENTO
+            # ----------------------------------------------------
+
+            palavras_fragmento = set(
+
+                re.findall(
+                    r"\b[a-z0-9]{3,}\b",
+                    texto_normalizado
+                )
+
+            )
+
+
+            # ----------------------------------------------------
+            # COMPARAÇÃO POR RADICAL SIMPLES
+            #
+            # Permite:
+            #
+            # bomba       → bombas
+            # centrifug   → centrifuga
+            # centrifug   → centrifugas
+            #
+            # Sem exigir que o texto tenha exatamente a mesma
+            # flexão usada na palavra-chave.
+            # ----------------------------------------------------
+
+            for palavra_tema in palavras_tema:
+
+                radical = palavra_tema
+
+                if len(radical) >= 5:
+
+                    # Remove terminações flexionais simples.
+                    if radical.endswith("es"):
+                        radical = radical[:-2]
+
+                    elif radical.endswith("s"):
+                        radical = radical[:-1]
+
+                    elif radical.endswith("a"):
+                        radical = radical[:-1]
+
+                    elif radical.endswith("o"):
+                        radical = radical[:-1]
+
+
+                encontrou = False
+
+
+                for palavra_fragmento in palavras_fragmento:
+
+                    if palavra_fragmento.startswith(
+                        radical
+                    ):
+
+                        encontrou = True
+
+                        break
+
+
+                # ------------------------------------------------
+                # TODAS as palavras significativas do tema
+                # precisam estar representadas no fragmento.
+                # ------------------------------------------------
+
+                if not encontrou:
+
+                    return False
+
+
+            return True
+        
+        
+        # ----------------------------------------------------
+        # CRIAR CANDIDATO A PARTIR DA POSIÇÃO ORIGINAL
+        # ----------------------------------------------------
+
+        def adicionar_candidato_por_palavras(
+            indice_inicio,
+            indice_fim
+        ):
+
+            nonlocal estatisticas_qualidade
+
+            if (
+                indice_inicio < 0
+                or
+                indice_fim <= indice_inicio
+                or
+                indice_inicio >= len(mapa_palavras)
+                or
+                indice_fim > len(mapa_palavras)
+            ):
+                return
+
+
+            # ------------------------------------------------
+            # POSIÇÃO REAL NO TEXTO ORIGINAL
+            # ------------------------------------------------
+
+            inicio_original = (
+                mapa_palavras[
+                    indice_inicio
+                ]["original_inicio"]
+            )
+
+            fim_original = (
+                mapa_palavras[
+                    indice_fim - 1
+                ]["original_fim"]
+            )
+
+
+            # ------------------------------------------------
+            # EXTRAIR DO TEXTO ORIGINAL
+            # ------------------------------------------------
+            #
+            # Aqui está a correção principal.
+            #
+            # O candidato não é reconstruído.
+            # Ele é recortado diretamente da fonte original.
+            # ------------------------------------------------
+
+            texto_fragmento = (
+                texto_original[
+                    inicio_original:fim_original
+                ]
+            ).strip()
+
+            if not texto_fragmento:
+                return
+
+
+            quantidade = len(
+                re.findall(
+                    r"\S+",
                     texto_fragmento
                 )
             )
-        
-            if not texto_normalizado_fallback:
+
+            if (
+                quantidade
+                <
+                MIN_PALAVRAS_FRAGMENTO
+                or
+                quantidade
+                >
+                MAX_PALAVRAS_FRAGMENTO
+            ):
                 return
+            
+            
         
-            # -----------------------------------------------
-            # TEMA OBRIGATÓRIO
-            # -----------------------------------------------
+            # ------------------------------------------------
+            # ------------------------------------------------
+            # CONTABILIZAR TRECHO PARA AUDITORIA
+            # ------------------------------------------------
+
+            estatisticas_qualidade[
+                "avaliados"
+            ] += 1
+            diagnostico_fonte["avaliados"] += 1
+
+            # IDENTIFICAR IDENTIDADE DA FONTE
+            # ------------------------------------------------
         
+            identidade_fonte = fonte.get(
+                "identidade_fonte",
+                {}
+            )
+        
+            if not isinstance(identidade_fonte, dict):
+                identidade_fonte = {}
+        
+            if not identidade_fonte:
+                identidade_fonte = identificar_empresa_fonte(
+                    texto_fragmento,
+                    fonte.get("url", "")
+                )
+            
+            
+
+            # ------------------------------------------------
+            # ADERÊNCIA TEMÁTICA OBRIGATÓRIA
+            # ------------------------------------------------
+            # Todo candidato, inclusive os gerados pela extração
+            # normal, precisa demonstrar que trata do tema.
+            # Antes isso era verificado apenas no fallback, o que
+            # tornava a extração inconsistente entre as fontes.
+            # ------------------------------------------------
+
             if not fragmento_pertence_ao_tema(
                 texto_fragmento,
                 tema
             ):
+                diagnostico_fonte["tema_rejeitado"] += 1
                 return
+
+            diagnostico_fonte["tema_aprovado"] += 1
+
+            # ------------------------------------------------
+            # FILTRO EDITORIAL
+            # ------------------------------------------------
+            #
+            # O fragmento precisa ser tecnicamente aproveitável,
+            # mas não podemos eliminar todo o patrimônio antes
+            # da etapa de seleção.
+            #
+            # A seleção posterior ainda aplica:
+            # - qualidade estrutural;
+            # - diversidade;
+            # - repetição;
+            # - pontuação editorial.
+            #
+            # ------------------------------------------------
         
-            # -----------------------------------------------
-            # URL
-            # -----------------------------------------------
-        
-            if re.search(
-                r"(https?://|www\.)\S+",
-                texto_fragmento,
-                re.IGNORECASE
-            ):
-                return
-        
-            # -----------------------------------------------
-            # E-MAIL
-            # -----------------------------------------------
-        
-            if re.search(
-                r"\b[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}\b",
-                texto_fragmento,
-                re.IGNORECASE
-            ):
-                return
-        
-            # -----------------------------------------------
-            # TELEFONE
-            # -----------------------------------------------
-        
-            if re.search(
-                r"(?<!\d)"
-                r"(?:\+?55[\s.-]*)?"
-                r"\(?\d{2}\)?[\s.-]*"
-                r"\d{4,5}[\s.-]*\d{4}"
-                r"(?!\d)",
-                texto_fragmento
-            ):
-                return
-        
-            # -----------------------------------------------
-            # CNPJ
-            # -----------------------------------------------
-        
-            if re.search(
-                r"\b\d{2}\.?\d{3}\.?\d{3}/?\d{4}-?\d{2}\b",
-                texto_fragmento
-            ):
-                return
-        
-            # -----------------------------------------------
-            # CÓDIGOS COMERCIAIS EVIDENTES
-            # -----------------------------------------------
-        
-            codigo_comercial = re.search(
-                r"\b(?:SKU|MPN|"
-                r"PART[\s-]*NUMBER|"
-                r"SERIAL[\s-]*NUMBER|"
-                r"MODELO\s*[:\-]|"
-                r"C[ÓO]DIGO\s+(?:DO\s+)?PRODUTO|"
-                r"REFER[ÊE]NCIA\s+(?:DO\s+)?PRODUTO)"
-                r"\b",
-                texto_fragmento,
-                re.IGNORECASE
+            editorialmente_valido = (
+                fragmento_eh_editorialmente_valido(
+                    texto_fragmento,
+                    identidade_fonte
+                )
             )
         
-            if codigo_comercial:
-                return
+            if not editorialmente_valido:
         
-            # -----------------------------------------------
-            # NOME DA EMPRESA DA FONTE
-            # -----------------------------------------------
+                estatisticas_qualidade[
+                    "qualidade_estrutural"
+                ] += 1
+                diagnostico_fonte["editorial_rejeitado"] += 1
         
-            if isinstance(
-                identidade_fonte,
-                dict
-            ):
+                # ------------------------------------------------
+                # FALLBACK CONTROLADO
+                # ------------------------------------------------
+                #
+                # Se o filtro editorial rejeitar o trecho, fazemos
+                # uma segunda verificação mais simples.
+                #
+                # O objetivo NÃO é aceitar lixo.
+                #
+                # O trecho ainda precisa:
+                # - ter tamanho correto;
+                # - pertencer ao tema;
+                # - não conter URL;
+                # - não conter telefone;
+                # - não conter e-mail;
+                # - não conter código comercial evidente.
+                #
+                # ------------------------------------------------
         
-                nome_empresa = str(
-                    identidade_fonte.get(
-                        "nome",
-                        ""
+                texto_normalizado_fallback = (
+                    normalizar_assunto_texto(
+                        texto_fragmento
                     )
-                ).strip()
+                )
         
-                if nome_empresa:
+                if not texto_normalizado_fallback:
+                    return
         
-                    nome_empresa_normalizado = (
-                        normalizar_assunto_texto(
-                            nome_empresa
-                        )
-                    )
+                # -----------------------------------------------
+                # URL
+                # -----------------------------------------------
         
-                    if (
-                        nome_empresa_normalizado
-                        and
-                        nome_empresa_normalizado
-                        in texto_normalizado_fallback
-                    ):
-                        return
+                if re.search(
+                    r"(https?://|www\.)\S+",
+                    texto_fragmento,
+                    re.IGNORECASE
+                ):
+                    return
         
-            # -----------------------------------------------
-            # FALLBACK APROVADO
-            # -----------------------------------------------
+                # -----------------------------------------------
+                # E-MAIL
+                # -----------------------------------------------
         
-            print()
-            print(
-                "⚠️ FALLBACK EDITORIAL ACEITO"
-            )
+                if re.search(
+                    r"\b[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}\b",
+                    texto_fragmento,
+                    re.IGNORECASE
+                ):
+                    return
         
-            print(
-                "FONTE:",
-                fonte.get("indice", "")
-            )
+                # -----------------------------------------------
+                # TELEFONE
+                # -----------------------------------------------
         
-            print(
-                "PALAVRAS:",
-                quantidade
-            )
+                if re.search(
+                    r"(?<!\d)"
+                    r"(?:\+?55[\s.-]*)?"
+                    r"\(?\d{2}\)?[\s.-]*"
+                    r"\d{4,5}[\s.-]*\d{4}"
+                    r"(?!\d)",
+                    texto_fragmento
+                ):
+                    return
         
-            print(
-                "MOTIVO:",
-                "filtro editorial rígido rejeitou, "
-                "mas trecho passou pela validação mínima"
-            )
-
-
+                # -----------------------------------------------
+                # CNPJ
+                # -----------------------------------------------
         
-        # ------------------------------------------------
-        # SALVAR CANDIDATO
-        # ------------------------------------------------
+                if re.search(
+                    r"\b\d{2}\.?\d{3}\.?\d{3}/?\d{4}-?\d{2}\b",
+                    texto_fragmento
+                ):
+                    return
         
-        candidatos.append({
+                # -----------------------------------------------
+                # CÓDIGOS COMERCIAIS EVIDENTES
+                # -----------------------------------------------
         
-            "texto":
-                texto_fragmento,
+                codigo_comercial = re.search(
+                    r"\b(?:SKU|MPN|"
+                    r"PART[\s-]*NUMBER|"
+                    r"SERIAL[\s-]*NUMBER|"
+                    r"MODELO\s*[:\-]|"
+                    r"C[ÓO]DIGO\s+(?:DO\s+)?PRODUTO|"
+                    r"REFER[ÊE]NCIA\s+(?:DO\s+)?PRODUTO)"
+                    r"\b",
+                    texto_fragmento,
+                    re.IGNORECASE
+                )
         
-            "fonte":
-                fonte["indice"],
+                if codigo_comercial:
+                    return
         
-            "url":
-                fonte["url"],
+                # -----------------------------------------------
+                # NOME DA EMPRESA DA FONTE
+                # -----------------------------------------------
+                # Em PDFs, manuais e datasheets o fabricante pode
+                # aparecer no cabeçalho/rodapé de todos os trechos.
+                # Isso, sozinho, não torna o conteúdo promocional.
+                # A versão anterior descartava o trecho inteiro por
+                # essa coincidência e podia eliminar quase todo o
+                # patrimônio técnico.
+                #
+                # Portanto, o nome da empresa não é mais motivo de
+                # rejeição nesta validação mínima. Os filtros de CTA,
+                # contato, URL, telefone, CNPJ e códigos comerciais
+                # continuam ativos.
+                # -----------------------------------------------
+
+                # -----------------------------------------------
+                # FALLBACK APROVADO
+                # -----------------------------------------------
         
-            "tipo":
-                fonte["tipo"],
+                print()
+                print(
+                    "⚠️ FALLBACK EDITORIAL ACEITO"
+                )
         
-            "pdf":
-                fonte["eh_pdf"],
+                print(
+                    "FONTE:",
+                    fonte.get("indice", "")
+                )
         
-            "palavras":
-                quantidade,
-        
-            "identidade_fonte":
-                identidade_fonte
-        
-        })
-
-
-    # ----------------------------------------------------
-    # CONVERTER FRASES EM INTERVALOS DE PALAVRAS
-    # ----------------------------------------------------
-
-    intervalos_frases = []
-
-    for frase in frases_analise:
-
-        palavras_da_frase = [
-
-            indice
-
-            for indice, palavra
-            in enumerate(mapa_palavras)
-
-            if (
-                palavra["analise_inicio"]
-                >=
-                frase["inicio"]
-
-                and
-
-                palavra["analise_fim"]
-                <=
-                frase["fim"]
-            )
-
-        ]
-
-        if not palavras_da_frase:
-            continue
-
-        intervalos_frases.append({
-
-            "inicio":
-                palavras_da_frase[0],
-
-            "fim":
-                palavras_da_frase[-1] + 1
-
-        })
-
-
-    # ----------------------------------------------------
-    # ACUMULAR FRASES
-    # ----------------------------------------------------
-
-    acumulado_inicio = None
-    acumulado_fim = None
-    palavras_acumuladas = 0
-
-
-    for intervalo in intervalos_frases:
-
-        inicio = intervalo["inicio"]
-        fim = intervalo["fim"]
-
-        quantidade = (
-            fim - inicio
-        )
-
-
-        # ------------------------------------------------
-        # FRASE PEQUENA / MÉDIA
-        # ------------------------------------------------
-
-        if quantidade <= MAX_PALAVRAS_FRAGMENTO:
-
-            if acumulado_inicio is None:
-
-                acumulado_inicio = inicio
-                acumulado_fim = fim
-                palavras_acumuladas = quantidade
-
-            elif (
-                palavras_acumuladas
-                + quantidade
-                <= MAX_PALAVRAS_FRAGMENTO
-            ):
-
-                acumulado_fim = fim
-
-                palavras_acumuladas += (
+                print(
+                    "PALAVRAS:",
                     quantidade
                 )
+        
+                print(
+                    "MOTIVO:",
+                    "filtro editorial rígido rejeitou, "
+                    "mas trecho passou pela validação mínima"
+                )
 
-            else:
+
+        
+            # ------------------------------------------------
+            # SALVAR CANDIDATO
+            # ------------------------------------------------
+
+            diagnostico_fonte["candidatos_salvos"] += 1
+        
+            candidatos.append({
+        
+                "texto":
+                    texto_fragmento,
+        
+                "fonte":
+                    fonte["indice"],
+        
+                "url":
+                    fonte["url"],
+        
+                "tipo":
+                    fonte["tipo"],
+        
+                "pdf":
+                    fonte["eh_pdf"],
+        
+                "palavras":
+                    quantidade,
+        
+                "identidade_fonte":
+                    identidade_fonte
+        
+            })
+
+
+        # ----------------------------------------------------
+        # CONVERTER FRASES EM INTERVALOS DE PALAVRAS
+        # ----------------------------------------------------
+
+        intervalos_frases = []
+
+        for frase in frases_analise:
+
+            palavras_da_frase = [
+
+                indice
+
+                for indice, palavra
+                in enumerate(mapa_palavras)
+
+                if (
+                    palavra["analise_inicio"]
+                    >=
+                    frase["inicio"]
+
+                    and
+
+                    palavra["analise_fim"]
+                    <=
+                    frase["fim"]
+                )
+
+            ]
+
+            if not palavras_da_frase:
+                continue
+
+            intervalos_frases.append({
+
+                "inicio":
+                    palavras_da_frase[0],
+
+                "fim":
+                    palavras_da_frase[-1] + 1
+
+            })
+
+
+        # ----------------------------------------------------
+        # ACUMULAR FRASES
+        # ----------------------------------------------------
+
+        acumulado_inicio = None
+        acumulado_fim = None
+        palavras_acumuladas = 0
+
+
+        for intervalo in intervalos_frases:
+
+            inicio = intervalo["inicio"]
+            fim = intervalo["fim"]
+
+            quantidade = (
+                fim - inicio
+            )
+
+
+            # ------------------------------------------------
+            # FRASE PEQUENA / MÉDIA
+            # ------------------------------------------------
+
+            if quantidade <= MAX_PALAVRAS_FRAGMENTO:
+
+                if acumulado_inicio is None:
+
+                    acumulado_inicio = inicio
+                    acumulado_fim = fim
+                    palavras_acumuladas = quantidade
+
+                elif (
+                    palavras_acumuladas
+                    + quantidade
+                    <= MAX_PALAVRAS_FRAGMENTO
+                ):
+
+                    acumulado_fim = fim
+
+                    palavras_acumuladas += (
+                        quantidade
+                    )
+
+                else:
+
+                    if (
+                        MIN_PALAVRAS_FRAGMENTO
+                        <=
+                        palavras_acumuladas
+                        <=
+                        MAX_PALAVRAS_FRAGMENTO
+                    ):
+
+                        adicionar_candidato_por_palavras(
+                            acumulado_inicio,
+                            acumulado_fim
+                        )
+
+                    acumulado_inicio = inicio
+                    acumulado_fim = fim
+                    palavras_acumuladas = quantidade
+
+
+                # --------------------------------------------
+                # CANDIDATO PRONTO
+                # --------------------------------------------
 
                 if (
                     MIN_PALAVRAS_FRAGMENTO
@@ -12481,151 +12375,420 @@ def selecionar_informacoes_relevantes(
                         acumulado_fim
                     )
 
-                acumulado_inicio = inicio
-                acumulado_fim = fim
-                palavras_acumuladas = quantidade
+                    acumulado_inicio = None
+                    acumulado_fim = None
+                    palavras_acumuladas = 0
 
 
-            # --------------------------------------------
-            # CANDIDATO PRONTO
-            # --------------------------------------------
+            # ------------------------------------------------
+            # FRASE GRANDE
+            # ------------------------------------------------
 
-            if (
-                MIN_PALAVRAS_FRAGMENTO
-                <=
-                palavras_acumuladas
-                <=
-                MAX_PALAVRAS_FRAGMENTO
-            ):
+            else:
 
-                adicionar_candidato_por_palavras(
-                    acumulado_inicio,
-                    acumulado_fim
-                )
+                # --------------------------------------------
+                # SALVAR ACUMULADO ANTERIOR
+                # --------------------------------------------
+
+                if (
+                    acumulado_inicio is not None
+                    and
+                    MIN_PALAVRAS_FRAGMENTO
+                    <=
+                    palavras_acumuladas
+                    <=
+                    MAX_PALAVRAS_FRAGMENTO
+                ):
+
+                    adicionar_candidato_por_palavras(
+                        acumulado_inicio,
+                        acumulado_fim
+                    )
+
 
                 acumulado_inicio = None
                 acumulado_fim = None
                 palavras_acumuladas = 0
 
 
-        # ------------------------------------------------
-        # FRASE GRANDE
-        # ------------------------------------------------
+                # --------------------------------------------
+                # DIVIDIR FRASE GRANDE
+                # --------------------------------------------
 
-        else:
+                inicio_parte = inicio
 
-            # --------------------------------------------
-            # SALVAR ACUMULADO ANTERIOR
-            # --------------------------------------------
+                while inicio_parte < fim:
 
-            if (
-                acumulado_inicio is not None
-                and
-                MIN_PALAVRAS_FRAGMENTO
-                <=
-                palavras_acumuladas
-                <=
-                MAX_PALAVRAS_FRAGMENTO
-            ):
-
-                adicionar_candidato_por_palavras(
-                    acumulado_inicio,
-                    acumulado_fim
-                )
-
-
-            acumulado_inicio = None
-            acumulado_fim = None
-            palavras_acumuladas = 0
-
-
-            # --------------------------------------------
-            # DIVIDIR FRASE GRANDE
-            # --------------------------------------------
-
-            inicio_parte = inicio
-
-            while inicio_parte < fim:
-
-                fim_parte = min(
-                    inicio_parte
-                    + MAX_PALAVRAS_FRAGMENTO,
-                    fim
-                )
-
-                quantidade_parte = (
-                    fim_parte
-                    -
-                    inicio_parte
-                )
-
-                # ----------------------------------------
-                # PARTE COMPLETA
-                # ----------------------------------------
-
-                if (
-                    MIN_PALAVRAS_FRAGMENTO
-                    <=
-                    quantidade_parte
-                    <=
-                    MAX_PALAVRAS_FRAGMENTO
-                ):
-
-                    adicionar_candidato_por_palavras(
-                        inicio_parte,
-                        fim_parte
+                    fim_parte = min(
+                        inicio_parte
+                        + MAX_PALAVRAS_FRAGMENTO,
+                        fim
                     )
 
-                # ----------------------------------------
-                # PARTE FINAL PEQUENA
-                # ----------------------------------------
-                #
-                # Não descartamos imediatamente.
-                # Guardamos para tentar combinar com a
-                # próxima frase.
-                # ----------------------------------------
-
-                elif (
-                    quantidade_parte
-                    <
-                    MIN_PALAVRAS_FRAGMENTO
-                ):
-
-                    acumulado_inicio = (
+                    quantidade_parte = (
+                        fim_parte
+                        -
                         inicio_parte
                     )
 
-                    acumulado_fim = (
-                        fim_parte
-                    )
+                    # ----------------------------------------
+                    # PARTE COMPLETA
+                    # ----------------------------------------
 
-                    palavras_acumuladas = (
+                    if (
+                        MIN_PALAVRAS_FRAGMENTO
+                        <=
                         quantidade_parte
+                        <=
+                        MAX_PALAVRAS_FRAGMENTO
+                    ):
+
+                        adicionar_candidato_por_palavras(
+                            inicio_parte,
+                            fim_parte
+                        )
+
+                    # ----------------------------------------
+                    # PARTE FINAL PEQUENA
+                    # ----------------------------------------
+                    #
+                    # Não descartamos imediatamente.
+                    # Guardamos para tentar combinar com a
+                    # próxima frase.
+                    # ----------------------------------------
+
+                    elif (
+                        quantidade_parte
+                        <
+                        MIN_PALAVRAS_FRAGMENTO
+                    ):
+
+                        acumulado_inicio = (
+                            inicio_parte
+                        )
+
+                        acumulado_fim = (
+                            fim_parte
+                        )
+
+                        palavras_acumuladas = (
+                            quantidade_parte
+                        )
+
+                    inicio_parte = fim_parte
+
+
+        # ----------------------------------------------------
+        # ÚLTIMO ACUMULADO
+        # ----------------------------------------------------
+
+        if (
+            acumulado_inicio is not None
+            and
+            MIN_PALAVRAS_FRAGMENTO
+            <=
+            palavras_acumuladas
+            <=
+            MAX_PALAVRAS_FRAGMENTO
+        ):
+
+            adicionar_candidato_por_palavras(
+                acumulado_inicio,
+                acumulado_fim
+            )
+
+
+
+
+            # ----------------------------------------------------
+            # FALLBACK DE EXTRAÇÃO POR JANELA TEMÁTICA
+            # ----------------------------------------------------
+            #
+            # Alguns PDFs e páginas chegam sem pontuação adequada
+            # para a segmentação por frases. Nesses casos, o texto
+            # pode ser tecnicamente válido, mas não gerar nenhum
+            # intervalo entre 35 e 75 palavras.
+            #
+            # Se a fonte não produziu nenhum candidato pelo método
+            # normal, procuramos uma janela CONTÍGUA no texto original
+            # ao redor dos termos do tema e reutilizamos a mesma
+            # rotina de validação do candidato.
+            #
+            # O conteúdo continua sendo recortado da fonte original;
+            # não há reescrita nem criação de texto.
+            # ----------------------------------------------------
+
+            # ----------------------------------------------------
+            # DIAGNÓSTICO: FALLBACK SOMENTE QUANDO A FONTE NÃO
+            # GEROU NENHUM CANDIDATO PELO MÉTODO NORMAL.
+            # ----------------------------------------------------
+
+            candidatos_antes_fallback = len(candidatos)
+
+            # Se a fonte produziu poucos candidatos, tentamos uma
+            # segunda extração independente da segmentação por frases.
+            # Isso é importante para PDFs, OCR, catálogos e páginas
+            # com pontuação/estrutura irregular.
+            if len(candidatos) - candidatos_antes_fonte < 3:
+
+                tema_normalizado_fallback = normalizar_assunto_texto(
+                    tema
+                )
+
+                termos_tema_fallback = [
+                    termo
+                    for termo in re.findall(
+                        r"\b[a-z0-9]{3,}\b",
+                        tema_normalizado_fallback
+                    )
+                    if len(termo) >= 4
+                ]
+
+                print(
+                    "FALLBACK TEMÁTICO FONTE",
+                    fonte.get("indice", ""),
+                    "| TERMOS:",
+                    termos_tema_fallback
+                )
+
+                if termos_tema_fallback and mapa_palavras:
+
+                    # Localiza cada termo no mapa de palavras.
+                    ocorrencias_por_termo = {}
+
+                    for termo in termos_tema_fallback:
+                        ocorrencias = []
+
+                        for indice_palavra, item_palavra in enumerate(mapa_palavras):
+                            palavra_normalizada = normalizar_assunto_texto(
+                                item_palavra.get("palavra_analise", "")
+                            )
+
+                            if palavra_normalizada.startswith(termo):
+                                ocorrencias.append(indice_palavra)
+
+                        ocorrencias_por_termo[termo] = ocorrencias
+
+                    termos_encontrados_no_texto = [
+                        termo
+                        for termo, ocorrencias in ocorrencias_por_termo.items()
+                        if ocorrencias
+                    ]
+
+                    print(
+                        "TERMOS ENCONTRADOS FONTE",
+                        fonte.get("indice", ""),
+                        ":",
+                        termos_encontrados_no_texto
                     )
 
-                inicio_parte = fim_parte
+                    # Para tema composto, procura pares/grupos de ocorrências
+                    # próximos. Para tema simples, usa cada ocorrência.
+                    janelas = []
 
+                    if len(termos_tema_fallback) == 1:
+                        bases = [(i, i) for i in ocorrencias_por_termo.get(termos_tema_fallback[0], [])]
+                    else:
+                        bases = []
+                        primeira = ocorrencias_por_termo.get(termos_tema_fallback[0], [])
 
-    # ----------------------------------------------------
-    # ÚLTIMO ACUMULADO
-    # ----------------------------------------------------
+                        for indice_primeiro in primeira:
+                            grupo = [indice_primeiro]
 
-    if (
-        acumulado_inicio is not None
-        and
-        MIN_PALAVRAS_FRAGMENTO
-        <=
-        palavras_acumuladas
-        <=
-        MAX_PALAVRAS_FRAGMENTO
-    ):
+                            for termo in termos_tema_fallback[1:]:
+                                ocorrencias = ocorrencias_por_termo.get(termo, [])
+                                if not ocorrencias:
+                                    grupo = []
+                                    break
 
-        adicionar_candidato_por_palavras(
-            acumulado_inicio,
-            acumulado_fim
-        )
+                                proximo = min(
+                                    ocorrencias,
+                                    key=lambda x: abs(x - indice_primeiro)
+                                )
 
-    # ========================================================
+                                if abs(proximo - indice_primeiro) <= 90:
+                                    grupo.append(proximo)
+                                else:
+                                    grupo = []
+                                    break
+
+                            if grupo:
+                                bases.append((min(grupo), max(grupo)))
+
+                    for inicio_tema, fim_tema in bases:
+
+                        # Janela contígua sempre recortada da fonte original.
+                        inicio_janela = max(
+                            0,
+                            inicio_tema - 22
+                        )
+
+                        fim_janela = min(
+                            len(mapa_palavras),
+                            fim_tema + 48
+                        )
+
+                        # Garante o mínimo sem ultrapassar o máximo.
+                        if fim_janela - inicio_janela < MIN_PALAVRAS_FRAGMENTO:
+                            fim_janela = min(
+                                len(mapa_palavras),
+                                inicio_janela + MAX_PALAVRAS_FRAGMENTO
+                            )
+
+                        if fim_janela - inicio_janela > MAX_PALAVRAS_FRAGMENTO:
+                            fim_janela = inicio_janela + MAX_PALAVRAS_FRAGMENTO
+
+                        if (
+                            MIN_PALAVRAS_FRAGMENTO
+                            <= fim_janela - inicio_janela
+                            <= MAX_PALAVRAS_FRAGMENTO
+                        ):
+                            chave_janela = (inicio_janela, fim_janela)
+                            if chave_janela not in janelas:
+                                janelas.append(chave_janela)
+
+                        if len(janelas) >= 5:
+                            break
+
+                    for inicio_janela, fim_janela in janelas:
+                        adicionar_candidato_por_palavras(
+                            inicio_janela,
+                            fim_janela
+                        )
+
+            # ----------------------------------------------------
+            # FALLBACK V7.4 — RELEVÂNCIA CONTEXTUAL DA FONTE
+            # ----------------------------------------------------
+            #
+            # Alguns textos técnicos não repetem todos os termos do tema
+            # dentro de cada janela de 35–75 palavras. Exigir que
+            # "bomba" e "centrifuga" apareçam simultaneamente na mesma
+            # janela pode eliminar conteúdo factual legítimo.
+            #
+            # Primeiro verificamos se a FONTE, como um todo, demonstra
+            # relação inequívoca com o tema. Depois extraímos janelas
+            # ao redor dos termos encontrados, mantendo o texto original.
+            # Isso NÃO autoriza uma fonte irrelevante: a fonte precisa
+            # conter a expressão composta ou todos os termos significativos.
+            # ----------------------------------------------------
+
+            if len(candidatos) - candidatos_antes_fonte < 3 and mapa_palavras:
+
+                tema_normalizado_contextual = normalizar_assunto_texto(tema)
+                termos_contextuais = [
+                    termo for termo in re.findall(
+                        r"\b[a-z0-9]{3,}\b",
+                        tema_normalizado_contextual
+                    )
+                    if termo not in {
+                        "de", "da", "das", "do", "dos", "em", "na", "nas",
+                        "no", "nos", "para", "por", "com", "sem", "e", "a",
+                        "o", "as", "os"
+                    }
+                ]
+
+                texto_fonte_normalizado = normalizar_assunto_texto(texto_original)
+                frase_tema_exata = " ".join(termos_contextuais)
+
+                ocorrencias_contextuais = []
+                for indice_palavra, item_palavra in enumerate(mapa_palavras):
+                    palavra_norm = normalizar_assunto_texto(
+                        item_palavra.get("palavra_analise", "")
+                    )
+                    if any(
+                        palavra_norm.startswith(termo)
+                        for termo in termos_contextuais
+                    ):
+                        ocorrencias_contextuais.append(indice_palavra)
+
+                fonte_tem_relacao_contextual = False
+
+                if len(termos_contextuais) == 1:
+                    fonte_tem_relacao_contextual = bool(ocorrencias_contextuais)
+                elif frase_tema_exata and frase_tema_exata in texto_fonte_normalizado:
+                    fonte_tem_relacao_contextual = True
+                else:
+                    termos_presentes_fonte = {
+                        termo
+                        for termo in termos_contextuais
+                        if any(
+                            normalizar_assunto_texto(
+                                item_palavra.get("palavra_analise", "")
+                            ).startswith(termo)
+                            for item_palavra in mapa_palavras
+                        )
+                    }
+                    fonte_tem_relacao_contextual = (
+                        len(termos_presentes_fonte) == len(termos_contextuais)
+                    )
+
+                if fonte_tem_relacao_contextual and ocorrencias_contextuais:
+
+                    print(
+                        "FALLBACK CONTEXTUAL V7.4 FONTE",
+                        fonte.get("indice", ""),
+                        "| RELAÇÃO COM TEMA: SIM",
+                        "| OCORRÊNCIAS:",
+                        len(ocorrencias_contextuais)
+                    )
+
+                    janelas_contextuais = []
+
+                    for centro in ocorrencias_contextuais:
+                        inicio_janela = max(0, centro - 18)
+                        fim_janela = min(
+                            len(mapa_palavras),
+                            inicio_janela + MAX_PALAVRAS_FRAGMENTO
+                        )
+
+                        if fim_janela - inicio_janela < MIN_PALAVRAS_FRAGMENTO:
+                            inicio_janela = max(
+                                0,
+                                fim_janela - MIN_PALAVRAS_FRAGMENTO
+                            )
+
+                        chave = (inicio_janela, fim_janela)
+                        if chave not in janelas_contextuais:
+                            janelas_contextuais.append(chave)
+
+                        if len(janelas_contextuais) >= 8:
+                            break
+
+                    antes_contextual = len(candidatos)
+                    for inicio_janela, fim_janela in janelas_contextuais:
+                        adicionar_candidato_por_palavras(
+                            inicio_janela,
+                            fim_janela
+                        )
+
+                    adicionados_contextual = len(candidatos) - antes_contextual
+                    diagnostico_fonte["fallback_aprovado"] += max(0, adicionados_contextual)
+
+                else:
+                    print(
+                        "FALLBACK CONTEXTUAL V7.4 FONTE",
+                        fonte.get("indice", ""),
+                        "| RELAÇÃO COM TEMA: NÃO"
+                    )
+
+            # ----------------------------------------------------
+            # DIAGNÓSTICO POR FONTE
+            # ----------------------------------------------------
+
+            candidatos_depois_fallback = len(candidatos)
+
+            print(
+                "FONTE",
+                fonte.get("indice", ""),
+                "| CANDIDATOS NORMAIS:",
+                candidatos_antes_fallback - candidatos_antes_fonte,
+                "| FALLBACK:",
+                candidatos_depois_fallback - candidatos_antes_fallback,
+                "| TOTAL FONTE:",
+                candidatos_depois_fallback - candidatos_antes_fonte
+            )
+
+        # ========================================================
     # 05. REMOVER DUPLICADOS
     # ========================================================
 
@@ -12704,6 +12867,35 @@ def selecionar_informacoes_relevantes(
         "CANDIDATOS APROVEITADOS:",
         len(candidatos)
     )
+
+    # Diagnóstico compacto da distribuição antes da seleção.
+    candidatos_por_fonte_diagnostico = {}
+    for candidato in candidatos:
+        fonte_id = candidato.get("fonte", "")
+        candidatos_por_fonte_diagnostico[fonte_id] = (
+            candidatos_por_fonte_diagnostico.get(fonte_id, 0) + 1
+        )
+
+    print("CANDIDATOS POR FONTE:")
+    for fonte_id, quantidade in sorted(
+        candidatos_por_fonte_diagnostico.items(),
+        key=lambda item: item[0]
+    ):
+        print("  FONTE", fonte_id, ":", quantidade)
+
+    print()
+    print("DIAGNÓSTICO DETALHADO POR FONTE V7.4:")
+    for fonte_id in sorted(diagnostico_fontes, key=lambda x: int(x) if str(x).isdigit() else str(x)):
+        d = diagnostico_fontes[fonte_id]
+        print(
+            "  FONTE", fonte_id,
+            "| SEGMENTOS:", d["segmentos"],
+            "| AVALIADOS:", d["avaliados"],
+            "| TEMA OK:", d["tema_aprovado"],
+            "| TEMA REJ:", d["tema_rejeitado"],
+            "| EDITORIAL REJ:", d["editorial_rejeitado"],
+            "| SALVOS:", d["candidatos_salvos"]
+        )
     
     print("==============================")
     
@@ -13360,11 +13552,44 @@ def selecionar_informacoes_relevantes(
     }
 
     # --------------------------------------------------------
+    # MEAD COMO AUTORIDADE OPERACIONAL
+    # --------------------------------------------------------
+    termos_mead_prioritarios = {}
+    palavras_ruido_mead = {"bloco","objetivo","funcao","função","contexto","deve","devem","pagina","página","conteudo","conteúdo","tecnico","técnico","tecnica","técnica","somente","apenas","quando","caso","forma","sem","com","para","sobre","entre","pelos","pelas","este","esta","esse","essa","como","uma","uns","umas","dos","das","que","não","nao","uso","usar"}
+    for numero_bloco in range(1,6):
+        chave_bloco=f"bloco_{numero_bloco}"; dados_mead=contexto_blocos_mead.get(chave_bloco,{})
+        if not isinstance(dados_mead,dict): continue
+        base_mead=" ".join(str(dados_mead.get(k,"") or "") for k in ("objetivo","funcao","função","contexto"))
+        tokens=[]
+        for termo in re.findall(r"\b[a-záàãâéêíóôõúç]{4,}\b",base_mead.casefold()):
+            termo_n=normalizar_assunto_texto(termo)
+            if termo_n and termo_n not in palavras_ruido_mead and termo_n not in tokens: tokens.append(termo_n)
+        termos_mead_prioritarios[chave_bloco]=tokens
+    termos_blocos_mead_fallback={
+        "bloco_1":["definição","funcionamento","contexto","necessidade","importância","cenário"],
+        "bloco_2":["funcionamento","aplicações","características","uso","desempenho"],
+        "bloco_3":["critérios","cuidados","instalação","operação","manutenção","segurança","especificação","dimensionamento"],
+        "bloco_4":["empresa","conhecimento","serviço","suporte","produto","solução","experiência","atendimento"],
+        "bloco_5":["necessidade","aplicação","conhecimento","solução","seleção","fornecimento","suporte"],
+    }
+    for chave_bloco, termos in termos_blocos_mead_fallback.items():
+        termos_blocos[chave_bloco]=(termos_mead_prioritarios.get(chave_bloco,[])*3)+termos+termos_blocos.get(chave_bloco,[])
+
+    # --------------------------------------------------------
     # TAMBÉM LÊ O TEXTO REAL DO MEAD
     #
     # Isso mantém a seleção vinculada ao MEAD carregado,
     # sem enviar o MEAD inteiro para o Ollama.
     # --------------------------------------------------------
+
+    # ========================================================
+    # SELEÇÃO COM DIVERSIDADE DE FONTES
+    # ========================================================
+    # Em cada bloco, a primeira preferência é por uma fonte
+    # ainda não utilizada. Só reutilizamos uma fonte quando não
+    # houver alternativa válida. Isso evita que uma única página
+    # domine os 15 fragmentos quando o patrimônio contém dezenas
+    # de fontes relevantes.
 
     for numero_bloco in range(
         1,
@@ -15459,683 +15684,59 @@ def selecionar_informacoes_relevantes(
         return melhor_candidato
 
     # ========================================================
-    # PRIMEIRA PASSAGEM
-    #
-    # Cada bloco recebe 3 fragmentos.
-    #
-    # A escolha é feita UMA POR VEZ.
-    #
-    # Isso é importante:
-    #
-    # Depois que um fragmento entra no bloco_1,
-    # ele passa a influenciar a escolha do fragmento 2.
-    #
-    # Portanto não selecionamos simplesmente os três
-    # primeiros candidatos do ranking original.
     # ========================================================
-
-    for numero_bloco in range(
-        1,
-        6
-    ):
-
-        chave_bloco = (
-            f"bloco_{numero_bloco}"
-        )
-
-        candidatos_bloco = (
-            candidatos_por_bloco.get(
-                chave_bloco,
-                []
-            )
-        )
-
-        quantidade_bloco = 0
-
-        while (
-            quantidade_bloco < 3
-        ):
-
-            candidato_escolhido = (
-                selecionar_melhor_candidato(
-                    candidatos_bloco,
-                    chave_bloco
-                )
-            )
-
-            if candidato_escolhido is None:
-
-                break
-
-            hash_trecho = candidato_escolhido.get(
-                "hash",
-                ""
-            )
-
-            if (
-                not hash_trecho
-                or
-                hash_trecho
-                in hashes_selecionados
-            ):
-
-                break
-
-            hashes_selecionados.add(
-                hash_trecho
-            )
-
-            # ------------------------------------------------
-            # REGISTRAR BLOCO DE ORIGEM
-            # ------------------------------------------------
-
-            candidato_escolhido[
-                "bloco_mead"
-            ] = chave_bloco
-
-            # ------------------------------------------------
-            # REGISTRAR UTILIZAÇÃO DA FONTE
-            # ------------------------------------------------
-
-            fonte = candidato_escolhido.get(
-                "fonte"
-            )
-
-            fontes_utilizadas[
-                fonte
-            ] = (
-                fontes_utilizadas.get(
-                    fonte,
-                    0
-                )
-                + 1
-            )
-
-            fragmentos_selecionados.append(
-                candidato_escolhido
-            )
-
-            quantidade_bloco += 1
-
+    # 07. ALOCAÇÃO GLOBAL 5 x 3
     # ========================================================
-    # SEGUNDA PASSAGEM
-    #
-    # Se algum bloco não conseguiu 3 fragmentos,
-    # procurar candidatos restantes.
-    #
-    # Agora também respeitamos:
-    # - diversidade de fonte;
-    # - diversidade de conteúdo;
-    # - melhor compatibilidade global.
-    # ========================================================
-
-    if len(
-        fragmentos_selecionados
-    ) < 15:
-
-        candidatos_complementares = []
-
-        for candidato in candidatos:
-
-            if not candidato_eh_utilizavel(
-                candidato
-            ):
-                continue
-
-            hash_trecho = candidato.get(
-                "hash",
-                ""
-            )
-
-            if not hash_trecho:
-
-                hash_trecho = gerar_hash_trecho(
-                    candidato.get(
-                        "texto",
-                        ""
-                    )
-                )
-
-                candidato["hash"] = (
-                    hash_trecho
-                )
-
-            if hash_trecho in hashes_selecionados:
-
-                continue
-
-            melhor_pontuacao = None
-
-            melhor_bloco = ""
-
-            for numero_bloco in range(
-                1,
-                6
-            ):
-
-                chave_bloco = (
-                    f"bloco_{numero_bloco}"
-                )
-
-                pontuacao = (
-                    calcular_pontuacao_bloco(
-                        candidato,
-                        chave_bloco
-                    )
-                )
-
-                if (
-                    melhor_pontuacao is None
-                    or
-                    pontuacao
-                    >
-                    melhor_pontuacao
-                ):
-
-                    melhor_pontuacao = (
-                        pontuacao
-                    )
-
-                    melhor_bloco = (
-                        chave_bloco
-                    )
-
-            if melhor_pontuacao is None:
-
-                continue
-
-            nota_complementar = (
-                calcular_nota_selecao(
-                    candidato,
-                    melhor_pontuacao,
-                    melhor_bloco
-                )
-            )
-
-            candidatos_complementares.append({
-
-                "candidato":
-                    candidato,
-
-                "pontuacao":
-                    melhor_pontuacao,
-
-                "nota":
-                    nota_complementar,
-
-                "bloco":
-                    melhor_bloco
-
-            })
-
-        candidatos_complementares = sorted(
-
-            candidatos_complementares,
-
-            key=lambda item: (
-                item["nota"],
-                item["pontuacao"],
-                1
-                if item["candidato"].get("pdf")
-                else 0
-            ),
-
-            reverse=True
-
-        )
-
-        for item in candidatos_complementares:
-
-            if len(
-                fragmentos_selecionados
-            ) >= 15:
-
-                break
-
-            candidato = item[
-                "candidato"
-            ]
-
-            hash_trecho = candidato.get(
-                "hash",
-                ""
-            )
-
-            if (
-                not hash_trecho
-                or
-                hash_trecho
-                in hashes_selecionados
-            ):
-
-                continue
-
-            chave_bloco = item.get(
-                "bloco",
-                ""
-            )
-
-            # ------------------------------------------------
-            # VERIFICAR SE O BLOCO JÁ POSSUI 3
-            # ------------------------------------------------
-
-            quantidade_bloco = sum(
-
-                1
-
-                for fragmento
-                in fragmentos_selecionados
-
-                if fragmento.get(
-                    "bloco_mead"
-                )
-                ==
-                chave_bloco
-
-            )
-
-            if quantidade_bloco >= 3:
-
-                continue
-
-            hashes_selecionados.add(
-                hash_trecho
-            )
-
-            candidato[
-                "bloco_mead"
-            ] = chave_bloco
-
-            fonte = candidato.get(
-                "fonte"
-            )
-
-            fontes_utilizadas[
-                fonte
-            ] = (
-                fontes_utilizadas.get(
-                    fonte,
-                    0
-                )
-                + 1
-            )
-
-            fragmentos_selecionados.append(
-                candidato
-            )
-
-    # ========================================================
-    # TERCEIRA PASSAGEM
-    #
-    # Somente se ainda faltarem fragmentos.
-    #
-    # Aqui permitimos maior reutilização de fonte,
-    # porque a prioridade passa a ser completar os
-    # 15 fragmentos sem inventar conteúdo.
-    # ========================================================
-
-    if len(
-        fragmentos_selecionados
-    ) < 15:
-
-        candidatos_finais = []
-
-        for candidato in candidatos:
-
-            if not candidato_eh_utilizavel(
-                candidato
-            ):
-                continue
-
-            hash_trecho = candidato.get(
-                "hash",
-                ""
-            )
-
-            if (
-                not hash_trecho
-                or
-                hash_trecho
-                in hashes_selecionados
-            ):
-
-                continue
-
-            melhor_pontuacao = None
-
-            melhor_bloco = ""
-
-            for numero_bloco in range(
-                1,
-                6
-            ):
-
-                chave_bloco = (
-                    f"bloco_{numero_bloco}"
-                )
-
-                quantidade_bloco = sum(
-
-                    1
-
-                    for fragmento
-                    in fragmentos_selecionados
-
-                    if fragmento.get(
-                        "bloco_mead"
-                    )
-                    ==
-                    chave_bloco
-
-                )
-
-                if quantidade_bloco >= 3:
-
-                    continue
-
-                pontuacao = (
-                    calcular_pontuacao_bloco(
-                        candidato,
-                        chave_bloco
-                    )
-                )
-
-                nota = (
-                    calcular_nota_selecao(
-                        candidato,
-                        pontuacao,
-                        chave_bloco
-                    )
-                )
-
-                if (
-                    melhor_pontuacao is None
-                    or
-                    nota > melhor_pontuacao
-                ):
-
-                    melhor_pontuacao = nota
-
-                    melhor_bloco = (
-                        chave_bloco
-                    )
-
-            if not melhor_bloco:
-
-                continue
-
-            candidatos_finais.append({
-
-                "candidato":
-                    candidato,
-
-                "nota":
-                    melhor_pontuacao,
-
-                "bloco":
-                    melhor_bloco
-
-            })
-
-        candidatos_finais = sorted(
-
-            candidatos_finais,
-
-            key=lambda item: (
-                item["nota"],
-                1
-                if item["candidato"].get("pdf")
-                else 0
-            ),
-
-            reverse=True
-
-        )
-
-        for item in candidatos_finais:
-
-            if len(
-                fragmentos_selecionados
-            ) >= 15:
-
-                break
-
-            candidato = item[
-                "candidato"
-            ]
-
-            hash_trecho = candidato.get(
-                "hash",
-                ""
-            )
-
-            if (
-                not hash_trecho
-                or
-                hash_trecho
-                in hashes_selecionados
-            ):
-
-                continue
-
-            chave_bloco = item[
-                "bloco"
-            ]
-
-            quantidade_bloco = sum(
-
-                1
-
-                for fragmento
-                in fragmentos_selecionados
-
-                if fragmento.get(
-                    "bloco_mead"
-                )
-                ==
-                chave_bloco
-
-            )
-
-            if quantidade_bloco >= 3:
-
-                continue
-
-            hashes_selecionados.add(
-                hash_trecho
-            )
-
-            candidato[
-                "bloco_mead"
-            ] = chave_bloco
-
-            fonte = candidato.get(
-                "fonte"
-            )
-
-            fontes_utilizadas[
-                fonte
-            ] = (
-                fontes_utilizadas.get(
-                    fonte,
-                    0
-                )
-                + 1
-            )
-
-            fragmentos_selecionados.append(
-                candidato
-            )
-
-    # ========================================================
-    # CONTROLE FINAL
-    # ========================================================
-
-    if len(
-        fragmentos_selecionados
-    ) > 15:
-
-        fragmentos_selecionados = (
-            fragmentos_selecionados[:15]
-        )
-
-    # ========================================================
-    # AUDITORIA DA DIVERSIDADE
-    # ========================================================
-
-    print()
-    print(
-        "=============================="
-    )
-    print(
-        "AUDITORIA DE DIVERSIDADE"
-    )
-    print(
-        "=============================="
-    )
-
-    print(
-        "FONTES DISTINTAS:",
-        len(
-            fontes_utilizadas
-        )
-    )
-
-    for fonte, quantidade in sorted(
-        fontes_utilizadas.items()
-    ):
-
-        print(
-            "FONTE",
-            fonte,
-            ":",
-            quantidade,
-            "fragmentos"
-        )
-
-    print()
-
-    for numero_bloco in range(
-        1,
-        6
-    ):
-
-        chave_bloco = (
-            f"bloco_{numero_bloco}"
-        )
-
-        print(
-            chave_bloco.upper()
-        )
-
-        fragmentos_bloco = [
-
-            fragmento
-
-            for fragmento
-            in fragmentos_selecionados
-
-            if fragmento.get(
-                "bloco_mead"
-            )
-            ==
-            chave_bloco
-
-        ]
-
-        fontes_bloco = []
-
-        for fragmento in fragmentos_bloco:
-
-            fonte = fragmento.get(
-                "fonte"
-            )
-
-            if fonte not in fontes_bloco:
-
-                fontes_bloco.append(
-                    fonte
-                )
-
-            print(
-                "  FONTE:",
-                fonte,
-                "|",
-                "PALAVRAS:",
-                fragmento.get(
-                    "palavras",
-                    0
-                ),
-                "|",
-                "NOTA:",
-                fragmento.get(
-                    "pontuacao_selecao",
-                    ""
-                )
-            )
-
-        print(
-            "  FONTES DISTINTAS NO BLOCO:",
-            len(
-                fontes_bloco
-            )
-        )
-
-    print()
-
-    # ========================================================
-    # CONTROLE DE DISTRIBUIÇÃO
-    # ========================================================
-
-    print(
-        "DISTRIBUIÇÃO FINAL:"
-    )
-
-    for numero_bloco in range(
-        1,
-        6
-    ):
-
-        chave_bloco = (
-            f"bloco_{numero_bloco}"
-        )
-
-        quantidade = sum(
-
-            1
-
-            for fragmento
-            in fragmentos_selecionados
-
-            if fragmento.get(
-                "bloco_mead"
-            )
-            ==
-            chave_bloco
-
-        )
-
-        print(
-            chave_bloco,
-            ":",
-            quantidade,
-            "fragmentos"
-        )
-
-    print()
-
-    print(
-        "SELEÇÃO MEAD CONCLUÍDA"
-    )
-
-    print(
-        "TOTAL:",
-        len(
-            fragmentos_selecionados
-        ),
-        "/ 15"
-    )
-
+    fragmentos_selecionados=[]; hashes_selecionados=set(); fontes_utilizadas={}
+    disponibilidade_por_candidato={}
+    for chave_bloco, lista in candidatos_por_bloco.items():
+        for item in lista:
+            candidato=item.get("candidato",{}); h=candidato.get("hash") or gerar_hash_trecho(candidato.get("texto","")); candidato["hash"]=h
+            disponibilidade_por_candidato.setdefault(h,set()).add(chave_bloco)
+    for rodada in range(3):
+        for numero_bloco in range(1,6):
+            chave_bloco=f"bloco_{numero_bloco}"
+            if sum(1 for x in fragmentos_selecionados if x.get("bloco_mead")==chave_bloco)>=3: continue
+            melhores=[]
+            for item in candidatos_por_bloco.get(chave_bloco,[]):
+                candidato=item.get("candidato")
+                if not candidato_eh_utilizavel(candidato): continue
+                h=candidato.get("hash") or gerar_hash_trecho(candidato.get("texto",""))
+                if h in hashes_selecionados: continue
+                fonte=candidato.get("fonte"); score=float(item.get("pontuacao",0))
+                if fontes_utilizadas.get(fonte,0)==0: score+=35
+                score+=(12-min(12,len(disponibilidade_por_candidato.get(h,set()))))*1.5
+                if candidato.get("pdf"): score+=2
+                for escolhido in fragmentos_selecionados:
+                    if escolhido.get("fonte")==fonte: score-=8
+                    sem=calcular_semelhanca_fragmentos(candidato.get("texto",""),escolhido.get("texto",""))
+                    if sem>=0.55: score-=15
+                    elif sem>=0.40: score-=6
+                melhores.append((score,candidato,item.get("pontuacao",0)))
+            if not melhores: continue
+            melhores.sort(key=lambda x:(x[0],x[2]),reverse=True); score,escolhido,pont=melhores[0]
+            escolhido["bloco_mead"]=chave_bloco; escolhido["pontuacao_selecao"]=round(score,3); escolhido["pontuacao_editorial"]=pont
+            escolhido["penalidade_fonte"]=0; escolhido["penalidade_semelhanca"]=0; escolhido["penalidade_assunto"]=0
+            h=escolhido["hash"]; hashes_selecionados.add(h); fonte=escolhido.get("fonte"); fontes_utilizadas[fonte]=fontes_utilizadas.get(fonte,0)+1; fragmentos_selecionados.append(escolhido)
+    if len(fragmentos_selecionados)<15:
+        for numero_bloco in range(1,6):
+            chave_bloco=f"bloco_{numero_bloco}"
+            while sum(1 for x in fragmentos_selecionados if x.get("bloco_mead")==chave_bloco)<3:
+                opcoes=[]
+                for item in candidatos_por_bloco.get(chave_bloco,[]):
+                    candidato=item.get("candidato")
+                    if not candidato_eh_utilizavel(candidato): continue
+                    h=candidato.get("hash") or gerar_hash_trecho(candidato.get("texto",""))
+                    if h in hashes_selecionados: continue
+                    score=float(item.get("pontuacao",0))+(15 if fontes_utilizadas.get(candidato.get("fonte"),0)==0 else 0); opcoes.append((score,candidato,item.get("pontuacao",0)))
+                if not opcoes: break
+                opcoes.sort(key=lambda x:(x[0],x[2]),reverse=True); score,escolhido,pont=opcoes[0]
+                escolhido["bloco_mead"]=chave_bloco; escolhido["pontuacao_selecao"]=round(score,3); escolhido["pontuacao_editorial"]=pont
+                h=escolhido["hash"]; hashes_selecionados.add(h); fonte=escolhido.get("fonte"); fontes_utilizadas[fonte]=fontes_utilizadas.get(fonte,0)+1; fragmentos_selecionados.append(escolhido)
+    print("ALLOCAÇÃO GLOBAL 5 x 3"); print("CANDIDATOS TOTAIS:",len(candidatos))
+    for numero_bloco in range(1,6):
+        chave_bloco=f"bloco_{numero_bloco}"; print(chave_bloco,":",sum(1 for x in fragmentos_selecionados if x.get("bloco_mead")==chave_bloco))
+    print("TOTAL:",len(fragmentos_selecionados),"/ 15")
 
     # ========================================================
     # 08. VERIFICAR QUANTIDADE
@@ -16156,17 +15757,58 @@ def selecionar_informacoes_relevantes(
         fragmentos_selecionados
     ) < 15:
 
+        print()
+        print("=" * 60)
+        print("❌ PRÉ-VALIDAÇÃO DA IA FALHOU")
+        print("=" * 60)
         print(
-            "AVISO: NÃO EXISTEM 15 FRAGMENTOS "
-            "BRUTOS DISPONÍVEIS."
+            "A seleção produziu apenas",
+            len(fragmentos_selecionados),
+            "fragmentos de 15 necessários."
+        )
+        print(
+            "O Ollama NÃO será chamado."
+        )
+        print(
+            "Isso evita descobrir o problema somente no bloco "
+            "incompleto e evita chamadas parciais."
         )
 
-        print(
-            "DISPONÍVEIS:",
-            len(
-                fragmentos_selecionados
+        # Diagnóstico por fonte.
+        fontes_diagnostico = {}
+        for candidato in candidatos:
+            fonte_id = candidato.get("fonte", "")
+            fontes_diagnostico[fonte_id] = (
+                fontes_diagnostico.get(fonte_id, 0) + 1
             )
+
+        print("CANDIDATOS VÁLIDOS POR FONTE:")
+        for fonte_id, quantidade in sorted(
+            fontes_diagnostico.items(),
+            key=lambda item: item[0]
+        ):
+            print(
+                "  FONTE",
+                fonte_id,
+                ":",
+                quantidade
+            )
+
+        print(
+            "CANDIDATOS TOTAIS:",
+            len(candidatos)
         )
+        print(
+            "FRAGMENTOS NECESSÁRIOS:",
+            15
+        )
+        print(
+            "FRAGMENTOS DISPONÍVEIS:",
+            len(fragmentos_selecionados)
+        )
+        print("=" * 60)
+
+        return resultado_vazio
 
 
     # ========================================================
@@ -19092,8 +18734,13 @@ def gerar_conteudo_completo(
     )
     
     print(
-        "MEAD ENVIADO AO OLLAMA:",
-        "NÃO"
+        "MEAD EDITORIAL ENVIADO AO OLLAMA:",
+        "SIM"
+    )
+
+    print(
+        "CHECKBOXES DOS EDITORES ENVIADOS AO OLLAMA:",
+        "SIM"
     )
     
     print(
@@ -19183,6 +18830,51 @@ def gerar_conteudo_completo(
 
         return None
 
+
+    # ============================================================
+    # PRÉ-VALIDAÇÃO ABSOLUTA DOS 5 BLOCOS
+    # ============================================================
+    #
+    # O Ollama só pode começar se todos os blocos tiverem
+    # exatamente 3 fragmentos. Assim o erro não aparece
+    # no meio das chamadas.
+    # ============================================================
+
+    for numero_bloco in range(1, total_blocos + 1):
+
+        chave_preflight = f"bloco_{numero_bloco}"
+        bloco_preflight = informacoes_blocos.get(
+            chave_preflight,
+            {}
+        )
+
+        fragmentos_preflight = (
+            bloco_preflight.get(
+                "informacoes_relevantes",
+                []
+            )
+            if isinstance(bloco_preflight, dict)
+            else []
+        )
+
+        if not isinstance(fragmentos_preflight, list) or len(fragmentos_preflight) != 3:
+            print()
+            print("=" * 60)
+            print("❌ PRÉ-VALIDAÇÃO OLLAMA INTERROMPIDA")
+            print("=" * 60)
+            print(
+                chave_preflight,
+                "possui",
+                len(fragmentos_preflight)
+                if isinstance(fragmentos_preflight, list)
+                else 0,
+                "fragmentos; são necessários 3."
+            )
+            print(
+                "Nenhuma chamada Ollama será feita."
+            )
+            print("=" * 60)
+            return None
 
     # ============================================================
     # PROCESSAR CADA BLOCO
@@ -19491,7 +19183,25 @@ def gerar_conteudo_completo(
 
 
         # ========================================================
-        # NOVA ARQUITETURA — OLLAMA RECEBE SOMENTE 3 TRECHOS
+        # NOVA ARQUITETURA — OLLAMA RECEBE 3 TRECHOS + MEAD EDITORIAL
+        # ========================================================
+        #
+        # CORREÇÃO v7.0:
+        #
+        # O MEAD já é preparado anteriormente por preparar_mead(),
+        # porém a arquitetura anterior não o inseria no prompt
+        # efetivamente enviado ao Ollama.
+        #
+        # Agora cada chamada do Ollama recebe:
+        # - as regras MEAD preparadas para IA;
+        # - os checkboxes editoriais ativos desta página;
+        # - o bloco atual;
+        # - os 3 fragmentos autorizados pelo Python.
+        #
+        # O MEAD NÃO autoriza o Ollama a pesquisar ou inventar
+        # informações. Ele funciona como orientação editorial.
+        # Os fragmentos continuam sendo a única fonte factual.
+        #
         # ========================================================
         #
         # Python já resolveu:
@@ -19533,10 +19243,48 @@ TRECHO {fragmento["numero"]}
 
 {fragmento["texto"]}
 """
-        
-        
-      
-        
+
+        # ========================================================
+        # MEAD EDITORIAL DA PÁGINA
+        # ========================================================
+        #
+        # `contexto_mead` foi preparado anteriormente por
+        # `preparar_mead(MEAD)`. A v6.7 preparava esse contexto,
+        # mas não o colocava na chamada efetiva do Ollama.
+        #
+        # Além do MEAD geral, enviamos os checkboxes ativos para
+        # deixar explícito o que foi escolhido pelos editores.
+        # ========================================================
+
+        assuntos_editoriais_ativos = []
+
+        if isinstance(estrutura_editorial, dict):
+            for chave_editorial, ativo in estrutura_editorial.items():
+                if not ativo:
+                    continue
+
+                assuntos_editoriais_ativos.append(
+                    str(chave_editorial)
+                    .replace("_", " ")
+                    .strip()
+                )
+
+        contexto_checkboxes_editoriais = json.dumps(
+            {
+                "assuntos_ativos": assuntos_editoriais_ativos,
+                "estrutura_editorial": estrutura_editorial
+            },
+            ensure_ascii=False,
+            indent=2
+        )
+
+        contexto_mead_ollama = str(
+            contexto_mead or ""
+        ).strip()
+
+        if not contexto_mead_ollama:
+            contexto_mead_ollama = "MEAD não disponível para esta execução."
+
         # ========================================================
         # PROMPT FINAL DO BLOCO
         # ========================================================
@@ -19585,6 +19333,30 @@ Não acrescente clientes.
 Não acrescente resultados.
 
 Não acrescente informações que não estejam nos trechos.
+
+O MEAD abaixo é uma orientação editorial da página.
+Ele NÃO é uma fonte factual adicional.
+Use-o para respeitar a intenção editorial, o foco e as regras
+da página, mas obtenha todo conteúdo técnico factual somente
+dos três trechos autorizados pelo Python.
+
+==================================================
+MEAD EDITORIAL DA PÁGINA
+==================================================
+
+{contexto_mead_ollama}
+
+==================================================
+CHECKBOXES DOS EDITORES
+==================================================
+
+{contexto_checkboxes_editoriais}
+
+==================================================
+BLOCO ATUAL
+==================================================
+
+{chave_bloco}
 
 ==================================================
 REGRA DE REEDIÇÃO
@@ -19695,6 +19467,18 @@ RETORNE SOMENTE O BLOCO.
         print(
             "MAPA MEAD ENVIADO:",
             "NÃO"
+        )
+
+        print(
+            "MEAD EDITORIAL ENVIADO:",
+            "SIM"
+            if contexto_mead_ollama
+            else "NÃO"
+        )
+
+        print(
+            "CHECKBOXES DOS EDITORES ENVIADOS:",
+            "SIM"
         )
         
         
@@ -19890,256 +19674,387 @@ RETORNE SOMENTE O BLOCO.
 
 
         # ========================================================
-        # EXTRAIR OS 3 PARÁGRAFOS
+        # EXTRAÇÃO ESTRITA DOS 3 PARÁGRAFOS — v7.7
+        # ========================================================
+        #
+        # O parser NÃO aceita mais um próximo marcador como
+        # substituto silencioso para o fechamento do parágrafo.
+        # Isso evitava mascarar respostas truncadas do Ollama.
+        #
+        # Se a estrutura vier incompleta, fazemos UMA nova chamada
+        # somente para este bloco, com instrução estrutural reforçada.
         # ========================================================
 
-        resultado_ollama = str(
-            resultado_ollama or ""
-        ).strip()
+        def _extrair_paragrafos_ollama_estrito(texto_resposta):
 
+            texto_resposta = str(
+                texto_resposta or ""
+            ).strip()
 
-        # --------------------------------------------------------
-        # REMOVER CERCAS DE CÓDIGO, CASO EXISTAM
-        # --------------------------------------------------------
+            if not texto_resposta:
+                return None, "resposta vazia"
 
-        resultado_ollama = re.sub(
-            r"```(?:text|txt)?",
-            "",
-            resultado_ollama,
-            flags=re.IGNORECASE
-        )
-
-        resultado_ollama = re.sub(
-            r"```",
-            "",
-            resultado_ollama
-        )
-
-        resultado_ollama = resultado_ollama.strip()
-
-
-        # ========================================================
-        # EXTRAÇÃO DIRETA DOS 3 PARÁGRAFOS
-        # ========================================================
-
-        paragrafos_extraidos = []
-
-
-        for indice_paragrafo in range(
-            1,
-            4
-        ):
-
-            marcador_abertura = (
-                f"[PARAGRAFO_{indice_paragrafo}]"
+            texto_resposta = re.sub(
+                r"```(?:text|txt)?",
+                "",
+                texto_resposta,
+                flags=re.IGNORECASE
             )
 
-            marcador_fechamento = (
-                f"[/PARAGRAFO_{indice_paragrafo}]"
-            )
+            texto_resposta = re.sub(
+                r"```",
+                "",
+                texto_resposta
+            ).strip()
 
+            extraidos = []
 
-            # ----------------------------------------------------
-            # LOCALIZAR ABERTURA
-            # ----------------------------------------------------
+            for indice in range(1, 4):
 
-            inicio = resultado_ollama.lower().find(
-                marcador_abertura.lower()
-            )
+                abertura = f"[PARAGRAFO_{indice}]"
+                fechamento = f"[/PARAGRAFO_{indice}]"
 
-
-            if inicio == -1:
-
-                print()
-                print(
-                    "❌ PARÁGRAFO NÃO ENCONTRADO:"
+                pos_abertura = texto_resposta.lower().find(
+                    abertura.lower()
                 )
 
-                print(
-                    indice_paragrafo
-                )
-
-                print()
-                print(
-                    "MARCADOR PROCURADO:"
-                )
-
-                print(
-                    marcador_abertura
-                )
-
-                print()
-                print(
-                    "RESPOSTA RECEBIDA:"
-                )
-
-                print(
-                    resultado_ollama[:3000]
-                )
-
-                return None
-
-
-            # ----------------------------------------------------
-            # POSIÇÃO APÓS O MARCADOR
-            # ----------------------------------------------------
-
-            inicio_conteudo = (
-                inicio
-                + len(
-                    marcador_abertura
-                )
-            )
-
-
-
-            # ----------------------------------------------------
-            # LOCALIZAR FECHAMENTO
-            # ----------------------------------------------------
-            
-            fim = resultado_ollama.lower().find(
-                marcador_fechamento.lower(),
-                inicio_conteudo
-            )
-            
-            # ----------------------------------------------------
-            # COMPATIBILIDADE:
-            # se o Ollama não retornar o fechamento individual
-            # do parágrafo, utilizar o próximo marcador como
-            # limite do parágrafo atual.
-            # ----------------------------------------------------
-            
-            if fim == -1:
-            
-                if indice_paragrafo < 3:
-            
-                    proximo_marcador = (
-                        f"[PARAGRAFO_{indice_paragrafo + 1}]"
+                if pos_abertura == -1:
+                    return None, (
+                        f"abertura ausente: {abertura}"
                     )
-            
-                else:
-            
-                    proximo_marcador = "[/BLOCO]"
-            
-                fim = resultado_ollama.lower().find(
-                    proximo_marcador.lower(),
+
+                inicio_conteudo = (
+                    pos_abertura + len(abertura)
+                )
+
+                pos_fechamento = texto_resposta.lower().find(
+                    fechamento.lower(),
                     inicio_conteudo
                 )
-            
-            
-            if fim == -1:
-            
-                print()
-                print(
-                    "❌ FECHAMENTO DO PARÁGRAFO NÃO ENCONTRADO:"
-                )
-            
-                print(
-                    indice_paragrafo
-                )
-            
-                print()
-                print(
-                    "MARCADORES PROCURADOS:"
-                )
-            
-                print(
-                    marcador_fechamento
-                )
-            
-                print(
-                    "OU LIMITE ALTERNATIVO:",
-                    proximo_marcador
-                    if 'proximo_marcador' in locals()
-                    else ""
-                )
-            
-                print()
-                print(
-                    "RESPOSTA RECEBIDA:"
-                )
-            
-                print(
-                    resultado_ollama[:3000]
-                )
-            
-                return None
 
+                if pos_fechamento == -1:
+                    return None, (
+                        f"fechamento ausente: {fechamento}"
+                    )
 
-            # ----------------------------------------------------
-            # EXTRAIR TEXTO
-            # ----------------------------------------------------
+                # Nenhum outro marcador de parágrafo pode aparecer
+                # antes do fechamento esperado.
+                proximo_indice = indice + 1
+                if proximo_indice <= 3:
+                    proxima_abertura = (
+                        f"[PARAGRAFO_{proximo_indice}]"
+                    )
+                    pos_proxima = texto_resposta.lower().find(
+                        proxima_abertura.lower(),
+                        inicio_conteudo
+                    )
+                    if (
+                        pos_proxima != -1
+                        and pos_proxima < pos_fechamento
+                    ):
+                        return None, (
+                            f"abertura de {proxima_abertura} "
+                            f"antes do fechamento de {fechamento}"
+                        )
 
-            texto_paragrafo = (
-                resultado_ollama[
-                    inicio_conteudo:fim
+                texto_paragrafo = texto_resposta[
+                    inicio_conteudo:pos_fechamento
                 ]
+
+                texto_paragrafo = re.sub(
+                    r"\s+",
+                    " ",
+                    str(texto_paragrafo or "").strip()
+                ).strip()
+
+                if not texto_paragrafo:
+                    return None, (
+                        f"parágrafo {indice} vazio"
+                    )
+
+                extraidos.append(texto_paragrafo)
+
+            # Exigir fechamento do bloco também. Não é obrigatório
+            # para a redação factual, mas evita aceitar resposta
+            # claramente truncada depois do terceiro parágrafo.
+            fechamento_bloco = texto_resposta.lower().find(
+                "[/bloco]",
+                texto_resposta.lower().find(
+                    "[/paragrafo_3]"
+                )
             )
 
+            if fechamento_bloco == -1:
+                return None, "fechamento ausente: [/BLOCO]"
 
-            texto_paragrafo = str(
-                texto_paragrafo or ""
-            ).strip()
-
-
-            if not texto_paragrafo:
-
-                print()
-                print(
-                    f"❌ PARÁGRAFO {indice_paragrafo} "
-                    "RETORNOU VAZIO."
-                )
-
-                return None
+            return extraidos, ""
 
 
-            # ----------------------------------------------------
-            # LIMPEZA MÍNIMA
-            # ----------------------------------------------------
+        resultado_ollama_atual = resultado_ollama
 
-            texto_paragrafo = re.sub(
-                r"\s+",
-                " ",
-                texto_paragrafo
-            ).strip()
-
-
-            if not texto_paragrafo:
-
-                print()
-                print(
-                    f"❌ PARÁGRAFO {indice_paragrafo} "
-                    "VAZIO APÓS LIMPEZA."
-                )
-
-                return None
-
-
-            paragrafos_extraidos.append(
-                texto_paragrafo
+        paragrafos_extraidos, erro_parser = (
+            _extrair_paragrafos_ollama_estrito(
+                resultado_ollama_atual
             )
+        )
+
+        # ========================================================
+        # RETRY CONTROLADO — SOMENTE O BLOCO COM ERRO ESTRUTURAL
+        # ========================================================
+
+        if paragrafos_extraidos is None:
+
+            print()
+            print("⚠️ PARSER OLLAMA REJEITOU A RESPOSTA INICIAL")
+            print("BLOCO:", chave_bloco)
+            print("MOTIVO:", erro_parser)
+            print("INICIANDO RETRY ESTRUTURAL: 1/1")
+
+            prompt_retry = (
+                prompt_bloco
+                + "\n\n"
+                + "==================================================\n"
+                + "CORREÇÃO OBRIGATÓRIA DA ESTRUTURA\n"
+                + "==================================================\n"
+                + "A resposta anterior não respeitou integralmente os marcadores.\n"
+                + "Gere novamente SOMENTE este bloco.\n"
+                + "É obrigatório escrever TODOS os marcadores abaixo, exatamente assim:\n"
+                + "[BLOCO]\n"
+                + "[PARAGRAFO_1] texto [/PARAGRAFO_1]\n"
+                + "[PARAGRAFO_2] texto [/PARAGRAFO_2]\n"
+                + "[PARAGRAFO_3] texto [/PARAGRAFO_3]\n"
+                + "[/BLOCO]\n"
+                + "NÃO interrompa nenhum parágrafo no meio.\n"
+                + "NÃO omita nenhum marcador de fechamento.\n"
+                + "NÃO acrescente texto fora desses marcadores.\n"
+                + "Mantenha exatamente as mesmas regras factuais e use somente os três trechos autorizados.\n"
+            )
+
+            inicio_retry = time.time()
+
+            try:
+                resposta_retry = requests.post(
+                    "http://localhost:11434/api/generate",
+                    json={
+                        "model": "qwen2.5:3b",
+                        "prompt": prompt_retry,
+                        "stream": False,
+                        "think": False,
+                        "keep_alive": "10m",
+                        "options": {
+                            "num_predict": 420,
+                            "num_ctx": 8192,
+                            "temperature": 0.15,
+                            "top_p": 0.9,
+                            "repeat_penalty": 1.05
+                        }
+                    },
+                    timeout=(30, 900)
+                )
+            except Exception as erro_retry:
+                print("❌ RETRY OLLAMA FALHOU:", repr(erro_retry))
+                return None
+
+            tempo_retry = time.time() - inicio_retry
+
+            print(
+                "STATUS HTTP RETRY:",
+                resposta_retry.status_code,
+                "TEMPO:",
+                round(tempo_retry, 2),
+                "segundos"
+            )
+
+            if resposta_retry.status_code != 200:
+                print("❌ RETRY OLLAMA RETORNOU HTTP INVÁLIDO")
+                print(resposta_retry.text[:1000])
+                return None
+
+            try:
+                dados_retry = resposta_retry.json()
+                resultado_retry = str(
+                    dados_retry.get("response", "") or ""
+                ).strip()
+            except Exception as erro_retry_json:
+                print("❌ ERRO AO LER RETRY OLLAMA:", repr(erro_retry_json))
+                return None
+
+            print(
+                "CARACTERES RETRY:",
+                len(resultado_retry)
+            )
+
+            paragrafos_extraidos, erro_parser_retry = (
+                _extrair_paragrafos_ollama_estrito(
+                    resultado_retry
+                )
+            )
+
+            if paragrafos_extraidos is None:
+                print()
+                print("❌ RETRY TAMBÉM REJEITADO PELO PARSER")
+                print("BLOCO:", chave_bloco)
+                print("MOTIVO:", erro_parser_retry)
+                print("RESPOSTA RETRY:")
+                print(resultado_retry[:3000])
+                return None
+
+            resultado_ollama_atual = resultado_retry
+
+            print("🟢 RETRY ESTRUTURAL APROVADO PELO PARSER")
+
+        else:
+            print("🟢 RESPOSTA OLLAMA APROVADA PELO PARSER ESTRITO")
+
 
         # ========================================================
         # GARANTIR EXATAMENTE 3 PARÁGRAFOS
         # ========================================================
 
-        if len(
-            paragrafos_extraidos
-        ) != 3:
-
-            print()
-            print(
-                "❌ QUANTIDADE INCORRETA DE PARÁGRAFOS:"
-            )
-
-            print(
-                len(
-                    paragrafos_extraidos
-                )
-            )
-
+        if len(paragrafos_extraidos) != 3:
+            print("❌ QUANTIDADE INCORRETA DE PARÁGRAFOS:", len(paragrafos_extraidos))
             return None
 
+        # ========================================================
+        # VALIDAÇÃO FACTUAL PÓS-OLLAMA — v7.5
+        # ========================================================
+        #
+        # A versão anterior exigia sobreposição lexical quase
+        # literal. Isso rejeitava paráfrases tecnicamente corretas.
+        #
+        # Agora a validação usa sinais complementares:
+        # 1) cobertura por radicais leves;
+        # 2) termos relevantes compartilhados;
+        # 3) pequenas sequências de palavras;
+        # 4) preservação obrigatória de números/unidades;
+        # 5) bloqueio de parágrafo sem evidência suficiente.
+        #
+        # O MEAD e o contexto editorial NÃO entram como evidência.
+        # Cada parágrafo é validado somente contra seu fragmento
+        # autorizado correspondente.
+        # ========================================================
+
+        palavras_ruido_validacao = {
+            "para", "com", "sem", "sobre", "entre", "como", "uma", "umas",
+            "um", "uns", "dos", "das", "que", "por", "pelo", "pela",
+            "aos", "nas", "nos", "nas", "e", "ou", "de", "da", "do",
+            "em", "no", "na", "ao", "se", "ser", "sao", "são", "foi",
+            "tem", "ter", "pode", "podem", "mais", "tambem", "também",
+            "isso", "esse", "essa", "este", "esta", "esses", "essas",
+            "estes", "estas", "quando", "onde", "assim", "cada", "qual",
+            "forma", "tipo", "modo", "parte", "caso", "seu", "sua",
+            "seus", "suas", "outro", "outra", "outros", "outras"
+        }
+
+        def _tokens_validacao(texto):
+            normalizado = normalizar_assunto_texto(str(texto or ""))
+            return [
+                t for t in re.findall(r"\b[a-z0-9]{3,}\b", normalizado)
+                if t not in palavras_ruido_validacao
+            ]
+
+        def _radical_leve(token):
+            t = str(token or "")
+            if len(t) <= 5:
+                return t
+            # Redução conservadora de flexões frequentes em português.
+            sufixos = (
+                "mente", "ções", "ção", "sões", "são", "mente",
+                "amentos", "imentos", "amento", "imento", "idades",
+                "idade", "ismos", "ismo", "istas", "ista", "mente",
+                "ados", "idos", "adas", "idas", "ando", "endo", "indo",
+                "ados", "idos", "es", "as", "os", "s"
+            )
+            for sufixo in sufixos:
+                if t.endswith(sufixo) and len(t) - len(sufixo) >= 4:
+                    return t[:-len(sufixo)]
+            return t
+
+        def _n_gramas(tokens, n=2):
+            return set(
+                " ".join(tokens[i:i+n])
+                for i in range(max(0, len(tokens)-n+1))
+            )
+
+        for indice_paragrafo, resultado_paragrafo in enumerate(paragrafos_extraidos):
+            fragmento_autorizado = fragmentos_bloco[indice_paragrafo].get("texto", "")
+
+            tokens_fonte = _tokens_validacao(fragmento_autorizado)
+            tokens_saida = _tokens_validacao(resultado_paragrafo)
+
+            radicais_fonte = {_radical_leve(t) for t in tokens_fonte}
+            radicais_saida = [_radical_leve(t) for t in tokens_saida]
+            compartilhados = [t for t in radicais_saida if t in radicais_fonte]
+
+            cobertura_radical = (
+                len(compartilhados) / max(1, len(radicais_saida))
+            )
+
+            termos_fonte = set(tokens_fonte)
+            termos_saida = set(tokens_saida)
+            termos_compartilhados = termos_fonte & termos_saida
+            cobertura_termos = (
+                len(termos_compartilhados) / max(1, len(termos_saida))
+            )
+
+            bigramas_fonte = _n_gramas(tokens_fonte, 2)
+            bigramas_saida = _n_gramas(tokens_saida, 2)
+            sobreposicao_bigrama = (
+                len(bigramas_fonte & bigramas_saida)
+                / max(1, len(bigramas_saida))
+            )
+
+            # Evidência suficiente pode vir de paráfrase: usamos
+            # radical + termos + pequenas sequências, sem exigir
+            # identidade textual.
+            score_evidencia = (
+                (cobertura_radical * 0.60)
+                + (cobertura_termos * 0.25)
+                + (sobreposicao_bigrama * 0.15)
+            )
+
+            # Números e unidades são fatos de alta precisão: nenhum
+            # valor novo pode aparecer na redação.
+            numeros_fonte = set(re.findall(
+                r"(?<!\w)\d+(?:[.,]\d+)?(?:%|[a-zA-Z]{1,8})?(?!\w)",
+                normalizar_assunto_texto(fragmento_autorizado)
+            ))
+            numeros_saida = set(re.findall(
+                r"(?<!\w)\d+(?:[.,]\d+)?(?:%|[a-zA-Z]{1,8})?(?!\w)",
+                normalizar_assunto_texto(resultado_paragrafo)
+            ))
+
+            numeros_novos = numeros_saida - numeros_fonte
+
+            if numeros_novos:
+                print("❌ VALIDAÇÃO FACTUAL: número/unidade não autorizado.")
+                print("BLOCO:", chave_bloco, "PARÁGRAFO:", indice_paragrafo + 1)
+                print("NÚMEROS NOVOS:", sorted(numeros_novos))
+                return None
+
+            # Parágrafos muito curtos não precisam atingir um limite
+            # artificial de sobreposição. Para textos com 25+ termos,
+            # porém, exigimos evidência lexical/parafrástica mínima.
+            if len(tokens_saida) >= 25 and score_evidencia < 0.14:
+                print("❌ VALIDAÇÃO FACTUAL: evidência insuficiente após paráfrase.")
+                print(
+                    "BLOCO:", chave_bloco,
+                    "PARÁGRAFO:", indice_paragrafo + 1,
+                    "SCORE:", round(score_evidencia, 3),
+                    "RADICAL:", round(cobertura_radical, 3),
+                    "TERMOS:", round(cobertura_termos, 3),
+                    "BIGRAMAS:", round(sobreposicao_bigrama, 3)
+                )
+                return None
+
+            print(
+                "🟢 VALIDAÇÃO FACTUAL:",
+                chave_bloco,
+                "PARÁGRAFO", indice_paragrafo + 1,
+                "SCORE", round(score_evidencia, 3),
+                "TERMOS", len(termos_compartilhados),
+                "NÚMEROS NOVOS", 0
+            )
 
         # ========================================================
         # GUARDAR OS 3 RESULTADOS
@@ -20294,7 +20209,7 @@ RETORNE SOMENTE O BLOCO.
 
         print()
         print(
-            "✅ BLOCO PROCESSADO E SALVO"
+            "✅ BLOCO PROCESSADO E VALIDADO EM MEMÓRIA"
         )
 
         print(
@@ -20816,13 +20731,71 @@ RETORNE SOMENTE O BLOCO.
     ]
 
     # --------------------------------------------------------
-    # O banco acima possui 29 opções válidas.
+    # COMPLEMENTO CONTROLADO — SOMENTE PYTHON
     #
-    # Como a palavra-chave isolada foi retirada, não devemos
-    # simplesmente fazer [:30] e aceitar quantidade menor.
-    #
-    # Se houver menos de 30 tags válidas, interrompemos a
-    # geração para evitar um JSON estruturalmente incorreto.
+    # A palavra-chave pura é proibida, mas isso não pode fazer
+    # a página terminar com 29 tags. Quando a base fixa não
+    # atingir 30, acrescentamos variações semânticas controladas
+    # do próprio tema, sem Ollama e sem tags aleatórias.
+    # --------------------------------------------------------
+
+    if len(lista_tags) < 30:
+
+        if tipo == "servico":
+            tags_complementares = [
+                f"aplicação de {tema_base}",
+                f"execução de {tema_base}",
+                f"planejamento de {tema_base}",
+                f"avaliação de {tema_base}",
+                f"controle de {tema_base}",
+                f"qualidade em {tema_base}",
+                f"soluções técnicas em {tema_base}",
+                f"atendimento técnico de {tema_base}",
+            ]
+        else:
+            tags_complementares = [
+                f"aplicação de {tema_base}",
+                f"seleção de {tema_base}",
+                f"dimensionamento de {tema_base}",
+                f"instalação de {tema_base}",
+                f"operação de {tema_base}",
+                f"manutenção de {tema_base}",
+                f"desempenho de {tema_base}",
+                f"eficiência de {tema_base}",
+                f"especificação de {tema_base}",
+                f"fornecimento de {tema_base}",
+                f"soluções técnicas com {tema_base}",
+                f"características de {tema_base}",
+            ]
+
+        for tag in tags_complementares:
+
+            tag = re.sub(
+                r"\s+",
+                " ",
+                str(tag).strip()
+            )
+
+            if not tag:
+                continue
+
+            if tag.casefold() == tema_normalizado:
+                continue
+
+            if tag.casefold() in [
+                item.casefold()
+                for item in lista_tags
+            ]:
+                continue
+
+            lista_tags.append(tag)
+
+            if len(lista_tags) >= 30:
+                break
+
+    # --------------------------------------------------------
+    # A quantidade continua sendo obrigatória. Se mesmo a base
+    # fixa + complemento controlado não alcançar 30, abortamos.
     # --------------------------------------------------------
 
     if len(lista_tags) < 30:
@@ -21289,7 +21262,7 @@ RETORNE SOMENTE O BLOCO.
     print("SALVANDO ESTRUTURA OFICIAL NO BANCO")
     print("======================================")
     
-    salvar_banco(
+    resultado_salvamento = salvar_banco(
         tema,
         "pagina",
         conteudo,
@@ -21364,6 +21337,11 @@ RETORNE SOMENTE O BLOCO.
         
         subtitulo_segmentos=subtitulo_segmentos,
     )
+
+
+    if resultado_salvamento is not True:
+        print("❌ FALHA AO SALVAR A PÁGINA NO BANCO.")
+        return None
 
 
     # ========================================================
@@ -22894,11 +22872,11 @@ def gerar_titulos(
     )
 
     bloco_3 = (
-        f"Vantagens e diferenciais de {tema}"
+        f"Critérios técnicos e cuidados com {tema}"
     )
 
     bloco_4 = (
-        f"Aspectos técnicos e cuidados com {tema}"
+        f"Aplicações e características de {tema}"
     )
 
     bloco_5 = (
@@ -26183,18 +26161,217 @@ def salvar_banco(
                 exist_ok=True
             )
 
-        with open(
-            ARQUIVO_BANCO,
-            "w",
-            encoding="utf-8"
-        ) as arquivo:
+        # ====================================================
+        # VALIDAÇÃO OBRIGATÓRIA ANTES DA GRAVAÇÃO
+        # ====================================================
 
-            json.dump(
-                banco,
-                arquivo,
+        erros_json = []
+
+        if not isinstance(pagina_final, dict):
+            erros_json.append("pagina_final inválida")
+
+        for numero in range(1, 6):
+            chave_bloco = f"bloco_{numero}"
+            bloco_validacao = pagina_final.get(chave_bloco) if isinstance(pagina_final, dict) else None
+            if not isinstance(bloco_validacao, dict):
+                erros_json.append(f"{chave_bloco} ausente ou inválido")
+                continue
+            info_validacao = bloco_validacao.get("informacoes_relevantes", [])
+            if not isinstance(info_validacao, list) or len(info_validacao) != 3:
+                erros_json.append(f"{chave_bloco}: esperado 3 fragmentos")
+            para_validacao = bloco_validacao.get("paragrafos_ollama", [])
+            if not isinstance(para_validacao, list) or len(para_validacao) != 3 or any(not str(x or "").strip() for x in para_validacao[:3]):
+                erros_json.append(f"{chave_bloco}: esperado 3 parágrafos Ollama não vazios")
+            if "paragrafos" in bloco_validacao:
+                erros_json.append(f"{chave_bloco}: campo legado 'paragrafos' não permitido")
+
+        if erros_json:
+            print("\n❌ JSON NÃO GRAVADO — ESTRUTURA INCOMPLETA")
+            for erro_json in erros_json:
+                print("-", erro_json)
+            return False
+
+        # ====================================================
+        # INTEGRIDADE EXATA MEMÓRIA → TEMP → DISCO — v7.7
+        # ====================================================
+        #
+        # A versão anterior conferia apenas quantidade e campos
+        # não vazios depois do os.replace(). Agora:
+        # 1) monta uma fotografia canônica dos 15 fragmentos e
+        #    15 parágrafos aprovados em memória;
+        # 2) grava em arquivo temporário;
+        # 3) reabre o temporário e compara conteúdo exato;
+        # 4) compara também os 5 hashes dos blocos;
+        # 5) somente então substitui o JSON oficial;
+        # 6) reabre o oficial e repete a comparação.
+        # ====================================================
+
+        def _canonico_json(valor):
+            return json.dumps(
+                valor,
                 ensure_ascii=False,
-                indent=4
+                sort_keys=True,
+                separators=(",", ":")
             )
+
+        def _hash_integridade_bloco(bloco):
+            if not isinstance(bloco, dict):
+                return ""
+            info_hash = _canonico_json(
+                bloco.get("informacoes_relevantes", [])
+            )
+            conteudo_hash = (
+                info_hash
+                + "|"
+                + str(bloco.get("titulo", "") or "").strip()
+                + "|"
+                + "|".join(
+                    str(item or "").strip()
+                    for item in bloco.get("paragrafos_ollama", [])[:3]
+                )
+            )
+            return hashlib.sha256(
+                conteudo_hash.encode("utf-8")
+            ).hexdigest()
+
+        def _snapshot_integridade(pagina_snapshot):
+            snapshot = {}
+            erros = []
+            for numero in range(1, 6):
+                chave_bloco = f"bloco_{numero}"
+                bloco = pagina_snapshot.get(chave_bloco) if isinstance(pagina_snapshot, dict) else None
+                if not isinstance(bloco, dict):
+                    erros.append(f"{chave_bloco}: bloco ausente")
+                    continue
+                info = bloco.get("informacoes_relevantes", [])
+                para = bloco.get("paragrafos_ollama", [])
+                if not isinstance(info, list) or len(info) != 3:
+                    erros.append(f"{chave_bloco}: fragmentos != 3")
+                    continue
+                if not isinstance(para, list) or len(para) != 3 or any(not str(x or "").strip() for x in para[:3]):
+                    erros.append(f"{chave_bloco}: parágrafos Ollama != 3 válidos")
+                    continue
+                snapshot[chave_bloco] = {
+                    "informacoes_relevantes": info[:3],
+                    "paragrafos_ollama": [str(x or "").strip() for x in para[:3]],
+                    "hash": _hash_integridade_bloco(bloco)
+                }
+            return snapshot, erros
+
+        snapshot_memoria, erros_memoria = _snapshot_integridade(pagina_final)
+
+        if erros_memoria:
+            print("\n❌ INTEGRIDADE EM MEMÓRIA REJEITADA")
+            for erro in erros_memoria:
+                print("-", erro)
+            return False
+
+        def _comparar_snapshot(snapshot_esperado, pagina_obtida):
+            erros = []
+            snapshot_obtido, erros_estrutura = _snapshot_integridade(pagina_obtida)
+            erros.extend(erros_estrutura)
+
+            for numero in range(1, 6):
+                chave_bloco = f"bloco_{numero}"
+                esperado = snapshot_esperado.get(chave_bloco)
+                obtido = snapshot_obtido.get(chave_bloco)
+                if esperado is None or obtido is None:
+                    continue
+
+                if _canonico_json(esperado["informacoes_relevantes"]) != _canonico_json(obtido["informacoes_relevantes"]):
+                    erros.append(f"{chave_bloco}: fragmentos memória × JSON diferentes")
+
+                if esperado["paragrafos_ollama"] != obtido["paragrafos_ollama"]:
+                    erros.append(f"{chave_bloco}: parágrafos Ollama memória × JSON diferentes")
+
+                if esperado["hash"] != obtido["hash"]:
+                    erros.append(f"{chave_bloco}: hash memória × JSON diferente")
+
+            return erros, snapshot_obtido
+
+        arquivo_temporario = None
+        try:
+            fd, arquivo_temporario = tempfile.mkstemp(
+                prefix="conteudo-site-",
+                suffix=".tmp",
+                dir=diretorio or None,
+                text=True
+            )
+            with os.fdopen(fd, "w", encoding="utf-8") as arquivo:
+                json.dump(banco, arquivo, ensure_ascii=False, indent=4)
+                arquivo.flush()
+                os.fsync(arquivo.fileno())
+
+            with open(arquivo_temporario, "r", encoding="utf-8") as arquivo_temporario_leitura:
+                banco_temporario = json.load(arquivo_temporario_leitura)
+
+            tema_temporario = banco_temporario.get(chave_existente)
+            pagina_temporaria = (
+                tema_temporario.get("pagina", {})
+                if isinstance(tema_temporario, dict)
+                else {}
+            )
+
+            erros_temporario, snapshot_temporario = _comparar_snapshot(
+                snapshot_memoria,
+                pagina_temporaria
+            )
+
+            if erros_temporario:
+                print("\n❌ GRAVAÇÃO ABORTADA — TEMPORÁRIO DIFERE DA MEMÓRIA")
+                for erro in erros_temporario:
+                    print("-", erro)
+                return False
+
+            # Só agora o arquivo oficial pode ser substituído.
+            os.replace(arquivo_temporario, ARQUIVO_BANCO)
+            arquivo_temporario = None
+
+        finally:
+            if arquivo_temporario and os.path.exists(arquivo_temporario):
+                try:
+                    os.remove(arquivo_temporario)
+                except Exception:
+                    pass
+
+        # ----------------------------------------------------
+        # SEGUNDA CONFERÊNCIA: ARQUIVO OFICIAL REABERTO
+        # ----------------------------------------------------
+
+        with open(ARQUIVO_BANCO, "r", encoding="utf-8") as arquivo_verificacao:
+            banco_gravado = json.load(arquivo_verificacao)
+
+        tema_gravado = banco_gravado.get(chave_existente)
+        pagina_gravada = (
+            tema_gravado.get("pagina", {})
+            if isinstance(tema_gravado, dict)
+            else {}
+        )
+
+        erros_pos_gravacao, snapshot_disco = _comparar_snapshot(
+            snapshot_memoria,
+            pagina_gravada
+        )
+
+        if erros_pos_gravacao:
+            print("\n❌ GRAVAÇÃO REJEITADA — CONTEÚDO NO DISCO DIFERE DA MEMÓRIA")
+            for erro_pos in erros_pos_gravacao:
+                print("-", erro_pos)
+            return False
+
+        print("\n============================================================")
+        print("✅ GRAVAÇÃO 100% VALIDADA")
+        print("============================================================")
+        print("BLOCOS:                5 / 5")
+        print("FRAGMENTOS:           15 / 15")
+        print("PARÁGRAFOS OLLAMA:    15 / 15")
+        print()
+        print("MEMÓRIA × JSON:")
+        print("FRAGMENTOS:            IDÊNTICOS")
+        print("PARÁGRAFOS:            IDÊNTICOS")
+        print("HASHES:                5 / 5 IDÊNTICOS")
+        print("STATUS:                APROVADO")
+        print("============================================================")
 
         # ====================================================
         # CONFERÊNCIA FINAL
