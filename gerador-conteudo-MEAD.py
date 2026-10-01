@@ -1,4 +1,4 @@
-# versão 6.6 - 30/09
+# versão 6.6 - 01/10
 
 import json
 import os
