@@ -20545,7 +20545,7 @@ RETORNE SOMENTE O BLOCO.
         
 
         # ========================================================
-        # VALIDAÇÃO FACTUAL PÓS-OLLAMA — v7.5
+        # VALIDAÇÃO FACTUAL PÓS-OLLAMA — 
         # ========================================================
         #
         # A versão anterior exigia sobreposição lexical quase
