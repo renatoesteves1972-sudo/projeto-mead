@@ -18885,7 +18885,966 @@ def gerar_conteudo_completo(
 
         return None
 
+        for numero_bloco in range(
+        1,
+        total_blocos + 1
+    ):
+    
 
+    # ============================================================
+    # RETENTATIVA CONTROLADA DE REDAÇÃO DO BLOCO
+    # ============================================================
+    #
+    # Um bloco só é aprovado quando:
+    #
+    # - possui exatamente 3 parágrafos;
+    # - todos possuem 45–80 palavras;
+    # - todos passam pela validação factual;
+    # - nenhum número/unidade novo é introduzido.
+    #
+    # Se qualquer validação falhar, o mesmo bloco é reenviado
+    # ao Ollama, com o motivo da rejeição.
+    #
+    # IMPORTANTE:
+    # nenhum resultado inválido é gravado em paragrafos_ollama.
+    #
+    # ============================================================
+
+    MAX_TENTATIVAS_BLOCO = 3
+
+    def _processar_bloco_ollama_com_retentativas(
+        prompt_base,
+        fragmentos_autorizados,
+        chave_bloco_atual
+    ):
+
+        ultimo_erro = ""
+
+        for tentativa_bloco in range(
+            1,
+            MAX_TENTATIVAS_BLOCO + 1
+        ):
+
+            print()
+            print("=" * 60)
+            print(
+                f"OLLAMA — {chave_bloco_atual.upper()} — "
+                f"TENTATIVA {tentativa_bloco}/"
+                f"{MAX_TENTATIVAS_BLOCO}"
+            )
+            print("=" * 60)
+
+            # ----------------------------------------------------
+            # INSTRUÇÃO EXTRA PARA RETENTATIVA
+            # ----------------------------------------------------
+
+            instrucao_retentativa = ""
+
+            if tentativa_bloco > 1:
+
+                instrucao_retentativa = f"""
+
+==================================================
+CORREÇÃO DA TENTATIVA ANTERIOR
+==================================================
+
+A tentativa anterior foi rejeitada pelo Python.
+
+MOTIVO DA REJEIÇÃO:
+{ultimo_erro}
+
+Gere novamente os três parágrafos.
+
+ATENÇÃO:
+
+- Corrija somente o problema informado.
+- Não invente informações.
+- Não acrescente informações externas.
+- Não acrescente números.
+- Não acrescente características.
+- Não acrescente aplicações.
+- Não acrescente marcas.
+- Não acrescente empresas.
+- Não acrescente modelos.
+- Não misture os três trechos.
+- TRECHO 1 continua correspondendo ao PARÁGRAFO 1.
+- TRECHO 2 continua correspondendo ao PARÁGRAFO 2.
+- TRECHO 3 continua correspondendo ao PARÁGRAFO 3.
+
+Todos os três parágrafos precisam ter entre
+45 e 80 palavras.
+
+A faixa ideal continua sendo de 60 a 70 palavras.
+
+Não aumente artificialmente o texto apenas para atingir
+a quantidade de palavras.
+
+Retorne novamente somente:
+
+[BLOCO]
+
+[PARAGRAFO_1]
+...
+[/PARAGRAFO_1]
+
+[PARAGRAFO_2]
+...
+[/PARAGRAFO_2]
+
+[PARAGRAFO_3]
+...
+[/PARAGRAFO_3]
+
+[/BLOCO]
+"""
+
+            prompt_atual = (
+                str(prompt_base or "")
+                + instrucao_retentativa
+            )
+
+            # ----------------------------------------------------
+            # CHAMADA OLLAMA
+            # ----------------------------------------------------
+
+            inicio_ollama = time.time()
+
+            try:
+
+                resposta = requests.post(
+
+                    "http://localhost:11434/api/generate",
+
+                    json={
+
+                        "model":
+                            "qwen2.5:3b",
+
+                        "prompt":
+                            prompt_atual,
+
+                        "stream":
+                            False,
+
+                        "think":
+                            False,
+
+                        "keep_alive":
+                            "10m",
+
+                        "options": {
+
+                            "num_predict":
+                                420,
+
+                            "num_ctx":
+                                8192,
+
+                            "temperature":
+                                0.15
+                                if tentativa_bloco > 1
+                                else 0.2,
+
+                            "top_p":
+                                0.9,
+
+                            "repeat_penalty":
+                                1.05
+                        }
+                    },
+
+                    timeout=(
+                        30,
+                        900
+                    )
+                )
+
+            except requests.exceptions.Timeout:
+
+                ultimo_erro = (
+                    "timeout do Ollama após 900 segundos"
+                )
+
+                print(
+                    "❌",
+                    ultimo_erro
+                )
+
+                if tentativa_bloco < MAX_TENTATIVAS_BLOCO:
+                    continue
+
+                return None, ultimo_erro
+
+            except requests.exceptions.ConnectionError as erro:
+
+                ultimo_erro = (
+                    "erro de conexão com Ollama: "
+                    + repr(erro)
+                )
+
+                print(
+                    "❌",
+                    ultimo_erro
+                )
+
+                if tentativa_bloco < MAX_TENTATIVAS_BLOCO:
+                    continue
+
+                return None, ultimo_erro
+
+            except Exception as erro:
+
+                ultimo_erro = (
+                    "erro na chamada Ollama: "
+                    + repr(erro)
+                )
+
+                print(
+                    "❌",
+                    ultimo_erro
+                )
+
+                if tentativa_bloco < MAX_TENTATIVAS_BLOCO:
+                    continue
+
+                return None, ultimo_erro
+
+            tempo_ollama = (
+                time.time()
+                - inicio_ollama
+            )
+
+            print(
+                "STATUS HTTP:",
+                resposta.status_code
+            )
+
+            print(
+                "TEMPO:",
+                round(
+                    tempo_ollama,
+                    2
+                ),
+                "segundos"
+            )
+
+            if resposta.status_code != 200:
+
+                ultimo_erro = (
+                    "Ollama retornou HTTP "
+                    + str(resposta.status_code)
+                )
+
+                print(
+                    "❌",
+                    ultimo_erro
+                )
+
+                if tentativa_bloco < MAX_TENTATIVAS_BLOCO:
+                    continue
+
+                return None, ultimo_erro
+
+            # ----------------------------------------------------
+            # LER RESPOSTA
+            # ----------------------------------------------------
+
+            try:
+
+                dados_ollama = (
+                    resposta.json()
+                )
+
+                resultado_ollama = str(
+                    dados_ollama.get(
+                        "response",
+                        ""
+                    )
+                    or ""
+                ).strip()
+
+            except Exception as erro:
+
+                ultimo_erro = (
+                    "erro ao interpretar JSON do Ollama: "
+                    + repr(erro)
+                )
+
+                print(
+                    "❌",
+                    ultimo_erro
+                )
+
+                if tentativa_bloco < MAX_TENTATIVAS_BLOCO:
+                    continue
+
+                return None, ultimo_erro
+
+            if not resultado_ollama:
+
+                ultimo_erro = (
+                    "Ollama retornou resposta vazia"
+                )
+
+                print(
+                    "❌",
+                    ultimo_erro
+                )
+
+                if tentativa_bloco < MAX_TENTATIVAS_BLOCO:
+                    continue
+
+                return None, ultimo_erro
+
+            print(
+                "CARACTERES RETORNADOS:",
+                len(resultado_ollama)
+            )
+
+            # ----------------------------------------------------
+            # PARSER ESTRITO
+            # ----------------------------------------------------
+
+            def _extrair_paragrafos_estrito(texto):
+
+                texto = str(
+                    texto or ""
+                ).strip()
+
+                if not texto:
+                    return None, "resposta vazia"
+
+                texto = re.sub(
+                    r"```(?:text|txt)?",
+                    "",
+                    texto,
+                    flags=re.IGNORECASE
+                )
+
+                texto = re.sub(
+                    r"```",
+                    "",
+                    texto
+                ).strip()
+
+                extraidos = []
+
+                for indice in range(
+                    1,
+                    4
+                ):
+
+                    abertura = (
+                        f"[PARAGRAFO_{indice}]"
+                    )
+
+                    fechamento = (
+                        f"[/PARAGRAFO_{indice}]"
+                    )
+
+                    texto_lower = (
+                        texto.lower()
+                    )
+
+                    pos_abertura = (
+                        texto_lower.find(
+                            abertura.lower()
+                        )
+                    )
+
+                    if pos_abertura == -1:
+
+                        return None, (
+                            f"abertura ausente: "
+                            f"{abertura}"
+                        )
+
+                    inicio_conteudo = (
+                        pos_abertura
+                        + len(abertura)
+                    )
+
+                    pos_fechamento = (
+                        texto_lower.find(
+                            fechamento.lower(),
+                            inicio_conteudo
+                        )
+                    )
+
+                    if pos_fechamento == -1:
+
+                        return None, (
+                            f"fechamento ausente: "
+                            f"{fechamento}"
+                        )
+
+                    proximo_indice = (
+                        indice + 1
+                    )
+
+                    if proximo_indice <= 3:
+
+                        proxima_abertura = (
+                            f"[PARAGRAFO_{proximo_indice}]"
+                        )
+
+                        pos_proxima = (
+                            texto_lower.find(
+                                proxima_abertura.lower(),
+                                inicio_conteudo
+                            )
+                        )
+
+                        if (
+                            pos_proxima != -1
+                            and
+                            pos_proxima < pos_fechamento
+                        ):
+
+                            return None, (
+                                f"{proxima_abertura} "
+                                f"apareceu antes do fechamento "
+                                f"de {fechamento}"
+                            )
+
+                    texto_paragrafo = texto[
+                        inicio_conteudo:
+                        pos_fechamento
+                    ]
+
+                    texto_paragrafo = re.sub(
+                        r"\s+",
+                        " ",
+                        str(
+                            texto_paragrafo or ""
+                        ).strip()
+                    ).strip()
+
+                    if not texto_paragrafo:
+
+                        return None, (
+                            f"parágrafo {indice} vazio"
+                        )
+
+                    extraidos.append(
+                        texto_paragrafo
+                    )
+
+                pos_bloco = (
+                    texto.lower().find(
+                        "[/bloco]",
+                        texto.lower().find(
+                            "[/paragrafo_3]"
+                        )
+                    )
+                )
+
+                if pos_bloco == -1:
+
+                    return None, (
+                        "fechamento ausente: [/BLOCO]"
+                    )
+
+                return extraidos, ""
+
+            # ----------------------------------------------------
+            # EXTRAIR
+            # ----------------------------------------------------
+
+            paragrafos_extraidos, erro_parser = (
+                _extrair_paragrafos_estrito(
+                    resultado_ollama
+                )
+            )
+
+            if paragrafos_extraidos is None:
+
+                ultimo_erro = (
+                    "estrutura inválida: "
+                    + str(erro_parser)
+                )
+
+                print(
+                    "❌ PARSER:",
+                    ultimo_erro
+                )
+
+                if tentativa_bloco < MAX_TENTATIVAS_BLOCO:
+                    continue
+
+                return None, ultimo_erro
+
+            # ----------------------------------------------------
+            # QUANTIDADE
+            # ----------------------------------------------------
+
+            if len(
+                paragrafos_extraidos
+            ) != 3:
+
+                ultimo_erro = (
+                    "quantidade inválida de parágrafos: "
+                    + str(
+                        len(paragrafos_extraidos)
+                    )
+                )
+
+                print(
+                    "❌",
+                    ultimo_erro
+                )
+
+                if tentativa_bloco < MAX_TENTATIVAS_BLOCO:
+                    continue
+
+                return None, ultimo_erro
+
+            # ----------------------------------------------------
+            # TAMANHO
+            # ----------------------------------------------------
+
+            MIN_PALAVRAS_PARAGRAFO = 45
+            MAX_PALAVRAS_PARAGRAFO = 80
+
+            MIN_PALAVRAS_IDEAL = 60
+            MAX_PALAVRAS_IDEAL = 70
+
+            erro_tamanho = None
+
+            for indice_paragrafo, paragrafo in enumerate(
+                paragrafos_extraidos
+            ):
+
+                quantidade_palavras = len(
+                    str(
+                        paragrafo or ""
+                    ).split()
+                )
+
+                print(
+                    "PARÁGRAFO",
+                    indice_paragrafo + 1,
+                    ":",
+                    quantidade_palavras,
+                    "palavras"
+                )
+
+                if quantidade_palavras < MIN_PALAVRAS_PARAGRAFO:
+
+                    erro_tamanho = (
+                        f"parágrafo "
+                        f"{indice_paragrafo + 1} possui "
+                        f"{quantidade_palavras} palavras; "
+                        f"mínimo permitido é "
+                        f"{MIN_PALAVRAS_PARAGRAFO}"
+                    )
+
+                    break
+
+                if quantidade_palavras > MAX_PALAVRAS_PARAGRAFO:
+
+                    erro_tamanho = (
+                        f"parágrafo "
+                        f"{indice_paragrafo + 1} possui "
+                        f"{quantidade_palavras} palavras; "
+                        f"máximo permitido é "
+                        f"{MAX_PALAVRAS_PARAGRAFO}"
+                    )
+
+                    break
+
+                if (
+                    MIN_PALAVRAS_IDEAL
+                    <= quantidade_palavras
+                    <= MAX_PALAVRAS_IDEAL
+                ):
+
+                    classificacao = "IDEAL"
+
+                else:
+
+                    classificacao = "ACEITÁVEL"
+
+                print(
+                    "🟢 TAMANHO:",
+                    classificacao
+                )
+
+            if erro_tamanho:
+
+                ultimo_erro = erro_tamanho
+
+                print(
+                    "❌ TAMANHO:",
+                    ultimo_erro
+                )
+
+                if tentativa_bloco < MAX_TENTATIVAS_BLOCO:
+                    continue
+
+                return None, ultimo_erro
+
+            # ----------------------------------------------------
+            # VALIDAÇÃO FACTUAL
+            # ----------------------------------------------------
+
+            palavras_ruido_validacao = {
+                "para", "com", "sem", "sobre", "entre",
+                "como", "uma", "umas", "um", "uns",
+                "dos", "das", "que", "por", "pelo",
+                "pela", "aos", "nas", "nos", "e", "ou",
+                "de", "da", "do", "em", "no", "na",
+                "ao", "se", "ser", "sao", "são", "foi",
+                "tem", "ter", "pode", "podem", "mais",
+                "tambem", "também", "isso", "esse",
+                "essa", "este", "esta", "esses",
+                "essas", "estes", "estas", "quando",
+                "onde", "assim", "cada", "qual", "forma",
+                "tipo", "modo", "parte", "caso", "seu",
+                "sua", "seus", "suas", "outro",
+                "outra", "outros", "outras"
+            }
+
+            def _tokens_validacao(texto):
+
+                normalizado = (
+                    normalizar_assunto_texto(
+                        str(texto or "")
+                    )
+                )
+
+                return [
+                    token
+                    for token in re.findall(
+                        r"\b[a-z0-9]{3,}\b",
+                        normalizado
+                    )
+                    if token
+                    not in palavras_ruido_validacao
+                ]
+
+            def _radical_leve(token):
+
+                token = str(
+                    token or ""
+                )
+
+                if len(token) <= 5:
+                    return token
+
+                sufixos = (
+                    "mente",
+                    "ções",
+                    "ção",
+                    "sões",
+                    "são",
+                    "amentos",
+                    "imentos",
+                    "amento",
+                    "imento",
+                    "idades",
+                    "idade",
+                    "ismos",
+                    "ismo",
+                    "istas",
+                    "ista",
+                    "ados",
+                    "idos",
+                    "adas",
+                    "idas",
+                    "ando",
+                    "endo",
+                    "indo",
+                    "es",
+                    "as",
+                    "os",
+                    "s"
+                )
+
+                for sufixo in sufixos:
+
+                    if (
+                        token.endswith(sufixo)
+                        and
+                        len(token)
+                        - len(sufixo)
+                        >= 4
+                    ):
+
+                        return token[
+                            :-
+                            len(sufixo)
+                        ]
+
+                return token
+
+            def _n_gramas(tokens, n=2):
+
+                return set(
+                    " ".join(
+                        tokens[i:i+n]
+                    )
+                    for i in range(
+                        max(
+                            0,
+                            len(tokens) - n + 1
+                        )
+                    )
+                )
+
+            erro_factual = None
+
+            for indice_paragrafo, paragrafo in enumerate(
+                paragrafos_extraidos
+            ):
+
+                fragmento_autorizado = str(
+                    fragmentos_autorizados[
+                        indice_paragrafo
+                    ].get(
+                        "texto",
+                        ""
+                    )
+                    or ""
+                )
+
+                tokens_fonte = (
+                    _tokens_validacao(
+                        fragmento_autorizado
+                    )
+                )
+
+                tokens_saida = (
+                    _tokens_validacao(
+                        paragrafo
+                    )
+                )
+
+                radicais_fonte = {
+                    _radical_leve(token)
+                    for token
+                    in tokens_fonte
+                }
+
+                radicais_saida = [
+                    _radical_leve(token)
+                    for token
+                    in tokens_saida
+                ]
+
+                compartilhados = [
+                    token
+                    for token
+                    in radicais_saida
+                    if token
+                    in radicais_fonte
+                ]
+
+                cobertura_radical = (
+                    len(compartilhados)
+                    /
+                    max(
+                        1,
+                        len(radicais_saida)
+                    )
+                )
+
+                termos_fonte = set(
+                    tokens_fonte
+                )
+
+                termos_saida = set(
+                    tokens_saida
+                )
+
+                termos_compartilhados = (
+                    termos_fonte
+                    &
+                    termos_saida
+                )
+
+                cobertura_termos = (
+                    len(
+                        termos_compartilhados
+                    )
+                    /
+                    max(
+                        1,
+                        len(termos_saida)
+                    )
+                )
+
+                bigramas_fonte = (
+                    _n_gramas(
+                        tokens_fonte,
+                        2
+                    )
+                )
+
+                bigramas_saida = (
+                    _n_gramas(
+                        tokens_saida,
+                        2
+                    )
+                )
+
+                sobreposicao_bigrama = (
+                    len(
+                        bigramas_fonte
+                        &
+                        bigramas_saida
+                    )
+                    /
+                    max(
+                        1,
+                        len(bigramas_saida)
+                    )
+                )
+
+                score_evidencia = (
+                    (
+                        cobertura_radical
+                        * 0.60
+                    )
+                    +
+                    (
+                        cobertura_termos
+                        * 0.25
+                    )
+                    +
+                    (
+                        sobreposicao_bigrama
+                        * 0.15
+                    )
+                )
+
+                numeros_fonte = set(
+                    re.findall(
+                        r"(?<!\w)\d+(?:[.,]\d+)?(?:%|[a-zA-Z]{1,8})?(?!\w)",
+                        normalizar_assunto_texto(
+                            fragmento_autorizado
+                        )
+                    )
+                )
+
+                numeros_saida = set(
+                    re.findall(
+                        r"(?<!\w)\d+(?:[.,]\d+)?(?:%|[a-zA-Z]{1,8})?(?!\w)",
+                        normalizar_assunto_texto(
+                            paragrafo
+                        )
+                    )
+                )
+
+                numeros_novos = (
+                    numeros_saida
+                    -
+                    numeros_fonte
+                )
+
+                if numeros_novos:
+
+                    erro_factual = (
+                        f"parágrafo "
+                        f"{indice_paragrafo + 1} "
+                        f"introduziu número/unidade "
+                        f"não autorizado: "
+                        f"{sorted(numeros_novos)}"
+                    )
+
+                    break
+
+                if (
+                    len(tokens_saida) >= 25
+                    and
+                    score_evidencia < 0.14
+                ):
+
+                    erro_factual = (
+                        f"parágrafo "
+                        f"{indice_paragrafo + 1} "
+                        f"possui evidência factual "
+                        f"insuficiente; "
+                        f"score="
+                        f"{round(score_evidencia, 3)}"
+                    )
+
+                    break
+
+                print(
+                    "🟢 FACTUAL:",
+                    chave_bloco_atual,
+                    "PARÁGRAFO",
+                    indice_paragrafo + 1,
+                    "SCORE",
+                    round(
+                        score_evidencia,
+                        3
+                    ),
+                    "TERMOS",
+                    len(
+                        termos_compartilhados
+                    ),
+                    "NÚMEROS NOVOS",
+                    0
+                )
+
+            if erro_factual:
+
+                ultimo_erro = erro_factual
+
+                print(
+                    "❌ FACTUAL:",
+                    ultimo_erro
+                )
+
+                if tentativa_bloco < MAX_TENTATIVAS_BLOCO:
+                    continue
+
+                return None, ultimo_erro
+
+            # ----------------------------------------------------
+            # BLOCO APROVADO
+            # ----------------------------------------------------
+
+            print()
+            print(
+                "=" * 60
+            )
+            print(
+                f"🟢 BLOCO APROVADO — "
+                f"{chave_bloco_atual.upper()}"
+            )
+            print(
+                f"TENTATIVA: {tentativa_bloco}/"
+                f"{MAX_TENTATIVAS_BLOCO}"
+            )
+            print(
+                "=" * 60
+            )
+
+            return (
+                paragrafos_extraidos,
+                ""
+            )
+
+        # --------------------------------------------------------
+        # LIMITE DE SEGURANÇA
+        # --------------------------------------------------------
+
+        mensagem_final = (
+            f"{chave_bloco_atual} não conseguiu "
+            f"produzir 3 parágrafos válidos após "
+            f"{MAX_TENTATIVAS_BLOCO} tentativas. "
+            f"Último erro: {ultimo_erro}"
+        )
+
+        print()
+        print("❌", mensagem_final)
+
+        return None, mensagem_final
+
+        
     # ============================================================
     # PRÉ-VALIDAÇÃO ABSOLUTA DOS 5 BLOCOS
     # ============================================================
