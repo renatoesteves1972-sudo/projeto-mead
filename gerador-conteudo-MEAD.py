@@ -1,4 +1,4 @@
-# versão 7.7 - 30/09/2026
+# versão 7.8 - 30/09/2026
 
 import json
 import os
