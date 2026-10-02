@@ -1,4 +1,4 @@
-# versão 8.0 - 30/09/2026
+# versão 8.1 - 02/10/2026
 
 import json
 import os
@@ -19025,19 +19025,24 @@ ATENÇÃO:
 - Não acrescente marcas.
 - Não acrescente empresas.
 - Não acrescente modelos.
-- Preserve o sentido factual dos trechos autorizados.
-- O parágrafo deve ser uma redação original, não uma paráfrase frase a frase.
-- Você pode reorganizar ideias e variar a construção para melhorar a leitura.
-- Cada parágrafo deve continuar baseado principalmente no seu trecho correspondente.
-- Evite repetição, linguagem mecânica e preenchimento artificial.
+- Os três trechos pertencem ao mesmo bloco e podem ser combinados.
+- Reorganize as ideias quando isso melhorar a coerência.
+- Ignore títulos, menus, legendas, CTAs, listas e trechos claramente truncados.
+- Use somente fatos presentes nos três trechos deste bloco.
 
-Todos os três parágrafos precisam ter entre
-45 e 80 palavras.
+REGRA DE TAMANHO — PRIORIDADE ABSOLUTA NESTA RETENTATIVA:
+- O Python rejeitou a resposta pelo motivo informado acima.
+- Corrija especificamente o parágrafo indicado no motivo.
+- Se estiver ABAIXO de 45 palavras, amplie-o para aproximadamente 55 a 70 palavras,
+  desenvolvendo apenas ideias e relações já presentes nos trechos autorizados.
+- Se estiver ACIMA de 80 palavras, reduza-o para aproximadamente 60 a 75 palavras,
+  removendo repetições, exemplos redundantes e frases secundárias, sem retirar o sentido técnico.
+- Não altere os demais parágrafos se eles já estiverem dentro da faixa.
+- Nunca tente atingir a quantidade adicionando informação nova.
+
+Todos os três parágrafos precisam terminar entre 45 e 80 palavras.
 
 A faixa ideal continua sendo de 60 a 70 palavras.
-
-Se um parágrafo estiver curto, desenvolva melhor uma ideia que já exista no
-trecho; não acrescente fatos novos apenas para atingir a quantidade de palavras.
 
 Retorne novamente somente:
 
@@ -19094,16 +19099,18 @@ Retorne novamente somente:
 
                         "options": {
 
+                            # Margem suficiente para 3 parágrafos + marcadores.
+                            # 420 podia truncar a resposta antes dos fechamentos.
                             "num_predict":
-                                420,
+                                520,
 
                             "num_ctx":
                                 8192,
 
                             "temperature":
-                                0.28
+                                0.15
                                 if tentativa_bloco > 1
-                                else 0.35,
+                                else 0.2,
 
                             "top_p":
                                 0.9,
@@ -19261,15 +19268,28 @@ Retorne novamente somente:
                 len(resultado_ollama)
             )
 
+            print(
+                "MOTIVO FINAL OLLAMA:",
+                dados_ollama.get("done_reason", "não informado")
+            )
+
             # ----------------------------------------------------
-            # PARSER ESTRITO
+            # PARSER ROBUSTO
             # ----------------------------------------------------
 
             def _extrair_paragrafos_estrito(texto):
 
-                texto = str(
-                    texto or ""
-                ).strip()
+                """
+                Extrai exatamente 3 parágrafos sem exigir que o modelo
+                tenha fechado perfeitamente todos os marcadores.
+
+                O Qwen pode terminar a resposta depois do conteúdo e
+                antes de [/PARAGRAFO_N] ou [/BLOCO]. Quando o conteúdo
+                está claramente delimitado pelo próximo marcador, fazemos
+                a recuperação estrutural em vez de descartar a redação.
+                """
+
+                texto = str(texto or "").strip()
 
                 if not texto:
                     return None, "resposta vazia"
@@ -19280,129 +19300,91 @@ Retorne novamente somente:
                     texto,
                     flags=re.IGNORECASE
                 )
+                texto = re.sub(r"```", "", texto).strip()
 
-                texto = re.sub(
-                    r"```",
-                    "",
-                    texto
-                ).strip()
-
+                texto_lower = texto.lower()
                 extraidos = []
 
-                for indice in range(
-                    1,
-                    4
-                ):
+                for indice in range(1, 4):
 
-                    abertura = (
-                        f"[PARAGRAFO_{indice}]"
-                    )
+                    abertura = f"[PARAGRAFO_{indice}]"
+                    fechamento = f"[/PARAGRAFO_{indice}]"
+                    abertura_lower = abertura.lower()
+                    fechamento_lower = fechamento.lower()
 
-                    fechamento = (
-                        f"[/PARAGRAFO_{indice}]"
-                    )
-
-                    texto_lower = (
-                        texto.lower()
-                    )
-
-                    pos_abertura = (
-                        texto_lower.find(
-                            abertura.lower()
-                        )
-                    )
+                    pos_abertura = texto_lower.find(abertura_lower)
 
                     if pos_abertura == -1:
-
-                        return None, (
-                            f"abertura ausente: "
-                            f"{abertura}"
+                        # Compatibilidade com respostas simples do tipo
+                        # "PARAGRAFO 1:" sem os marcadores completos.
+                        padrao_simples = re.search(
+                            rf"(?:^|\n)\s*(?:PARÁGRAFO|PARAGRAFO)\s*{indice}\s*:\s*",
+                            texto,
+                            flags=re.IGNORECASE
                         )
+                        if not padrao_simples:
+                            return None, f"abertura ausente: {abertura}"
+                        inicio_conteudo = padrao_simples.end()
+                    else:
+                        inicio_conteudo = pos_abertura + len(abertura)
 
-                    inicio_conteudo = (
-                        pos_abertura
-                        + len(abertura)
+                    # Primeiro fechamento explícito.
+                    pos_fechamento = texto_lower.find(
+                        fechamento_lower,
+                        inicio_conteudo
                     )
 
-                    pos_fechamento = (
-                        texto_lower.find(
-                            fechamento.lower(),
-                            inicio_conteudo
+                    # Se o fechamento faltou, usa o próximo marcador de
+                    # parágrafo, [/BLOCO] ou o fim da resposta como limite.
+                    candidatos = [
+                        pos for pos in (
+                            texto_lower.find(f"[paragrafo_{indice + 1}]", inicio_conteudo)
+                            if indice < 3 else -1,
+                            texto_lower.find("[/bloco]", inicio_conteudo),
                         )
-                    )
+                        if pos != -1
+                    ]
+
+                    fechamento_recuperado = False
 
                     if pos_fechamento == -1:
+                        pos_fechamento = min(candidatos) if candidatos else len(texto)
+                        fechamento_recuperado = True
 
-                        return None, (
-                            f"fechamento ausente: "
-                            f"{fechamento}"
+                    # O próximo parágrafo jamais pode aparecer dentro do atual.
+                    if indice < 3:
+                        proxima_abertura = f"[PARAGRAFO_{indice + 1}]"
+                        pos_proxima = texto_lower.find(
+                            proxima_abertura.lower(),
+                            inicio_conteudo
                         )
-
-                    proximo_indice = (
-                        indice + 1
-                    )
-
-                    if proximo_indice <= 3:
-
-                        proxima_abertura = (
-                            f"[PARAGRAFO_{proximo_indice}]"
-                        )
-
-                        pos_proxima = (
-                            texto_lower.find(
-                                proxima_abertura.lower(),
-                                inicio_conteudo
-                            )
-                        )
-
-                        if (
-                            pos_proxima != -1
-                            and
-                            pos_proxima < pos_fechamento
-                        ):
-
-                            return None, (
-                                f"{proxima_abertura} "
-                                f"apareceu antes do fechamento "
-                                f"de {fechamento}"
-                            )
-
-                    texto_paragrafo = texto[
-                        inicio_conteudo:
-                        pos_fechamento
-                    ]
+                        if pos_proxima != -1 and pos_proxima < pos_fechamento:
+                            pos_fechamento = pos_proxima
+                            fechamento_recuperado = True
 
                     texto_paragrafo = re.sub(
                         r"\s+",
                         " ",
-                        str(
-                            texto_paragrafo or ""
-                        ).strip()
+                        texto[inicio_conteudo:pos_fechamento].strip()
                     ).strip()
 
                     if not texto_paragrafo:
+                        return None, f"parágrafo {indice} vazio"
 
-                        return None, (
-                            f"parágrafo {indice} vazio"
+                    extraidos.append(texto_paragrafo)
+
+                    if fechamento_recuperado:
+                        print(
+                            f"⚠️ PARSER: fechamento de PARAGRAFO_{indice} "
+                            "recuperado automaticamente."
                         )
 
-                    extraidos.append(
-                        texto_paragrafo
-                    )
-
-                pos_bloco = (
-                    texto.lower().find(
-                        "[/bloco]",
-                        texto.lower().find(
-                            "[/paragrafo_3]"
-                        )
-                    )
-                )
-
-                if pos_bloco == -1:
-
-                    return None, (
-                        "fechamento ausente: [/BLOCO]"
+                # O fechamento [/BLOCO] passa a ser opcional: os três
+                # parágrafos já foram extraídos e validados.
+                if "[/bloco]" not in texto_lower:
+                    print(
+                        "⚠️ PARSER: [/BLOCO] ausente; resposta aceita "
+                        "porque os 3 parágrafos foram delimitados."
                     )
 
                 return extraidos, ""
@@ -20365,35 +20347,54 @@ TRECHO {fragmento["numero"]}
 
         prompt_bloco = f"""
 
-Você é um REDATOR TÉCNICO-EDITORIAL experiente.
+Você é um redator técnico.
 
-Sua tarefa não é fazer uma paráfrase mecânica dos trechos.
-Sua tarefa é transformar o material factual fornecido pelo Python
-em três parágrafos originais, naturais, claros e editorialmente bem escritos.
+Sua única função é REEDITAR os três trechos fornecidos
+pelo Python.
 
-Use os trechos como BASE FACTUAL e não como frases que precisam ser
-reescritas uma a uma. Você pode interpretar a relação entre as ideias,
-reorganizar a ordem das informações, unir ideias complementares,
-eliminar redundâncias e escolher uma construção textual completamente
-nova, desde que o significado factual seja preservado.
+Não faça pesquisa.
 
-NÃO faça pesquisa.
-NÃO procure outras fontes.
-NÃO utilize conhecimento externo para preencher lacunas.
-NÃO invente informações.
-NÃO transforme possibilidade em fato.
-NÃO acrescente números, medidas, normas, certificações, marcas, empresas,
-modelos, clientes, resultados, aplicações ou características que não estejam
-explicitamente sustentados pelo material autorizado.
+Não selecione informações.
 
-O MEAD abaixo é orientação EDITORIAL, não fonte factual adicional.
-Use-o para entender o foco, a intenção e a abordagem desejada da página.
-Os fatos técnicos devem vir somente dos trechos autorizados.
+Não procure outras fontes.
 
-PRINCÍPIO CENTRAL:
-Escreva como um especialista humano que recebeu estas informações para
-produzir um texto técnico publicável, e não como uma máquina substituindo
-palavras por sinônimos.
+Não utilize conhecimento externo.
+
+Não invente informações.
+
+Não complete lacunas com conhecimento próprio.
+
+Não crie fatos.
+
+Não acrescente números.
+
+Não acrescente características.
+
+Não acrescente aplicações.
+
+Não acrescente materiais.
+
+Não acrescente normas.
+
+Não acrescente certificações.
+
+Não acrescente marcas.
+
+Não acrescente empresas.
+
+Não acrescente modelos.
+
+Não acrescente clientes.
+
+Não acrescente resultados.
+
+Não acrescente informações que não estejam nos trechos.
+
+O MEAD abaixo é uma orientação editorial da página.
+Ele NÃO é uma fonte factual adicional.
+Use-o para respeitar a intenção editorial, o foco e as regras
+da página, mas obtenha todo conteúdo técnico factual somente
+dos três trechos autorizados pelo Python.
 
 ==================================================
 MEAD EDITORIAL DA PÁGINA
@@ -20414,40 +20415,40 @@ BLOCO ATUAL
 {chave_bloco}
 
 ==================================================
-LIBERDADE EDITORIAL COM CONTROLE FACTUAL
+REGRA DE REEDIÇÃO
 ==================================================
 
-Produza exatamente três parágrafos. Cada parágrafo deve ter como base
-principal o trecho correspondente, mas você NÃO precisa preservar a ordem
-das frases, a estrutura sintática ou a sequência das ideias do trecho.
+Os três trechos são MATERIAL-FONTE BRUTO do mesmo bloco.
 
-TRECHO 1 → base factual principal do PARÁGRAFO 1
-TRECHO 2 → base factual principal do PARÁGRAFO 2
-TRECHO 3 → base factual principal do PARÁGRAFO 3
+Não é necessário que TRECHO 1 vire PARÁGRAFO 1, TRECHO 2 vire
+PARÁGRAFO 2 e TRECHO 3 vire PARÁGRAFO 3.
 
-Você pode:
-- reorganizar completamente as ideias;
-- começar pelo contexto, pela característica, pela aplicação ou pela consequência
-  quando isso tornar a leitura mais natural;
-- juntar informações que pertençam ao mesmo raciocínio;
-- eliminar repetições;
-- substituir construções artificiais por linguagem natural;
-- variar aberturas e estruturas sintáticas entre os parágrafos;
-- usar conectivos de forma natural;
-- transformar frases curtas e fragmentadas em períodos mais fluidos;
-- dar ao parágrafo uma progressão lógica clara.
+Use os três trechos em conjunto para construir exatamente 3 parágrafos
+coerentes. Você pode combinar e reorganizar ideias dos três trechos,
+desde que toda afirmação factual esteja apoiada no material fornecido.
 
-Não escreva como se estivesse resumindo o trecho. Desenvolva as ideias que
-já estão presentes nele de forma editorialmente mais madura.
+Os trechos podem conter títulos, menus, legendas, CTAs, listas,
+frases iniciadas em outro contexto ou partes truncadas. Ignore esses
+elementos quando não forem informação técnica útil.
 
-NÃO transforme o texto em propaganda.
-NÃO use adjetivos promocionais sem base factual.
-NÃO repita a palavra-chave artificialmente.
-NÃO comece todos os parágrafos com o tema.
-NÃO use fórmulas repetitivas como “é importante destacar”, “vale ressaltar”,
-“nesse contexto” ou equivalentes quando não forem realmente necessárias.
+Não utilize informação de outro bloco.
 
-A fidelidade factual tem prioridade sobre qualquer preferência de estilo.
+Preserve o sentido técnico original.
+
+Você pode corrigir:
+
+- gramática;
+- concordância;
+- pontuação;
+- ordem das ideias;
+- fluidez;
+- repetição desnecessária;
+- construção textual;
+- transições entre ideias.
+
+Você NÃO pode alterar ou inventar o conteúdo factual.
+
+O resultado deve ser natural, técnico e claro.
 
 Não faça listas.
 
@@ -20482,15 +20483,15 @@ FORMATO OBRIGATÓRIO
 [BLOCO]
 
 [PARAGRAFO_1]
-Reedição do TRECHO 1.
+Primeiro parágrafo editorial, construído a partir das informações técnicas dos três trechos.
 [/PARAGRAFO_1]
 
 [PARAGRAFO_2]
-Reedição do TRECHO 2.
+Segundo parágrafo editorial, dando continuidade lógica ao primeiro.
 [/PARAGRAFO_2]
 
 [PARAGRAFO_3]
-Reedição do TRECHO 3.
+Terceiro parágrafo editorial, concluindo o desenvolvimento do bloco.
 [/PARAGRAFO_3]
 
 [/BLOCO]
@@ -20548,9 +20549,9 @@ RETORNE SOMENTE O BLOCO.
             "SIM"
         )
         
-        # Cronometragem do BLOCO inteiro.
-        # Não usar inicio_ollama/fim_ollama aqui: essas variáveis
-        # pertencem à função de retentativa e não existem neste escopo.
+        # Cronometragem do bloco inteiro.
+        # inicio_ollama/fim_ollama pertencem à função de retentativas
+        # e não existem neste escopo.
         inicio_bloco = time.time()
 
         resultado_bloco, erro_bloco = (
@@ -20615,8 +20616,9 @@ RETORNE SOMENTE O BLOCO.
         # 5) bloqueio de parágrafo sem evidência suficiente.
         #
         # O MEAD e o contexto editorial NÃO entram como evidência.
-        # Cada parágrafo é validado somente contra seu fragmento
-        # autorizado correspondente.
+        # Cada parágrafo é validado contra o conjunto dos três
+        # fragmentos autorizados deste bloco, permitindo redação
+        # editorial integrada sem liberar informação externa.
         # ========================================================
 
         palavras_ruido_validacao = {
@@ -20661,13 +20663,26 @@ RETORNE SOMENTE O BLOCO.
                 for i in range(max(0, len(tokens)-n+1))
             )
 
-        for indice_paragrafo, resultado_paragrafo in enumerate(paragrafos_extraidos):
-            fragmento_autorizado = fragmentos_bloco[indice_paragrafo].get("texto", "")
+        # A redação pode combinar os três fragmentos do mesmo bloco.
+        # Portanto, a evidência factual é calculada contra o conjunto
+        # autorizado do bloco, e não contra um fragmento específico.
+        texto_fonte_bloco = "\n".join(
+            str(fragmento.get("texto", "") or "")
+            for fragmento in fragmentos_bloco
+        )
 
-            tokens_fonte = _tokens_validacao(fragmento_autorizado)
+        tokens_fonte_bloco = _tokens_validacao(texto_fonte_bloco)
+        radicais_fonte_bloco = {_radical_leve(t) for t in tokens_fonte_bloco}
+        termos_fonte_bloco = set(tokens_fonte_bloco)
+        bigramas_fonte_bloco = _n_gramas(tokens_fonte_bloco, 2)
+
+        erro_validacao_factual = None
+
+        for indice_paragrafo, resultado_paragrafo in enumerate(paragrafos_extraidos):
+            tokens_fonte = tokens_fonte_bloco
             tokens_saida = _tokens_validacao(resultado_paragrafo)
 
-            radicais_fonte = {_radical_leve(t) for t in tokens_fonte}
+            radicais_fonte = radicais_fonte_bloco
             radicais_saida = [_radical_leve(t) for t in tokens_saida]
             compartilhados = [t for t in radicais_saida if t in radicais_fonte]
 
@@ -20675,14 +20690,14 @@ RETORNE SOMENTE O BLOCO.
                 len(compartilhados) / max(1, len(radicais_saida))
             )
 
-            termos_fonte = set(tokens_fonte)
+            termos_fonte = termos_fonte_bloco
             termos_saida = set(tokens_saida)
             termos_compartilhados = termos_fonte & termos_saida
             cobertura_termos = (
                 len(termos_compartilhados) / max(1, len(termos_saida))
             )
 
-            bigramas_fonte = _n_gramas(tokens_fonte, 2)
+            bigramas_fonte = bigramas_fonte_bloco
             bigramas_saida = _n_gramas(tokens_saida, 2)
             sobreposicao_bigrama = (
                 len(bigramas_fonte & bigramas_saida)
@@ -20702,7 +20717,7 @@ RETORNE SOMENTE O BLOCO.
             # valor novo pode aparecer na redação.
             numeros_fonte = set(re.findall(
                 r"(?<!\w)\d+(?:[.,]\d+)?(?:%|[a-zA-Z]{1,8})?(?!\w)",
-                normalizar_assunto_texto(fragmento_autorizado)
+                normalizar_assunto_texto(texto_fonte_bloco)
             ))
             numeros_saida = set(re.findall(
                 r"(?<!\w)\d+(?:[.,]\d+)?(?:%|[a-zA-Z]{1,8})?(?!\w)",
@@ -20715,7 +20730,11 @@ RETORNE SOMENTE O BLOCO.
                 print("❌ VALIDAÇÃO FACTUAL: número/unidade não autorizado.")
                 print("BLOCO:", chave_bloco, "PARÁGRAFO:", indice_paragrafo + 1)
                 print("NÚMEROS NOVOS:", sorted(numeros_novos))
-                return None
+                erro_validacao_factual = (
+                    f"parágrafo {indice_paragrafo + 1} contém número/unidade não autorizado: "
+                    f"{sorted(numeros_novos)}"
+                )
+                break
 
             # Parágrafos muito curtos não precisam atingir um limite
             # artificial de sobreposição. Para textos com 25+ termos,
@@ -20730,7 +20749,11 @@ RETORNE SOMENTE O BLOCO.
                     "TERMOS:", round(cobertura_termos, 3),
                     "BIGRAMAS:", round(sobreposicao_bigrama, 3)
                 )
-                return None
+                erro_validacao_factual = (
+                    f"parágrafo {indice_paragrafo + 1} possui evidência factual insuficiente "
+                    f"(score {score_evidencia:.3f})"
+                )
+                break
 
             print(
                 "🟢 VALIDAÇÃO FACTUAL:",
@@ -20740,6 +20763,12 @@ RETORNE SOMENTE O BLOCO.
                 "TERMOS", len(termos_compartilhados),
                 "NÚMEROS NOVOS", 0
             )
+
+        if erro_validacao_factual:
+            ultimo_erro = erro_validacao_factual
+            if tentativa_bloco < MAX_TENTATIVAS_BLOCO:
+                continue
+            return None, ultimo_erro
 
         # ========================================================
         # GUARDAR OS 3 RESULTADOS
@@ -20886,69 +20915,6 @@ RETORNE SOMENTE O BLOCO.
         informacoes_blocos[
             chave_bloco
         ] = dados_bloco
-
-
-        # ========================================================
-        # LOG DE CONFIRMAÇÃO
-        # ========================================================
-
-        print()
-        print(
-            "✅ BLOCO PROCESSADO E VALIDADO EM MEMÓRIA"
-        )
-
-        print(
-            "BLOCO:",
-            numero_bloco
-        )
-
-        print(
-            "FRAGMENTOS ENVIADOS:",
-            3
-        )
-
-        print(
-            "PARÁGRAFOS RECEBIDOS:",
-            len(
-                [
-                    item
-                    for item in paragrafos_ollama
-                    if str(item or "").strip()
-                ]
-            )
-        )
-
-        print(
-            "PALAVRAS PARÁGRAFO 1:",
-            len(
-                paragrafos_ollama[0].split()
-            )
-        )
-
-        print(
-            "PALAVRAS PARÁGRAFO 2:",
-            len(
-                paragrafos_ollama[1].split()
-            )
-        )
-
-        print(
-            "PALAVRAS PARÁGRAFO 3:",
-            len(
-                paragrafos_ollama[2].split()
-            )
-        )
-
-        print(
-            "TEMPO TOTAL DO BLOCO:",
-            round(
-                fim_bloco - inicio_bloco,
-                2
-            ),
-            "segundos"
-        )
-
-        print("=" * 60)
 
 
         # ========================================================
@@ -31642,7 +31608,7 @@ def gerar_material_interface():
                         indice_tema,
                         "mapa_mead",
                         0,
-                        "concluido",
+                        "falhou",
                         lista_palavras
                     )
 
