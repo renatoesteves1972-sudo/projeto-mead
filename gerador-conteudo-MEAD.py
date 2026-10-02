@@ -1,4 +1,5 @@
-# versão 8.1 - 02/10/2026
+# versão 8.5 - 02/10/2026
+# Laboratório de seleção: filtro comercial/empresa/código reforçado, candidatos limpos, 70–100 palavras e alocação unificada 5x3
 
 import json
 import os
@@ -10746,14 +10747,14 @@ def selecionar_informacoes_relevantes(
     # Não basta penalizar índice, comentários, menus ou tabelas.
     # Esses fragmentos devem ser retirados ANTES da pontuação.
     #
-    # Cada candidato terá entre 80 e 120 palavras.
+    # Cada candidato terá entre 70 e 100 palavras.
     #
     # ========================================================
 
     candidatos = []
 
-    MIN_PALAVRAS_FRAGMENTO = 80
-    MAX_PALAVRAS_FRAGMENTO = 120
+    MIN_PALAVRAS_FRAGMENTO = 70
+    MAX_PALAVRAS_FRAGMENTO = 100
     
     
 
@@ -10794,6 +10795,82 @@ def selecionar_informacoes_relevantes(
                 texto
             )
         )
+
+        # ====================================================
+        # 00. IDENTIDADE DA FONTE / MARCA CONHECIDA
+        # ====================================================
+        #
+        # Se a etapa de coleta já identificou explicitamente
+        # uma empresa ou marca da fonte, o nome não pode entrar
+        # no fragmento editorial. Isso fecha o principal ponto
+        # cego da v8.2: nomes comerciais sem "Ltda.", "S.A." etc.
+        #
+        # Não usamos o domínio como nome de empresa, pois o próprio
+        # domínio pode aparecer somente nos metadados da fonte.
+        # ====================================================
+
+        if isinstance(identidade_fonte, dict):
+
+            nome_empresa_fonte = str(
+                identidade_fonte.get(
+                    "nome",
+                    ""
+                )
+                or ""
+            ).strip()
+
+            nome_empresa_normalizado = normalizar_assunto_texto(
+                nome_empresa_fonte
+            ).strip()
+
+            # Evita bloquear identificações genéricas da coleta.
+            nomes_genericos = {
+                "",
+                "fonte",
+                "site",
+                "pagina",
+                "página",
+                "documento",
+                "arquivo",
+                "pdf",
+                "html"
+            }
+
+            if (
+                len(nome_empresa_normalizado) >= 4
+                and nome_empresa_normalizado not in nomes_genericos
+                and re.search(
+                    r"(?<![a-z0-9])"
+                    + re.escape(nome_empresa_normalizado)
+                    + r"(?![a-z0-9])",
+                    texto_normalizado,
+                    re.IGNORECASE
+                )
+            ):
+                return False
+
+        # ----------------------------------------------------
+        # 00.2. NOME DE PRODUTO / MARCA ASSOCIADO AO TEMA
+        #
+        # Rejeita construções do tipo "produto BrandX",
+        # "sistema FlameGuard" ou "revestimento BrandZ 500"
+        # quando o nome possui forma comercial própria.
+        # ----------------------------------------------------
+
+        padroes_produto_marca = [
+            r"\b(?:produto|sistema|revestimento|material|linha)\s+"
+            r"([A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.'’\-]*"
+            r"(?:\s+[A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.'’\-]*){0,2})"
+            r"(?:\s+\d{2,6})?\b"
+        ]
+
+        for padrao in padroes_produto_marca:
+
+            if re.search(
+                padrao,
+                texto
+            ):
+                return False
 
         # ----------------------------------------------------
         # 01. URL / DOMÍNIO / E-MAIL
@@ -11031,6 +11108,47 @@ def selecionar_informacoes_relevantes(
                 for termo in contexto_codigo
             ):
                 return False
+
+        # ====================================================
+        # 05.5. MARCA / EMPRESA SEM SUFIXO JURÍDICO
+        # ====================================================
+        #
+        # Captura nomes comerciais que aparecem como marca, mas
+        # não trazem "Ltda.", "S.A.", "EPP" etc.
+        #
+        # Exemplos bloqueados:
+        #   "A FireShield oferece ..."
+        #   "O sistema FireShield é ..."
+        #   "A ProtecFogo desenvolve ..."
+        #
+        # O detector é deliberadamente contextual para não bloquear
+        # substantivos técnicos comuns.
+        # ====================================================
+
+        padrao_marca_contextual = (
+            r"\b(?:A|O|As|Os)\s+"
+            r"[A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.'’\-]{3,}"
+            r"(?:\s+[A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.'’\-]{2,})?"
+            r"\s+(?:oferece|fornece|produz|fabrica|"
+            r"comercializa|distribui|vende|desenvolve|atua|"
+            r"representa|disponibiliza)\b"
+        )
+
+        if re.search(
+            padrao_marca_contextual,
+            texto
+        ):
+            return False
+
+        # Marcas em CamelCase, comuns em nomes comerciais, também
+        # são bloqueadas mesmo quando aparecem sem verbo comercial.
+        # Siglas técnicas simples (NBR, ISO, ASTM etc.) não entram
+        # nesse padrão.
+        if re.search(
+            r"\b[A-Z][a-z]+[A-Z][A-Za-zÀ-ÿ0-9]+\b",
+            texto
+        ):
+            return False
 
         # ----------------------------------------------------
         # 06. CONTEXTO EXPLÍCITO DE EMPRESA / FABRICANTE
@@ -12205,141 +12323,18 @@ def selecionar_informacoes_relevantes(
                 diagnostico_fonte["editorial_rejeitado"] += 1
         
                 # ------------------------------------------------
-                # FALLBACK CONTROLADO
+                # REJEIÇÃO DEFINITIVA
                 # ------------------------------------------------
                 #
-                # Se o filtro editorial rejeitar o trecho, fazemos
-                # uma segunda verificação mais simples.
+                # v8.2: o filtro editorial é uma barreira real.
+                # Um trecho rejeitado aqui NÃO pode voltar para a
+                # lista por uma validação mínima posterior.
                 #
-                # O objetivo NÃO é aceitar lixo.
-                #
-                # O trecho ainda precisa:
-                # - ter tamanho correto;
-                # - pertencer ao tema;
-                # - não conter URL;
-                # - não conter telefone;
-                # - não conter e-mail;
-                # - não conter código comercial evidente.
-                #
+                # Regra: pontuação só ordena candidatos aprovados.
+                # Ela nunca ressuscita um trecho rejeitado.
                 # ------------------------------------------------
-        
-                texto_normalizado_fallback = (
-                    normalizar_assunto_texto(
-                        texto_fragmento
-                    )
-                )
-        
-                if not texto_normalizado_fallback:
-                    return
-        
-                # -----------------------------------------------
-                # URL
-                # -----------------------------------------------
-        
-                if re.search(
-                    r"(https?://|www\.)\S+",
-                    texto_fragmento,
-                    re.IGNORECASE
-                ):
-                    return
-        
-                # -----------------------------------------------
-                # E-MAIL
-                # -----------------------------------------------
-        
-                if re.search(
-                    r"\b[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}\b",
-                    texto_fragmento,
-                    re.IGNORECASE
-                ):
-                    return
-        
-                # -----------------------------------------------
-                # TELEFONE
-                # -----------------------------------------------
-        
-                if re.search(
-                    r"(?<!\d)"
-                    r"(?:\+?55[\s.-]*)?"
-                    r"\(?\d{2}\)?[\s.-]*"
-                    r"\d{4,5}[\s.-]*\d{4}"
-                    r"(?!\d)",
-                    texto_fragmento
-                ):
-                    return
-        
-                # -----------------------------------------------
-                # CNPJ
-                # -----------------------------------------------
-        
-                if re.search(
-                    r"\b\d{2}\.?\d{3}\.?\d{3}/?\d{4}-?\d{2}\b",
-                    texto_fragmento
-                ):
-                    return
-        
-                # -----------------------------------------------
-                # CÓDIGOS COMERCIAIS EVIDENTES
-                # -----------------------------------------------
-        
-                codigo_comercial = re.search(
-                    r"\b(?:SKU|MPN|"
-                    r"PART[\s-]*NUMBER|"
-                    r"SERIAL[\s-]*NUMBER|"
-                    r"MODELO\s*[:\-]|"
-                    r"C[ÓO]DIGO\s+(?:DO\s+)?PRODUTO|"
-                    r"REFER[ÊE]NCIA\s+(?:DO\s+)?PRODUTO)"
-                    r"\b",
-                    texto_fragmento,
-                    re.IGNORECASE
-                )
-        
-                if codigo_comercial:
-                    return
-        
-                # -----------------------------------------------
-                # NOME DA EMPRESA DA FONTE
-                # -----------------------------------------------
-                # Em PDFs, manuais e datasheets o fabricante pode
-                # aparecer no cabeçalho/rodapé de todos os trechos.
-                # Isso, sozinho, não torna o conteúdo promocional.
-                # A versão anterior descartava o trecho inteiro por
-                # essa coincidência e podia eliminar quase todo o
-                # patrimônio técnico.
-                #
-                # Portanto, o nome da empresa não é mais motivo de
-                # rejeição nesta validação mínima. Os filtros de CTA,
-                # contato, URL, telefone, CNPJ e códigos comerciais
-                # continuam ativos.
-                # -----------------------------------------------
+                return
 
-                # -----------------------------------------------
-                # FALLBACK APROVADO
-                # -----------------------------------------------
-        
-                print()
-                print(
-                    "⚠️ FALLBACK EDITORIAL ACEITO"
-                )
-        
-                print(
-                    "FONTE:",
-                    fonte.get("indice", "")
-                )
-        
-                print(
-                    "PALAVRAS:",
-                    quantidade
-                )
-        
-                print(
-                    "MOTIVO:",
-                    "filtro editorial rígido rejeitou, "
-                    "mas trecho passou pela validação mínima"
-                )
-
-
-        
             # ------------------------------------------------
             # SALVAR CANDIDATO
             # ------------------------------------------------
@@ -14054,16 +14049,15 @@ def selecionar_informacoes_relevantes(
         # ----------------------------------------------------
         # E.1 TAMANHO ADEQUADO
         #
-        # Os fragmentos oficiais trabalham entre 50 e 60
-        # palavras. Um trecho nessa faixa recebe pequeno
-        # reforço por estar adequado ao uso editorial.
+        # Os fragmentos oficiais da v8.2 trabalham entre 70 e 100
+        # palavras. A faixa central recebe o maior reforço.
         # ----------------------------------------------------
 
-        if 50 <= quantidade_palavras <= 60:
+        if 70 <= quantidade_palavras <= 100:
 
-            qualidade += 2
+            qualidade += 3
 
-        elif 40 <= quantidade_palavras <= 70:
+        elif 60 <= quantidade_palavras <= 110:
 
             qualidade += 1
 
@@ -15319,7 +15313,11 @@ def selecionar_informacoes_relevantes(
         # ----------------------------------------------------
 
         if not fragmento_eh_comercialmente_limpo(
-            texto
+            texto,
+            candidato.get(
+                "identidade_fonte",
+                {}
+            )
         ):
             return False    
 
@@ -15695,7 +15693,16 @@ def selecionar_informacoes_relevantes(
                 candidato
             ):
 
-                continue    
+                continue
+
+            # HARD GATE FINAL: a pontuação jamais pode ressuscitar
+            # um fragmento contaminado. Revalida a identidade da fonte
+            # no instante imediatamente anterior à seleção.
+            if not fragmento_eh_comercialmente_limpo(
+                candidato.get("texto", ""),
+                candidato.get("identidade_fonte", {})
+            ):
+                continue
 
             hash_trecho = candidato.get(
                 "hash",
@@ -15804,59 +15811,152 @@ def selecionar_informacoes_relevantes(
         return melhor_candidato
 
     # ========================================================
+    # 07. ALOCAÇÃO GLOBAL 5 x 3 — v8.2
     # ========================================================
-    # 07. ALOCAÇÃO GLOBAL 5 x 3
+    #
+    # Existe uma única regra de seleção.
+    #
+    # A função selecionar_melhor_candidato() é a autoridade final:
+    #   1. elimina candidato estruturalmente inválido;
+    #   2. impede duplicidade;
+    #   3. aplica pontuação editorial;
+    #   4. aplica diversidade de fonte;
+    #   5. aplica semelhança;
+    #   6. aplica repetição de assunto dentro do bloco.
+    #
+    # A antiga segunda fórmula de seleção (+35 para fonte nova,
+    # -8/-15 por fonte/semelhança) foi removida porque duplicava
+    # a lógica e podia escolher um trecho diferente da nota auditada.
     # ========================================================
-    fragmentos_selecionados=[]; hashes_selecionados=set(); fontes_utilizadas={}
-    disponibilidade_por_candidato={}
-    for chave_bloco, lista in candidatos_por_bloco.items():
-        for item in lista:
-            candidato=item.get("candidato",{}); h=candidato.get("hash") or gerar_hash_trecho(candidato.get("texto","")); candidato["hash"]=h
-            disponibilidade_por_candidato.setdefault(h,set()).add(chave_bloco)
+
+    fragmentos_selecionados = []
+    hashes_selecionados = set()
+    fontes_utilizadas = {}
+
+    # --------------------------------------------------------
+    # PRIMEIRA PASSAGEM: preencher cada bloco com 3 fragmentos.
+    # A ordem em rodízio reduz a chance de um bloco consumir
+    # antecipadamente todo o patrimônio útil de uma fonte.
+    # --------------------------------------------------------
+
     for rodada in range(3):
-        for numero_bloco in range(1,6):
-            chave_bloco=f"bloco_{numero_bloco}"
-            if sum(1 for x in fragmentos_selecionados if x.get("bloco_mead")==chave_bloco)>=3: continue
-            melhores=[]
-            for item in candidatos_por_bloco.get(chave_bloco,[]):
-                candidato=item.get("candidato")
-                if not candidato_eh_utilizavel(candidato): continue
-                h=candidato.get("hash") or gerar_hash_trecho(candidato.get("texto",""))
-                if h in hashes_selecionados: continue
-                fonte=candidato.get("fonte"); score=float(item.get("pontuacao",0))
-                if fontes_utilizadas.get(fonte,0)==0: score+=35
-                score+=(12-min(12,len(disponibilidade_por_candidato.get(h,set()))))*1.5
-                if candidato.get("pdf"): score+=2
-                for escolhido in fragmentos_selecionados:
-                    if escolhido.get("fonte")==fonte: score-=8
-                    sem=calcular_semelhanca_fragmentos(candidato.get("texto",""),escolhido.get("texto",""))
-                    if sem>=0.55: score-=15
-                    elif sem>=0.40: score-=6
-                melhores.append((score,candidato,item.get("pontuacao",0)))
-            if not melhores: continue
-            melhores.sort(key=lambda x:(x[0],x[2]),reverse=True); score,escolhido,pont=melhores[0]
-            escolhido["bloco_mead"]=chave_bloco; escolhido["pontuacao_selecao"]=round(score,3); escolhido["pontuacao_editorial"]=pont
-            escolhido["penalidade_fonte"]=0; escolhido["penalidade_semelhanca"]=0; escolhido["penalidade_assunto"]=0
-            h=escolhido["hash"]; hashes_selecionados.add(h); fonte=escolhido.get("fonte"); fontes_utilizadas[fonte]=fontes_utilizadas.get(fonte,0)+1; fragmentos_selecionados.append(escolhido)
-    if len(fragmentos_selecionados)<15:
-        for numero_bloco in range(1,6):
-            chave_bloco=f"bloco_{numero_bloco}"
-            while sum(1 for x in fragmentos_selecionados if x.get("bloco_mead")==chave_bloco)<3:
-                opcoes=[]
-                for item in candidatos_por_bloco.get(chave_bloco,[]):
-                    candidato=item.get("candidato")
-                    if not candidato_eh_utilizavel(candidato): continue
-                    h=candidato.get("hash") or gerar_hash_trecho(candidato.get("texto",""))
-                    if h in hashes_selecionados: continue
-                    score=float(item.get("pontuacao",0))+(15 if fontes_utilizadas.get(candidato.get("fonte"),0)==0 else 0); opcoes.append((score,candidato,item.get("pontuacao",0)))
-                if not opcoes: break
-                opcoes.sort(key=lambda x:(x[0],x[2]),reverse=True); score,escolhido,pont=opcoes[0]
-                escolhido["bloco_mead"]=chave_bloco; escolhido["pontuacao_selecao"]=round(score,3); escolhido["pontuacao_editorial"]=pont
-                h=escolhido["hash"]; hashes_selecionados.add(h); fonte=escolhido.get("fonte"); fontes_utilizadas[fonte]=fontes_utilizadas.get(fonte,0)+1; fragmentos_selecionados.append(escolhido)
-    print("ALLOCAÇÃO GLOBAL 5 x 3"); print("CANDIDATOS TOTAIS:",len(candidatos))
-    for numero_bloco in range(1,6):
-        chave_bloco=f"bloco_{numero_bloco}"; print(chave_bloco,":",sum(1 for x in fragmentos_selecionados if x.get("bloco_mead")==chave_bloco))
-    print("TOTAL:",len(fragmentos_selecionados),"/ 15")
+
+        for numero_bloco in range(1, 6):
+
+            chave_bloco = f"bloco_{numero_bloco}"
+
+            quantidade_bloco = sum(
+                1
+                for item in fragmentos_selecionados
+                if item.get("bloco_mead") == chave_bloco
+            )
+
+            if quantidade_bloco >= 3:
+                continue
+
+            escolhido = selecionar_melhor_candidato(
+                candidatos_por_bloco.get(chave_bloco, []),
+                chave_bloco
+            )
+
+            if escolhido is None:
+                continue
+
+            escolhido["bloco_mead"] = chave_bloco
+
+            h = escolhido.get("hash") or gerar_hash_trecho(
+                escolhido.get("texto", "")
+            )
+            escolhido["hash"] = h
+
+            if h in hashes_selecionados:
+                continue
+
+            hashes_selecionados.add(h)
+
+            fonte = escolhido.get("fonte")
+            fontes_utilizadas[fonte] = (
+                fontes_utilizadas.get(fonte, 0) + 1
+            )
+
+            fragmentos_selecionados.append(escolhido)
+
+    # --------------------------------------------------------
+    # SEGUNDA PASSAGEM CONTROLADA:
+    # se algum bloco ainda não tiver 3, tenta completar usando
+    # exatamente a mesma função de seleção, sem criar uma
+    # fórmula paralela de pontuação.
+    # --------------------------------------------------------
+
+    houve_progresso = True
+
+    while (
+        len(fragmentos_selecionados) < 15
+        and houve_progresso
+    ):
+
+        houve_progresso = False
+
+        for numero_bloco in range(1, 6):
+
+            chave_bloco = f"bloco_{numero_bloco}"
+
+            quantidade_bloco = sum(
+                1
+                for item in fragmentos_selecionados
+                if item.get("bloco_mead") == chave_bloco
+            )
+
+            if quantidade_bloco >= 3:
+                continue
+
+            escolhido = selecionar_melhor_candidato(
+                candidatos_por_bloco.get(chave_bloco, []),
+                chave_bloco
+            )
+
+            if escolhido is None:
+                continue
+
+            escolhido["bloco_mead"] = chave_bloco
+
+            h = escolhido.get("hash") or gerar_hash_trecho(
+                escolhido.get("texto", "")
+            )
+            escolhido["hash"] = h
+
+            if h in hashes_selecionados:
+                continue
+
+            hashes_selecionados.add(h)
+
+            fonte = escolhido.get("fonte")
+            fontes_utilizadas[fonte] = (
+                fontes_utilizadas.get(fonte, 0) + 1
+            )
+
+            fragmentos_selecionados.append(escolhido)
+            houve_progresso = True
+
+            if len(fragmentos_selecionados) >= 15:
+                break
+
+    print("ALLOCAÇÃO GLOBAL 5 x 3 — v8.3")
+    print("CANDIDATOS TOTAIS:", len(candidatos))
+
+    for numero_bloco in range(1, 6):
+        chave_bloco = f"bloco_{numero_bloco}"
+        print(
+            chave_bloco,
+            ":",
+            sum(
+                1
+                for x in fragmentos_selecionados
+                if x.get("bloco_mead") == chave_bloco
+            )
+        )
+
+    print("TOTAL:", len(fragmentos_selecionados), "/ 15")
 
     # ========================================================
     # 08. VERIFICAR QUANTIDADE
@@ -18957,7 +19057,7 @@ def gerar_conteudo_completo(
     # Um bloco só é aprovado quando:
     #
     # - possui exatamente 3 parágrafos;
-    # - todos possuem 45–80 palavras;
+    # - todos possuem exatamente 3 parágrafos;
     # - todos passam pela validação factual;
     # - nenhum número/unidade novo é introduzido.
     #
@@ -19030,19 +19130,14 @@ ATENÇÃO:
 - Ignore títulos, menus, legendas, CTAs, listas e trechos claramente truncados.
 - Use somente fatos presentes nos três trechos deste bloco.
 
-REGRA DE TAMANHO — PRIORIDADE ABSOLUTA NESTA RETENTATIVA:
+REGRA DE CORREÇÃO — PRIORIDADE ABSOLUTA NESTA RETENTATIVA:
 - O Python rejeitou a resposta pelo motivo informado acima.
-- Corrija especificamente o parágrafo indicado no motivo.
-- Se estiver ABAIXO de 45 palavras, amplie-o para aproximadamente 55 a 70 palavras,
-  desenvolvendo apenas ideias e relações já presentes nos trechos autorizados.
-- Se estiver ACIMA de 80 palavras, reduza-o para aproximadamente 60 a 75 palavras,
-  removendo repetições, exemplos redundantes e frases secundárias, sem retirar o sentido técnico.
-- Não altere os demais parágrafos se eles já estiverem dentro da faixa.
-- Nunca tente atingir a quantidade adicionando informação nova.
-
-Todos os três parágrafos precisam terminar entre 45 e 80 palavras.
-
-A faixa ideal continua sendo de 60 a 70 palavras.
+- Corrija especificamente o problema indicado no motivo.
+- Preserve somente informações e relações já presentes nos trechos autorizados.
+- Não altere os demais parágrafos se eles não apresentarem o problema indicado.
+- Respeite a faixa de 40 a 90 palavras por parágrafo. A faixa de 55 a 75
+é apenas uma referência ideal; não acrescente conteúdo artificial para
+atingi-la.
 
 Retorne novamente somente:
 
@@ -19442,14 +19537,18 @@ Retorne novamente somente:
                 return None, ultimo_erro
 
             # ----------------------------------------------------
-            # TAMANHO
+            # TAMANHO — FAIXA DE SEGURANÇA
             # ----------------------------------------------------
+            #
+            # A faixa anterior de 45--80 era estreita demais.
+            # Agora usamos margem maior para o Ollama desenvolver a ideia.
+            # 40--90 = limite de aceitação.
+            # 55--75 = faixa ideal, apenas informativa.
 
-            MIN_PALAVRAS_PARAGRAFO = 45
-            MAX_PALAVRAS_PARAGRAFO = 80
-
-            MIN_PALAVRAS_IDEAL = 60
-            MAX_PALAVRAS_IDEAL = 70
+            MIN_PALAVRAS_PARAGRAFO = 40
+            MAX_PALAVRAS_PARAGRAFO = 90
+            MIN_PALAVRAS_IDEAL = 55
+            MAX_PALAVRAS_IDEAL = 75
 
             erro_tamanho = None
 
@@ -19472,40 +19571,26 @@ Retorne novamente somente:
                 )
 
                 if quantidade_palavras < MIN_PALAVRAS_PARAGRAFO:
-
                     erro_tamanho = (
-                        f"parágrafo "
-                        f"{indice_paragrafo + 1} possui "
-                        f"{quantidade_palavras} palavras; "
-                        f"mínimo permitido é "
+                        f"parágrafo {indice_paragrafo + 1} possui "
+                        f"{quantidade_palavras} palavras; mínimo permitido é "
                         f"{MIN_PALAVRAS_PARAGRAFO}"
                     )
-
                     break
 
                 if quantidade_palavras > MAX_PALAVRAS_PARAGRAFO:
-
                     erro_tamanho = (
-                        f"parágrafo "
-                        f"{indice_paragrafo + 1} possui "
-                        f"{quantidade_palavras} palavras; "
-                        f"máximo permitido é "
+                        f"parágrafo {indice_paragrafo + 1} possui "
+                        f"{quantidade_palavras} palavras; máximo permitido é "
                         f"{MAX_PALAVRAS_PARAGRAFO}"
                     )
-
                     break
 
-                if (
-                    MIN_PALAVRAS_IDEAL
-                    <= quantidade_palavras
-                    <= MAX_PALAVRAS_IDEAL
-                ):
-
-                    classificacao = "IDEAL"
-
-                else:
-
-                    classificacao = "ACEITÁVEL"
+                classificacao = (
+                    "IDEAL"
+                    if MIN_PALAVRAS_IDEAL <= quantidade_palavras <= MAX_PALAVRAS_IDEAL
+                    else "ACEITÁVEL"
+                )
 
                 print(
                     "🟢 TAMANHO:",
@@ -20460,21 +20545,14 @@ Não crie conclusão.
 
 Não crie introdução fora dos três parágrafos.
 
-A faixa ideal é de 60 a 70 palavras por parágrafo.
+NÃO invente, acrescente ou repita informações para aumentar artificialmente
+o tamanho do texto.
 
-A faixa aceitável é de 45 a 80 palavras.
+Não existe limite mínimo ou máximo de palavras para os parágrafos.
+Priorize fidelidade factual, clareza, naturalidade, coesão e desenvolvimento
+adequado das ideias presentes nos três trechos autorizados.
 
-Procure ficar na faixa ideal de 60 a 70 palavras sempre que o conteúdo factual
-dos trechos permitir.
-
-NÃO invente, acrescente ou repita informações apenas para atingir quantidade
-de palavras.
-
-Se o trecho não comportar naturalmente 60 a 70 palavras, permaneça entre
-45 e 80 palavras, priorizando fidelidade factual, clareza e naturalidade.
-
-Um parágrafo com menos de 45 ou mais de 80 palavras será rejeitado pelo
-Python após a redação.
+Cada bloco deve conter exatamente três parágrafos.
 
 ==================================================
 FORMATO OBRIGATÓRIO
