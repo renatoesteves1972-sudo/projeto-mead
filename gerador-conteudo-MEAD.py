@@ -1,4 +1,4 @@
-# versão 8.9 - 05/10/2026
+# versão 9.0 - 05/10/2026
 
 
 import json
@@ -19711,9 +19711,9 @@ REGRA DE CORREÇÃO — PRIORIDADE ABSOLUTA NESTA RETENTATIVA:
 - Corrija especificamente o problema indicado no motivo.
 - Preserve somente informações e relações já presentes nos trechos autorizados.
 - Não altere os demais parágrafos se eles não apresentarem o problema indicado.
-- Cada parágrafo deve ter pelo menos 40 palavras.
-- Os três parágrafos juntos devem ficar próximos de 200 palavras, preferencialmente entre 190 e 220, sem ultrapassar artificialmente a ideia para atingir uma contagem.
-- A distribuição pode ser desigual: por exemplo, 40 + 75 + 85 palavras é aceitável se o conjunto permanecer coerente.
+- Cada parágrafo deve ter ENTRE 60 E 70 palavras.
+- Os três parágrafos juntos devem ficar ENTRE 180 E 210 palavras, com preferência por aproximadamente 195 palavras no bloco.
+- A distribuição pode variar levemente, mas nenhum parágrafo pode ter menos de 60 nem mais de 70 palavras.
 
 Retorne novamente somente:
 
@@ -20142,20 +20142,22 @@ Retorne novamente somente:
             # TAMANHO — VALIDAÇÃO PELO CONJUNTO DO BLOCO
             # ----------------------------------------------------
             #
-            # O objetivo é aproximadamente 200 palavras por bloco,
-            # e não obrigar os três parágrafos a terem o mesmo tamanho.
-            # Assim, uma distribuição como 40 + 75 + 85 = 200 é válida.
+            # Cada parágrafo deve ficar na faixa desejada de 60 a 70
+            # palavras. Como o bloco possui exatamente 3 parágrafos,
+            # o total coerente passa a ser de 180 a 210 palavras.
             #
-            # Mantemos somente um piso individual para impedir que um
-            # parágrafo fique praticamente vazio. O total do bloco é
-            # a principal referência de tamanho.
+            # A faixa individual é obrigatória: não queremos mais casos
+            # abaixo de 60 palavras em um dos parágrafos.
+            # A soma do bloco serve como segunda proteção estrutural.
 
-            MIN_PALAVRAS_PARAGRAFO = 40
-            META_PALAVRAS_BLOCO = 200
+            MIN_PALAVRAS_PARAGRAFO = 60
+            MAX_PALAVRAS_PARAGRAFO = 70
+            META_PALAVRAS_PARAGRAFO = 65
             MIN_PALAVRAS_BLOCO = 180
-            MAX_PALAVRAS_BLOCO = 240
+            MAX_PALAVRAS_BLOCO = 210
             MIN_PALAVRAS_BLOCO_IDEAL = 190
-            MAX_PALAVRAS_BLOCO_IDEAL = 220
+            MAX_PALAVRAS_BLOCO_IDEAL = 205
+            META_PALAVRAS_BLOCO = 195
 
             quantidades_palavras = []
             erro_tamanho = None
@@ -20177,11 +20179,15 @@ Retorne novamente somente:
                     "palavras"
                 )
 
-                if quantidade_palavras < MIN_PALAVRAS_PARAGRAFO:
+                if not (
+                    MIN_PALAVRAS_PARAGRAFO
+                    <= quantidade_palavras
+                    <= MAX_PALAVRAS_PARAGRAFO
+                ):
                     erro_tamanho = (
                         f"parágrafo {indice_paragrafo + 1} possui "
-                        f"{quantidade_palavras} palavras; mínimo individual é "
-                        f"{MIN_PALAVRAS_PARAGRAFO}"
+                        f"{quantidade_palavras} palavras; faixa individual obrigatória é "
+                        f"{MIN_PALAVRAS_PARAGRAFO}--{MAX_PALAVRAS_PARAGRAFO}"
                     )
                     break
 
@@ -20208,7 +20214,9 @@ Retorne novamente somente:
                     "| TOTAL:",
                     total_palavras_bloco,
                     "| META:",
-                    META_PALAVRAS_BLOCO
+                    META_PALAVRAS_BLOCO,
+                    "| FAIXA PARÁGRAFO:",
+                    f"{MIN_PALAVRAS_PARAGRAFO}-{MAX_PALAVRAS_PARAGRAFO}"
                 )
 
             if erro_tamanho:
@@ -21167,6 +21175,23 @@ REGRAS:
 BLOCO: {chave_bloco}
 TÍTULO: {titulo_bloco}
 
+==================================================
+MEAD EDITORIAL OBRIGATÓRIO
+==================================================
+{contexto_mead_ollama}
+
+==================================================
+CHECKBOXES / ESTRUTURA EDITORIAL ATIVOS
+==================================================
+{contexto_checkboxes_editoriais}
+
+IMPORTANTE SOBRE ESTES DOIS CONTEXTOS:
+- O MEAD e os checkboxes acima são REGRAS EDITORIAIS.
+- Eles definem como organizar e redigir o texto, mas NÃO são fontes factuais.
+- Nenhum fato pode ser criado a partir do MEAD, dos checkboxes, do título ou do conhecimento do modelo.
+- Os fatos permitidos continuam restritos exclusivamente aos 3 TRECHOS AUTORIZADOS pelo Python.
+- Se uma regra editorial entrar em conflito com um fato dos trechos, preserve o fato autorizado e ajuste apenas a redação.
+
 FORMATO EXATO:
 [BLOCO]
 [PARAGRAFO_1]
@@ -21197,7 +21222,11 @@ INSTRUÇÕES PARA A REDAÇÃO:
 - Não acrescente CTA, propaganda, pergunta, legenda, lista ou comentário ao leitor.
 - Não misture os três parágrafos em um único texto.
 - Escreva em linguagem técnica natural, clara e completa.
-- Não use limite artificial de palavras; priorize completude e coerência.
+- Cada parágrafo deve ter ENTRE 60 E 70 palavras. Esta faixa é obrigatória.
+- Como são exatamente 3 parágrafos, o bloco deve ter ENTRE 180 E 210 palavras no total.
+- Busque aproximadamente 65 palavras por parágrafo e cerca de 195 palavras no bloco.
+- Não ultrapasse 70 palavras nem fique abaixo de 60 palavras em nenhum parágrafo.
+- Não use palavras de enchimento apenas para aumentar a contagem.
 - Retorne somente o bloco no formato solicitado."""
 
 
@@ -21242,6 +21271,18 @@ INSTRUÇÕES PARA A REDAÇÃO:
         print(
             "CHECKBOXES DOS EDITORES ENVIADOS:",
             "SIM"
+            if contexto_checkboxes_editoriais
+            else "NÃO"
+        )
+
+        print(
+            "CARACTERES MEAD EDITORIAL ENVIADOS:",
+            len(contexto_mead_ollama)
+        )
+
+        print(
+            "CARACTERES CHECKBOXES EDITORIAIS ENVIADOS:",
+            len(contexto_checkboxes_editoriais)
         )
         
         # Cronometragem do bloco inteiro.
