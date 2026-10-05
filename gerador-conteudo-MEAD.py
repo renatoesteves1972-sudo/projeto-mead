@@ -1,4 +1,4 @@
-# versão 9.0 - 05/10/2026
+# versão 9.14 - 05/10/2026
 
 
 import json
@@ -10514,8 +10514,6 @@ def selecionar_informacoes_relevantes(
     estrutura_editorial
 ):
 
-
-
     id_execucao = f"{time.time():.6f}"
 
     print()
@@ -11013,25 +11011,28 @@ def selecionar_informacoes_relevantes(
         
         }
         
-        print()
-        print("==============================")
-        print("ENTENDIMENTO MEAD + EDITORES")
-        print("==============================")
-        
-        print(
-            "MEAD CONSIDERADO:",
-            "SIM" if mapa_texto else "NÃO"
-        )
-        
-        print(
-            "EDITORES CONSIDERADOS:",
-            "SIM" if assuntos else "NÃO"
-        )
-        
-        print(
-            "SELEÇÃO ORIENTADA PELO MEAD:",
-            "SIM"
-        )    
+        if not getattr(selecionar_informacoes_relevantes, "_log_entendimento_mead_editores_mostrado", False):
+            print()
+            print("==============================")
+            print("ENTENDIMENTO MEAD + EDITORES")
+            print("==============================")
+            
+            print(
+                "MEAD CONSIDERADO:",
+                "SIM" if mapa_texto else "NÃO"
+            )
+            
+            print(
+                "EDITORES CONSIDERADOS:",
+                "SIM" if assuntos else "NÃO"
+            )
+            
+            print(
+                "SELEÇÃO ORIENTADA PELO MEAD:",
+                "SIM"
+            )
+
+            selecionar_informacoes_relevantes._log_entendimento_mead_editores_mostrado = True
 
         # ----------------------------------------------------
         # 04. IDENTIFICADORES COMERCIAIS EXPLÍCITOS
@@ -15797,6 +15798,16 @@ def selecionar_informacoes_relevantes(
             ):
                 continue
 
+            # ÚLTIMO GATE: o trecho precisa chegar ao Ollama já como
+            # parágrafo técnico fechado, sem corte sintático ou artefato.
+            ok_final, motivo_final = auditar_fragmento_final_python(
+                candidato.get("texto", ""),
+                candidato.get("identidade_fonte", {})
+            )
+            if not ok_final:
+                candidato["motivo_rejeicao_python_final"] = motivo_final
+                continue
+
             hash_trecho = candidato.get(
                 "hash",
                 ""
@@ -16197,6 +16208,112 @@ def selecionar_informacoes_relevantes(
 
         return resultado_vazio
 
+
+    # ========================================================
+    # 08.5 — GATE FINAL DOS 15 TRECHOS
+    # ========================================================
+    # Nenhum fragmento segue para o Ollama sem passar novamente pela
+    # auditoria. Se algum candidato ainda falhar, ele é substituído
+    # por uma reserva/candidato do MESMO bloco. Se não houver substituto
+    # limpo, o processamento é interrompido. Não enviamos conjunto parcial.
+    # ========================================================
+
+    def _substituir_invalidos_finais():
+        usados = {
+            x.get('hash')
+            for x in fragmentos_selecionados
+            if isinstance(x, dict) and x.get('hash')
+        }
+
+        for pos, atual in enumerate(list(fragmentos_selecionados)):
+            if not isinstance(atual, dict):
+                return False
+
+            ok_atual, motivo_atual = auditar_fragmento_final_python(
+                atual.get('texto', ''), atual.get('identidade_fonte', {})
+            )
+            if ok_atual:
+                continue
+
+            bloco_atual = atual.get('bloco_mead', '')
+            candidatos_tentativa = []
+            candidatos_tentativa.extend(
+                fragmentos_reserva_por_bloco.get(bloco_atual, [])
+            )
+            candidatos_tentativa.extend(
+                candidatos_por_bloco.get(bloco_atual, [])
+            )
+
+            substituto = None
+            for item in candidatos_tentativa:
+                cand = item.get('candidato', item) if isinstance(item, dict) else None
+                if not isinstance(cand, dict):
+                    continue
+                cand = dict(cand)
+                h = cand.get('hash') or gerar_hash_trecho(cand.get('texto', ''))
+                cand['hash'] = h
+                if not h or h in usados:
+                    continue
+                ok, motivo = auditar_fragmento_final_python(
+                    cand.get('texto', ''), cand.get('identidade_fonte', {})
+                )
+                if not ok:
+                    cand['motivo_rejeicao_python_final'] = motivo
+                    continue
+                cand['bloco_mead'] = bloco_atual
+                substituto = cand
+                break
+
+            if substituto is None:
+                print('❌ GATE FINAL PYTHON:', atual.get('id', 'SEM_ID'), motivo_atual)
+                print('   Não existe substituto limpo para', bloco_atual)
+                return False
+
+            antigo_hash = atual.get('hash')
+            usados.discard(antigo_hash)
+            usados.add(substituto['hash'])
+            fragmentos_selecionados[pos] = substituto
+            print(
+                '🔄 SUBSTITUIÇÃO PYTHON:',
+                atual.get('id', 'SEM_ID'),
+                '->', substituto.get('id', 'SEM_ID'),
+                '| motivo:', motivo_atual
+            )
+
+        return True
+
+    if not _substituir_invalidos_finais():
+        print('❌ OLLAMA BLOQUEADO: conjunto final ainda contém fragmento inválido.')
+        return resultado_vazio
+
+    # Normalização conservadora dos 15 textos: apenas espaços/quebras.
+    for indice_final, frag_final in enumerate(fragmentos_selecionados, start=1):
+        preparado = preparar_fragmento_para_ollama_python(frag_final)
+        if preparado is None:
+            print('❌ OLLAMA BLOQUEADO: fragmento sem texto após preparação.', indice_final)
+            return resultado_vazio
+        fragmentos_selecionados[indice_final - 1] = preparado
+
+    ok_conjunto_final, motivo_conjunto_final = validar_conjunto_final_python(
+        fragmentos_selecionados, 15
+    )
+
+    print()
+    print('==============================================')
+    print('GATE FINAL — PYTHON ANTES DO OLLAMA')
+    print('==============================================')
+    print('STATUS:', 'APROVADO' if ok_conjunto_final else 'BLOQUEADO')
+    print('MOTIVO:', motivo_conjunto_final)
+
+    if not ok_conjunto_final:
+        print('❌ NENHUM TEXTO SERÁ ENVIADO AO OLLAMA.')
+        return resultado_vazio
+
+    for numero, frag in enumerate(fragmentos_selecionados, start=1):
+        print(
+            f"FRAGMENTO {numero}: {len(str(frag.get('texto','')).split())} palavras | "
+            f"ID {frag.get('id','')} | PYTHON FINAL: OK"
+        )
 
     # ========================================================
     # 09. DISTRIBUIR EM 5 BLOCOS
@@ -17585,7 +17702,229 @@ def fragmento_eh_aproveitavel_editorialmente(
     # FRAGMENTO APROVEITÁVEL
     # ========================================================
 
-    return True    
+    return True
+
+
+# ============================================================
+# AUDITORIA FINAL — PYTHON ENTREGA TRECHO PRONTO AO OLLAMA
+# ============================================================
+#
+# Esta camada NÃO escreve conteúdo novo.
+# Ela somente impede que um fragmento estruturalmente incompleto,
+# truncado ou contaminado chegue à redação.
+#
+# Objetivo: o Ollama recebe um texto técnico já fechado, coerente
+# e sem lixo editorial, e sua função passa a ser apenas humanizar.
+# ============================================================
+
+def auditar_fragmento_final_python(texto, identidade_fonte=None):
+    texto_original = str(texto or '').strip()
+
+    if not texto_original:
+        return False, 'VAZIO'
+
+    ok_lixo, motivo_lixo = diagnosticar_contaminacao_editorial(
+        texto_original, identidade_fonte
+    )
+    if not ok_lixo:
+        return False, motivo_lixo
+
+    if not fragmento_eh_aproveitavel_editorialmente(texto_original):
+        return False, 'FILTRO_EDITORIAL'
+
+    # Nunca mandar HTML, marcadores internos ou artefatos de coleta.
+    if re.search(r'<\/?(?:p|div|span|h[1-6]|li|ul|ol|table|tr|td)\b', texto_original, re.I):
+        return False, 'HTML_EMBUTIDO'
+
+    if re.search(r'\[/?(?:BLOCO|PARAGRAFO|FRAGMENTO|TEXTO)[^]]*\]', texto_original, re.I):
+        return False, 'MARCADOR_INTERNO'
+
+    # Cabeçalho embutido no início do trecho: "Tema: texto...".
+    primeira_frase = re.split(r'[.!?]', texto_original, maxsplit=1)[0].strip()
+    if ':' in primeira_frase:
+        prefixo = primeira_frase.split(':', 1)[0].strip()
+        palavras_prefixo = prefixo.split()
+        if 1 <= len(palavras_prefixo) <= 8:
+            return False, 'CABECALHO_EMBUTIDO_FINAL'
+
+    # ========================================================
+    # FILTRO REFORÇADO — LIXO DE NAVEGAÇÃO / TÍTULOS
+    # ========================================================
+    # Alguns recortes passam pelo filtro geral porque o texto técnico
+    # é bom, mas traz no final ou no início restos de menus, títulos e
+    # chamadas de outros artigos. Esses resíduos NÃO devem chegar ao Ollama.
+
+    marcadores_navegacao_fortes = [
+        r"\bleia\s+tamb[eé]m\b",
+        r"\bveja\s+as\s+principais\s+causas\b",
+        r"\bclique\s+aqui\b",
+        r"\bsaiba\s+mais\b",
+        r"\bconfira\s+tamb[eé]m\b",
+        r"\bartigos\s+relacionados\b",
+        r"\bposts?\s+relacionados\b",
+        r"\bconte[uú]dos?\s+relacionados\b"
+    ]
+
+    for padrao in marcadores_navegacao_fortes:
+        if re.search(padrao, texto_original, re.IGNORECASE):
+            return False, 'NAVEGACAO_EMBUTIDA'
+
+    # Sequência típica de títulos colados no corpo do recorte.
+    # Ex.: "O que são ... Bomba centrífuga, funcionamento ..."
+    frases_titulo = re.findall(
+        r"(?:^|[.!?]\s+)(?:o que são|o que e|como funciona|funcionamento|caracter[ií]sticas|aplica[cç][oõ]es)\b[^.!?]{0,90}",
+        texto_original,
+        re.IGNORECASE
+    )
+    if len(frases_titulo) >= 2:
+        return False, 'SEQUENCIA_DE_TITULOS'
+
+    # O fragmento deve terminar como uma ideia fechada.
+    # Aceitamos apenas pontuação final de frase; um recorte que termina
+    # em palavra solta, título ou palavra cortada deve ser descartado.
+    if not re.search(r'[.!?]$', texto_original):
+        return False, 'FINAL_SEM_PONTUACAO'
+
+    if texto_original[-1] in ',:;/\\':
+        return False, 'FINAL_TRUNCADO'
+
+    final_normalizado = normalizar_assunto_texto(texto_original)
+    conectores_finais = (
+        ' e', ' ou', ' que', ' de', ' da', ' do', ' das', ' dos',
+        ' para', ' por', ' com', ' como', ' quando', ' onde',
+        ' sendo', ' incluindo', ' conforme', ' devido', ' através'
+    )
+    if any(final_normalizado.endswith(x) for x in conectores_finais):
+        return False, 'FINAL_COM_CONECTOR'
+
+    # Um fragmento com muitas quebras artificiais tende a ser coleta de
+    # menu/lista ou recorte de página, não um parágrafo técnico contínuo.
+    quebras = len(re.findall(r'\n+', texto_original))
+    if quebras >= 4:
+        return False, 'MUITAS_QUEBRAS'
+
+    # Evita trechos que começam no meio de uma construção sintática.
+    inicio = final_normalizado.lstrip(' -–—•·')
+    inicios_incompletos = (
+        'de ', 'da ', 'do ', 'das ', 'dos ', 'e ', 'ou ', 'que ',
+        'como ', 'para ', 'por ', 'com ', 'quando ', 'onde ',
+        'sendo ', 'além de ', 'alem de '
+    )
+    if inicio.startswith(inicios_incompletos):
+        return False, 'INICIO_TRUNCADO'
+
+    # Pelo menos uma frase completa e densidade mínima de texto.
+    palavras = re.findall(r"\b[\wÀ-ÿ][\wÀ-ÿ'’-]*\b", texto_original)
+    if len(palavras) < 45:
+        return False, 'TRECHO_CURTO'
+
+    frases = [x.strip() for x in re.split(r'(?<=[.!?])\s+', texto_original) if x.strip()]
+    if not frases:
+        return False, 'SEM_FRASE_COMPLETA'
+
+    # Rejeita fragmentos que terminam em abreviação muito provável de corte.
+    if re.search(r'\b(?:etc|ex|aprox|aproximadamente)\.?$', texto_original, re.I):
+        if not re.search(r'[.!?]$', texto_original):
+            return False, 'FINAL_SUSPEITO'
+
+    # ========================================================
+    # FILTRO REFORÇADO — SOBRAS CURTAS NO FINAL
+    # ========================================================
+    # Em recortes contaminados, o texto técnico costuma terminar com
+    # 1–5 palavras que pertencem ao próximo título ou foram cortadas.
+    # Não rejeitamos qualquer frase curta: a regra só vale para o final
+    # de um fragmento longo.
+    frases_finais = [
+        x.strip()
+        for x in re.split(r'(?<=[.!?])\s+', texto_original)
+        if x.strip()
+    ]
+
+    if len(palavras) >= 60 and frases_finais:
+        ultima = frases_finais[-1]
+        palavras_ultima = re.findall(r"\b[\wÀ-ÿ][\wÀ-ÿ'’-]*\b", ultima)
+
+        if 1 <= len(palavras_ultima) <= 5:
+            return False, 'SOBRA_CURTA_NO_FINAL'
+
+    # Construções gramaticalmente abertas no fim indicam corte de fonte.
+    if re.search(
+        r"\b(?:sem|com|para|por|de|da|do|das|dos|e|ou|que)\s+\w{1,7}[.!?]$",
+        texto_original,
+        re.IGNORECASE
+    ):
+        # Mantém palavras curtas legítimas como "sem fim" apenas quando
+        # a frase final parece realmente completa; expressões truncadas
+        # como "sem compro." continuam sendo rejeitadas.
+        final_sem_pontuacao = re.sub(r'[.!?]$', '', texto_original).strip()
+        if re.search(r"\bsem\s+(?:compro|compr|efi|pre)\s*$", final_sem_pontuacao, re.IGNORECASE):
+            return False, 'FINAL_GRAMATICALMENTE_CORROMPIDO'
+
+    # Palavras muito curtas e atípicas no final são fortes sinais de
+    # corte de palavra: "pre", "efi", etc.
+    ultima_palavra = re.findall(r"\b[\wÀ-ÿ'’-]+\b", texto_original)
+    if ultima_palavra:
+        ultima_token = ultima_palavra[-1].casefold().strip('.')
+        tokens_curto_suspeitos = {'pre', 'efi'}
+        if ultima_token in tokens_curto_suspeitos:
+            return False, 'PALAVRA_FINAL_TRUNCADA'
+
+    return True, 'OK'
+
+
+def preparar_fragmento_para_ollama_python(fragmento):
+    """Limpeza conservadora: melhora a forma sem resumir nem reescrever."""
+    if not isinstance(fragmento, dict):
+        return None
+
+    texto = str(fragmento.get('texto', '') or '').strip()
+    if not texto:
+        return None
+
+    # Somente normalização de espaços. Nenhuma palavra é criada ou removida.
+    texto = re.sub(r'[ \t]+', ' ', texto)
+    texto = re.sub(r'\n{3,}', '\n\n', texto).strip()
+
+    novo = dict(fragmento)
+    novo['texto'] = texto
+    novo['palavras'] = len(texto.split())
+    novo['auditoria_python_final'] = 'OK'
+    return novo
+
+
+def validar_conjunto_final_python(fragmentos, quantidade_esperada=15):
+    """Valida os fragmentos imediatamente antes da montagem dos blocos."""
+    if not isinstance(fragmentos, list) or len(fragmentos) != quantidade_esperada:
+        return False, f'QUANTIDADE_{len(fragmentos) if isinstance(fragmentos, list) else 0}'
+
+    hashes = set()
+    por_bloco = {}
+
+    for frag in fragmentos:
+        if not isinstance(frag, dict):
+            return False, 'FRAGMENTO_NAO_DICT'
+
+        texto = str(frag.get('texto', '') or '').strip()
+        ok, motivo = auditar_fragmento_final_python(
+            texto, frag.get('identidade_fonte', {})
+        )
+        if not ok:
+            return False, f"{frag.get('id','SEM_ID')}:{motivo}"
+
+        h = frag.get('hash') or gerar_hash_trecho(texto)
+        if h in hashes:
+            return False, f"DUPLICADO:{h}"
+        hashes.add(h)
+
+        bloco = str(frag.get('bloco_mead', '') or '')
+        por_bloco[bloco] = por_bloco.get(bloco, 0) + 1
+
+    for numero in range(1, 6):
+        if por_bloco.get(f'bloco_{numero}', 0) != 3:
+            return False, f"BLOCO_{numero}_INCOMPLETO"
+
+    return True, 'OK'
+
 
 # ============================================================
 # GERAR SEGMENTOS DA PÁGINA
@@ -19318,13 +19657,13 @@ def gerar_conteudo_completo(
     )
     
     print(
-        "MEAD EDITORIAL ENVIADO AO OLLAMA:",
-        "SIM"
+        "MEAD EDITORIAL NO PROMPT:",
+        "NÃO"
     )
 
     print(
-        "CHECKBOXES DOS EDITORES ENVIADOS AO OLLAMA:",
-        "SIM"
+        "CHECKBOXES NO PROMPT:",
+        "NÃO"
     )
     
     print(
@@ -19352,7 +19691,7 @@ def gerar_conteudo_completo(
     
 
     # ============================================================
-    # 11. PROCESSAMENTO DOS 3 FRAGMENTOS POR BLOCO — OLLAMA
+    # 11. PROCESSAMENTO INDIVIDUAL DOS FRAGMENTOS — OLLAMA
     # ============================================================
     #
     # NOVA ARQUITETURA:
@@ -19380,17 +19719,17 @@ def gerar_conteudo_completo(
 
     print()
     print("=" * 60)
-    print("PROCESSAMENTO DOS 3 FRAGMENTOS POR BLOCO PELO OLLAMA")
+    print("PROCESSAMENTO INDIVIDUAL DOS FRAGMENTOS PELO OLLAMA")
     print("=" * 60)
 
     print(
         "CHAMADAS PREVISTAS:",
-        total_blocos
+        total_blocos * 3
     )
 
     print(
         "FRAGMENTOS POR CHAMADA:",
-        3
+        1
     )
 
     print(
@@ -19438,37 +19777,14 @@ def gerar_conteudo_completo(
     MAX_TENTATIVAS_CONJUNTO_OLLAMA = 8
     MARCADOR_TRECHOS_OLLAMA = "__TRECHOS_AUTORIZADOS_PYTHON__"
 
-    # Limite de contexto factual por trecho enviado ao Ollama.
-    # O Python continua trabalhando com o fragmento completo; somente
-    # a cópia enviada ao modelo é compactada.
-    MAX_CHARS_TRECHO_OLLAMA = 2200
+    # IMPORTANTE: o texto NÃO é compactado antes do Ollama.
+    # O Python já selecionou um trecho editorialmente fechado; reduzir
+    # caracteres aqui destruiria justamente a densidade que queremos preservar.
+    MAX_CHARS_TRECHO_OLLAMA = None
 
-    def _compactar_trecho_para_ollama(texto, limite=MAX_CHARS_TRECHO_OLLAMA):
+    def _compactar_trecho_para_ollama(texto, limite=None):
         texto = re.sub(r"\s+", " ", str(texto or "")).strip()
-        if len(texto) <= limite:
-            return texto
-
-        # Preserva frases completas sempre que possível.
-        partes = re.split(r"(?<=[.!?])\s+", texto)
-        saida = []
-        total = 0
-        for parte in partes:
-            parte = parte.strip()
-            if not parte:
-                continue
-            acrescimo = len(parte) if not saida else len(parte) + 1
-            if total + acrescimo > limite:
-                break
-            saida.append(parte)
-            total += acrescimo
-
-        compacto = " ".join(saida).strip()
-        if len(compacto) >= 600:
-            return compacto
-
-        # Se o texto tiver poucas pontuações, corta no último espaço.
-        corte = texto[:limite].rsplit(" ", 1)[0].strip()
-        return corte or texto[:limite].strip()
+        return texto
 
     quarentena_ollama_por_bloco = {}
     historico_conjuntos_ollama = {}
@@ -19643,6 +19959,141 @@ def gerar_conteudo_completo(
         blocos_informacoes[chave_bloco]['paragrafos_python'] = [x['texto'] for x in novos_info]
         return novos_info
 
+    def _processar_fragmento_ollama_individual(
+        fragmento,
+        chave_bloco_atual,
+        indice_fragmento
+    ):
+        """Gera um único parágrafo a partir de um único trecho autorizado."""
+
+        texto_fonte = str(fragmento.get("texto", "") or "").strip()
+        if not texto_fonte:
+            return None, "fragmento vazio"
+
+        palavras_fonte = len(texto_fonte.split())
+        ultimo_erro = ""
+        max_tentativas = 3
+
+        for tentativa in range(1, max_tentativas + 1):
+            print()
+            print("=" * 60)
+            print(
+                f"OLLAMA — {chave_bloco_atual.upper()} — "
+                f"FRAGMENTO {indice_fragmento}/3 — "
+                f"TENTATIVA {tentativa}/{max_tentativas}"
+            )
+            print("=" * 60)
+
+            correcao = ""
+            if tentativa > 1:
+                correcao = f"""
+
+A resposta anterior foi rejeitada pelo Python.
+MOTIVO: {ultimo_erro}
+
+Corrija somente esse problema. Preserve os fatos, relações e informações técnicas
+presentes no trecho. Não invente, não pesquise e não transforme o conteúdo em resumo.
+O objetivo é um único parágrafo natural e completo.
+"""
+
+            prompt_individual = f"""Você é um editor técnico.
+
+O Python já pesquisou, selecionou e limpou o trecho abaixo.
+Sua única tarefa é HUMANIZAR E REEDITAR esse trecho em um único parágrafo.
+
+REGRAS ABSOLUTAS:
+- Use somente as informações presentes no trecho.
+- Não pesquise e não invente informações.
+- Não faça resumo.
+- Não retire informações técnicas importantes.
+- Não acrescente números, normas, materiais, aplicações, marcas, modelos ou características.
+- Melhore apenas clareza, fluidez, naturalidade, ordem das frases e repetições evidentes.
+- Preserve a densidade informativa do trecho.
+- Não crie introdução, conclusão, CTA, propaganda ou lista.
+
+TAMANHO:
+- Produza entre 60 e 70 palavras.
+- Prefira aproximadamente 65 palavras.
+- Se o trecho já estiver próximo dessa faixa, preserve praticamente todo o conteúdo.
+- Se precisar reduzir, remova somente redundâncias evidentes.
+- Se precisar completar, desenvolva apenas relações já explícitas no próprio trecho.
+- Nunca transforme um trecho técnico completo em um resumo curto.
+
+TRECHO AUTORIZADO:
+{texto_fonte}
+
+Responda somente com o parágrafo final, sem título, sem comentários e sem marcadores.""" + correcao
+
+            inicio_ollama = time.time()
+            try:
+                resposta = requests.post(
+                    "http://localhost:11434/api/generate",
+                    json={
+                        "model": "qwen2.5:3b",
+                        "prompt": prompt_individual,
+                        "stream": False,
+                        "think": False,
+                        "keep_alive": "10m",
+                        "options": {
+                            "num_predict": 260,
+                            "num_ctx": 8192,
+                            "temperature": 0.25 if tentativa > 1 else 0.45,
+                            "top_p": 0.9,
+                            "repeat_penalty": 1.05
+                        }
+                    },
+                    timeout=(30, 900)
+                )
+            except Exception as erro:
+                ultimo_erro = f"erro na chamada Ollama: {repr(erro)}"
+                print("❌", ultimo_erro)
+                continue
+
+            tempo_ollama = time.time() - inicio_ollama
+            print("STATUS HTTP:", resposta.status_code)
+            print("TEMPO:", round(tempo_ollama, 2), "segundos")
+
+            if resposta.status_code != 200:
+                ultimo_erro = f"Ollama retornou HTTP {resposta.status_code}"
+                print("❌", ultimo_erro)
+                continue
+
+            try:
+                dados = resposta.json()
+                resultado = str(dados.get("response", "") or "").strip()
+            except Exception as erro:
+                ultimo_erro = f"erro ao interpretar JSON: {repr(erro)}"
+                print("❌", ultimo_erro)
+                continue
+
+            resultado = re.sub(r"```(?:text|txt)?", "", resultado, flags=re.IGNORECASE)
+            resultado = re.sub(r"```", "", resultado).strip()
+            resultado = re.sub(r"^\s*\[?PAR[ÁA]GRAFO(?:_?1)?\]?\s*:?\s*", "", resultado, flags=re.IGNORECASE)
+            resultado = re.sub(r"\s+", " ", resultado).strip()
+
+            quantidade = len(resultado.split())
+            print("CARACTERES RETORNADOS:", len(resultado))
+            print("MOTIVO FINAL OLLAMA:", dados.get("done_reason", "não informado"))
+            print("PARÁGRAFO:", quantidade, "palavras")
+
+            if not resultado:
+                ultimo_erro = "resposta vazia"
+                print("❌", ultimo_erro)
+                continue
+
+            if quantidade < 60 or quantidade > 70:
+                ultimo_erro = (
+                    f"TAMANHO: parágrafo possui {quantidade} palavras; "
+                    "faixa individual obrigatória é 60--70"
+                )
+                print("❌", ultimo_erro)
+                continue
+
+            print("🟢 PARÁGRAFO APROVADO:", quantidade, "palavras")
+            return resultado, ""
+
+        return None, ultimo_erro or "parágrafo não aprovado"
+
     def _processar_bloco_ollama_com_retentativas(
         prompt_base,
         fragmentos_autorizados,
@@ -19711,9 +20162,11 @@ REGRA DE CORREÇÃO — PRIORIDADE ABSOLUTA NESTA RETENTATIVA:
 - Corrija especificamente o problema indicado no motivo.
 - Preserve somente informações e relações já presentes nos trechos autorizados.
 - Não altere os demais parágrafos se eles não apresentarem o problema indicado.
-- Cada parágrafo deve ter ENTRE 60 E 70 palavras.
-- Os três parágrafos juntos devem ficar ENTRE 180 E 210 palavras, com preferência por aproximadamente 195 palavras no bloco.
-- A distribuição pode variar levemente, mas nenhum parágrafo pode ter menos de 60 nem mais de 70 palavras.
+- Cada parágrafo deve ter entre 55 e 70 palavras.
+- O bloco deve ficar entre 165 e 210 palavras.
+- NÃO reduza um trecho de 80–95 palavras para 20–40 palavras.
+- Preserve pelo menos 65% das palavras do trecho correspondente, salvo quando houver repetição evidente.
+- A distribuição deve permanecer próxima do tamanho dos três trechos recebidos.
 
 Retorne novamente somente:
 
@@ -19783,15 +20236,15 @@ Retorne novamente somente:
                             # Margem suficiente para 3 parágrafos + marcadores.
                             # 420 podia truncar a resposta antes dos fechamentos.
                             "num_predict":
-                                480,
+                                720,
 
                             "num_ctx":
-                                4096,
+                                8192,
 
                             "temperature":
-                                0.15
+                                0.25
                                 if tentativa_bloco > 1
-                                else 0.2,
+                                else 0.45,
 
                             "top_p":
                                 0.9,
@@ -20142,22 +20595,22 @@ Retorne novamente somente:
             # TAMANHO — VALIDAÇÃO PELO CONJUNTO DO BLOCO
             # ----------------------------------------------------
             #
-            # Cada parágrafo deve ficar na faixa desejada de 60 a 70
+            # Cada parágrafo deve ficar na faixa desejada de 55 a 70
             # palavras. Como o bloco possui exatamente 3 parágrafos,
-            # o total coerente passa a ser de 180 a 210 palavras.
+            # o total coerente passa a ser de 165 a 210 palavras.
             #
             # A faixa individual é obrigatória: não queremos mais casos
-            # abaixo de 60 palavras em um dos parágrafos.
+            # como 29, 40 ou 44 palavras em um dos parágrafos.
             # A soma do bloco serve como segunda proteção estrutural.
 
-            MIN_PALAVRAS_PARAGRAFO = 60
+            MIN_PALAVRAS_PARAGRAFO = 55
             MAX_PALAVRAS_PARAGRAFO = 70
-            META_PALAVRAS_PARAGRAFO = 65
-            MIN_PALAVRAS_BLOCO = 180
+            META_PALAVRAS_PARAGRAFO = 62
+            MIN_PALAVRAS_BLOCO = 165
             MAX_PALAVRAS_BLOCO = 210
-            MIN_PALAVRAS_BLOCO_IDEAL = 190
-            MAX_PALAVRAS_BLOCO_IDEAL = 205
-            META_PALAVRAS_BLOCO = 195
+            MIN_PALAVRAS_BLOCO_IDEAL = 180
+            MAX_PALAVRAS_BLOCO_IDEAL = 200
+            META_PALAVRAS_BLOCO = 186
 
             quantidades_palavras = []
             erro_tamanho = None
@@ -20190,6 +20643,31 @@ Retorne novamente somente:
                         f"{MIN_PALAVRAS_PARAGRAFO}--{MAX_PALAVRAS_PARAGRAFO}"
                     )
                     break
+
+            # PROTEÇÃO CONTRA COMPACTAÇÃO: o tamanho da saída deve permanecer
+            # proporcional ao trecho que o Python entregou. Isso impede que o
+            # modelo satisfaça a faixa mínima com um resumo artificial.
+            if erro_tamanho is None:
+                for indice_ratio, paragrafo in enumerate(paragrafos_extraidos):
+                    if indice_ratio >= len(fragmentos_autorizados):
+                        break
+                    entrada_palavras = len(
+                        str(fragmentos_autorizados[indice_ratio].get("texto", "")).split()
+                    )
+                    saida_palavras = len(str(paragrafo or "").split())
+                    if entrada_palavras >= 70:
+                        cobertura = saida_palavras / max(entrada_palavras, 1)
+                        print(
+                            f"COBERTURA TRECHO {indice_ratio + 1}: "
+                            f"{saida_palavras}/{entrada_palavras} = {cobertura:.1%}"
+                        )
+                        if cobertura < 0.65:
+                            erro_tamanho = (
+                                f"compactação excessiva no parágrafo {indice_ratio + 1}: "
+                                f"saída {saida_palavras} palavras para entrada de "
+                                f"{entrada_palavras} (mínimo 65%)"
+                            )
+                            break
 
             total_palavras_bloco = sum(quantidades_palavras)
 
@@ -21114,121 +21592,68 @@ TRECHO {fragmento["numero"]}
 """
 
         # ========================================================
-        # MEAD EDITORIAL DA PÁGINA
-        # ========================================================
-        #
-        # `contexto_mead` foi preparado anteriormente por
-        # `preparar_mead(MEAD)`. A v6.7 preparava esse contexto,
-        # mas não o colocava na chamada efetiva do Ollama.
-        #
-        # Além do MEAD geral, enviamos os checkboxes ativos para
-        # deixar explícito o que foi escolhido pelos editores.
-        # ========================================================
-
-        assuntos_editoriais_ativos = []
-
-        if isinstance(estrutura_editorial, dict):
-            for chave_editorial, ativo in estrutura_editorial.items():
-                if not ativo:
-                    continue
-
-                assuntos_editoriais_ativos.append(
-                    str(chave_editorial)
-                    .replace("_", " ")
-                    .strip()
-                )
-
-        contexto_checkboxes_editoriais = json.dumps(
-            {
-                "assuntos_ativos": assuntos_editoriais_ativos,
-                "estrutura_editorial": estrutura_editorial
-            },
-            ensure_ascii=False,
-            indent=2
-        )
-
-        contexto_mead_ollama = str(
-            contexto_mead or ""
-        ).strip()
-
-        if not contexto_mead_ollama:
-            contexto_mead_ollama = "MEAD não disponível para esta execução."
-
-        # ========================================================
         # PROMPT FINAL DO BLOCO
         # ========================================================
 
-        prompt_bloco = f"""Você é um redator técnico. Reescreva SOMENTE os três trechos autorizados abaixo.
+        # ========================================================
+        # PROMPT COMPACTO — PYTHON ENTREGA TEXTO PRONTO
+        # ========================================================
+        # O Python já fez pesquisa, limpeza, seleção e auditoria.
+        # O Ollama NÃO deve resumir nem decidir o que é importante.
+        # ========================================================
+
+        tamanhos_entrada = [
+            len(str(x.get("texto", "")).split())
+            for x in fragmentos_bloco
+        ]
+
+        prompt_bloco = f"""Você é um editor técnico.
+
+O Python já entregou três trechos limpos e preparados. Apenas humanize e reescreva cada trecho, mantendo suas informações, relações, condições e explicações. Não pesquise, não invente e não resuma.
 
 REGRAS:
-- Não pesquise, não use conhecimento externo e não invente fatos.
-- Não acrescente números, materiais, aplicações, normas, marcas, empresas, modelos, clientes ou resultados.
-- Ignore menus, CTAs, títulos, legendas, listas e partes truncadas.
-- Combine os três trechos para formar exatamente 3 parágrafos técnicos e naturais.
-- Preserve o sentido factual; corrija apenas redação, ordem, fluidez e repetição.
-- Cada parágrafo deve ter extensão natural e suficiente para desenvolver a informação.
-- Evite afirmações absolutas ou promocionais, como “sempre”, “nunca”, “garante”, “garantindo”, “melhor”, “menor custo”, “maior qualidade”, “solução definitiva” ou equivalentes.
-- Não transforme benefícios técnicos dos trechos em promessa comercial, garantia de resultado ou vantagem universal.
-- Não crie introdução, conclusão, lista, subtítulo ou informação fora dos trechos.
-- O título já foi derivado dos trechos e não deve ser alterado.
+- Preserve a densidade e o sentido técnico.
+- Não corte conteúdo apenas para atingir uma quantidade de palavras.
+- Não acrescente fatos, números, normas, materiais, aplicações, marcas ou características que não estejam nos trechos.
+- Não crie introdução, conclusão, CTA, propaganda ou lista.
+- Corrija apenas clareza, fluidez, naturalidade, ordem das frases e repetições evidentes.
+- Cada saída deve corresponder ao respectivo trecho.
 
-BLOCO: {chave_bloco}
-TÍTULO: {titulo_bloco}
+REFERÊNCIA DE TAMANHO:
+Trecho 1: {tamanhos_entrada[0] if len(tamanhos_entrada)>0 else 0} palavras
+Trecho 2: {tamanhos_entrada[1] if len(tamanhos_entrada)>1 else 0} palavras
+Trecho 3: {tamanhos_entrada[2] if len(tamanhos_entrada)>2 else 0} palavras
 
-==================================================
-MEAD EDITORIAL OBRIGATÓRIO
-==================================================
-{contexto_mead_ollama}
+SAÍDA:
+- Exatamente 3 parágrafos.
+- Procure manter aproximadamente o mesmo volume de cada trecho.
+- Faixa preferencial: 60–70 palavras.
+- Não transforme um trecho de 80–95 palavras em 20–40 palavras.
 
-==================================================
-CHECKBOXES / ESTRUTURA EDITORIAL ATIVOS
-==================================================
-{contexto_checkboxes_editoriais}
-
-IMPORTANTE SOBRE ESTES DOIS CONTEXTOS:
-- O MEAD e os checkboxes acima são REGRAS EDITORIAIS.
-- Eles definem como organizar e redigir o texto, mas NÃO são fontes factuais.
-- Nenhum fato pode ser criado a partir do MEAD, dos checkboxes, do título ou do conhecimento do modelo.
-- Os fatos permitidos continuam restritos exclusivamente aos 3 TRECHOS AUTORIZADOS pelo Python.
-- Se uma regra editorial entrar em conflito com um fato dos trechos, preserve o fato autorizado e ajuste apenas a redação.
-
-FORMATO EXATO:
+FORMATO:
 [BLOCO]
 [PARAGRAFO_1]
-...
+texto
 [/PARAGRAFO_1]
 [PARAGRAFO_2]
-...
+texto
 [/PARAGRAFO_2]
 [PARAGRAFO_3]
-...
+texto
 [/PARAGRAFO_3]
 [/BLOCO]
 
-TRECHOS AUTORIZADOS:
-O Python já selecionou e limpou estes 3 trechos. Não procure outra fonte e não
-faça pesquisa. Transforme o conteúdo abaixo em exatamente 3 parágrafos.
-__TRECHOS_AUTORIZADOS_PYTHON__
+TRECHOS:
 
-INSTRUÇÕES PARA A REDAÇÃO:
-- Gere EXATAMENTE 3 parágrafos.
-- Use os 3 trechos autorizados como base factual.
-- O PARÁGRAFO_1 deve desenvolver principalmente o TRECHO 1.
-- O PARÁGRAFO_2 deve desenvolver principalmente o TRECHO 2.
-- O PARÁGRAFO_3 deve desenvolver principalmente o TRECHO 3.
-- A palavra-chave deve aparecer pelo menos uma vez em CADA parágrafo.
-- Preserve somente informações sustentadas pelos trechos autorizados.
-- Não invente números, medidas, materiais, aplicações ou características.
-- Não acrescente CTA, propaganda, pergunta, legenda, lista ou comentário ao leitor.
-- Não misture os três parágrafos em um único texto.
-- Escreva em linguagem técnica natural, clara e completa.
-- Cada parágrafo deve ter ENTRE 60 E 70 palavras. Esta faixa é obrigatória.
-- Como são exatamente 3 parágrafos, o bloco deve ter ENTRE 180 E 210 palavras no total.
-- Busque aproximadamente 65 palavras por parágrafo e cerca de 195 palavras no bloco.
-- Não ultrapasse 70 palavras nem fique abaixo de 60 palavras em nenhum parágrafo.
-- Não use palavras de enchimento apenas para aumentar a contagem.
-- Retorne somente o bloco no formato solicitado."""
+TRECHO 1:
+{fragmentos_bloco[0]["texto"] if len(fragmentos_bloco)>0 else ""}
 
+TRECHO 2:
+{fragmentos_bloco[1]["texto"] if len(fragmentos_bloco)>1 else ""}
+
+TRECHO 3:
+{fragmentos_bloco[2]["texto"] if len(fragmentos_bloco)>2 else ""}
+"""
 
         # ========================================================
         # CONTROLE DO PROMPT DO BLOCO
@@ -21261,30 +21686,6 @@ INSTRUÇÕES PARA A REDAÇÃO:
             "NÃO"
         )
 
-        print(
-            "MEAD EDITORIAL ENVIADO:",
-            "SIM"
-            if contexto_mead_ollama
-            else "NÃO"
-        )
-
-        print(
-            "CHECKBOXES DOS EDITORES ENVIADOS:",
-            "SIM"
-            if contexto_checkboxes_editoriais
-            else "NÃO"
-        )
-
-        print(
-            "CARACTERES MEAD EDITORIAL ENVIADOS:",
-            len(contexto_mead_ollama)
-        )
-
-        print(
-            "CARACTERES CHECKBOXES EDITORIAIS ENVIADOS:",
-            len(contexto_checkboxes_editoriais)
-        )
-        
         # Cronometragem do bloco inteiro.
         # inicio_ollama/fim_ollama pertencem à função de retentativas
         # e não existem neste escopo.
@@ -21309,11 +21710,31 @@ INSTRUÇÕES PARA A REDAÇÃO:
             print("CONJUNTO OLLAMA —", chave_bloco, f"TENTATIVA {tentativa_conjunto}/{MAX_TENTATIVAS_CONJUNTO_OLLAMA}")
             print("=" * 60)
 
-            resultado_bloco, erro_bloco = _processar_bloco_ollama_com_retentativas(
-                prompt_bloco,
-                fragmentos_bloco,
-                chave_bloco
-            )
+            paragrafos_individuais = []
+            erro_individual = ""
+
+            for _indice_fragmento, _fragmento in enumerate(fragmentos_bloco, start=1):
+                _paragrafo, _erro = _processar_fragmento_ollama_individual(
+                    _fragmento,
+                    chave_bloco,
+                    _indice_fragmento
+                )
+
+                if _paragrafo is None:
+                    erro_individual = _erro
+                    break
+
+                paragrafos_individuais.append(_paragrafo)
+
+            if len(paragrafos_individuais) == 3:
+                resultado_bloco = paragrafos_individuais
+                erro_bloco = ""
+            else:
+                resultado_bloco = None
+                erro_bloco = (
+                    f"fragmento {len(paragrafos_individuais) + 1}/3 não aprovado: "
+                    + str(erro_individual)
+                )
 
             if resultado_bloco is not None:
                 break
