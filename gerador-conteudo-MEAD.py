@@ -1,4 +1,5 @@
-# versão 9.14 - 05/10/2026
+# versão 9.17 - 06/10/2026
+# Pré-barreira de URLs + seleção natural de trechos + bruto sem descartados
 
 
 import json
@@ -2514,6 +2515,481 @@ def pesquisar(termo, limite=10):
 
 
 # ============================================================
+
+# ============================================================
+# PRÉ-BARREIRA DE URLS — v9.15
+# ============================================================
+#
+# A URL passa por esta barreira ANTES de qualquer
+# coletar_pagina(url).
+#
+# A ausência do tema na URL NÃO reprova a fonte.
+# A relevância temática continua sendo validada depois,
+# sobre o conteúdo real coletado.
+# ============================================================
+
+def avaliar_url_pre_download(url, tema=None):
+
+    try:
+
+        url_original = str(
+            url or ""
+        ).strip()
+
+        if not url_original:
+            return False
+
+        from urllib.parse import urlparse
+
+        parsed = urlparse(
+            url_original
+        )
+
+        esquema = (
+            parsed.scheme or ""
+        ).lower().strip()
+
+        if esquema not in (
+            "http",
+            "https"
+        ):
+            return False
+
+        dominio = (
+            parsed.netloc or ""
+        ).lower().strip()
+
+        caminho = (
+            parsed.path or ""
+        ).lower().strip()
+
+        consulta = (
+            parsed.query or ""
+        ).lower().strip()
+
+        # ----------------------------------------------------
+        # DOMÍNIOS JÁ BLOQUEADOS PELA v9.14
+        # ----------------------------------------------------
+
+        dominios_bloqueados = [
+
+            "mercadolivre.",
+            "amazon.",
+            "shopee.",
+            "aliexpress.",
+            "alibaba.",
+            "ebay.",
+            "made-in-china.",
+
+            "pinterest.",
+            "facebook.",
+            "instagram.",
+            "youtube.",
+            "youtu.be",
+            "tiktok.",
+
+            "oceanofpdf.com",
+            "pdfcoffee.com",
+            "scribd.com"
+
+        ]
+
+        if any(
+            item in dominio
+            for item in dominios_bloqueados
+        ):
+            return False
+
+        # ----------------------------------------------------
+        # REDES SOCIAIS
+        # ----------------------------------------------------
+
+        dominios_sociais = [
+
+            "linkedin.com",
+            "twitter.com",
+            "x.com",
+            "reddit.com",
+            "threads.net",
+            "telegram.me",
+            "t.me"
+
+        ]
+
+        if any(
+            item in dominio
+            for item in dominios_sociais
+        ):
+            return False
+
+        # ----------------------------------------------------
+        # LOGIN / CADASTRO / AUTENTICAÇÃO
+        # ----------------------------------------------------
+
+        caminhos_autenticacao = [
+
+            "login",
+            "log-in",
+            "signin",
+            "sign-in",
+            "sign_up",
+            "signup",
+            "sign-up",
+            "cadastro",
+            "cadastrar",
+            "registrar",
+            "registro",
+            "register",
+            "account",
+            "conta",
+            "minha-conta",
+            "my-account",
+            "auth",
+            "autenticacao",
+            "autenticação",
+            "password",
+            "senha"
+
+        ]
+
+        if any(
+            termo in caminho
+            for termo in caminhos_autenticacao
+        ):
+            return False
+
+        # ----------------------------------------------------
+        # CHECKOUT / CARRINHO / TRANSAÇÃO
+        # ----------------------------------------------------
+
+        caminhos_transacionais = [
+
+            "checkout",
+            "carrinho",
+            "cart",
+            "basket",
+            "pedido",
+            "orders",
+            "order",
+            "pagamento",
+            "payment",
+            "finalizar-compra",
+            "finalizar_compra",
+            "comprar-agora",
+            "buy-now"
+
+        ]
+
+        if any(
+            termo in caminho
+            for termo in caminhos_transacionais
+        ):
+            return False
+
+        # ----------------------------------------------------
+        # CONTATO / ATENDIMENTO
+        # ----------------------------------------------------
+
+        caminhos_contato = [
+
+            "contato",
+            "contact",
+            "fale-conosco",
+            "fale_conosco",
+            "sac",
+            "atendimento"
+
+        ]
+
+        if any(
+            termo in caminho
+            for termo in caminhos_contato
+        ):
+            return False
+
+        # ----------------------------------------------------
+        # POLÍTICAS / PRIVACIDADE / COOKIES / TERMOS
+        # ----------------------------------------------------
+
+        caminhos_politicas = [
+
+            "politica-de-privacidade",
+            "politica_privacidade",
+            "politica-de-cookies",
+            "politica_cookies",
+            "privacy-policy",
+            "privacy_policy",
+            "privacidade",
+            "cookies",
+            "termos-de-uso",
+            "termos_de_uso",
+            "terms-of-use",
+            "terms_of_use",
+            "termos-e-condicoes",
+            "terms-and-conditions",
+            "lgpd"
+
+        ]
+
+        if any(
+            termo in caminho
+            for termo in caminhos_politicas
+        ):
+            return False
+
+        # ----------------------------------------------------
+        # BUSCA INTERNA
+        # ----------------------------------------------------
+
+        caminhos_busca = [
+
+            "/busca",
+            "/buscar",
+            "/search",
+            "/resultado-busca",
+            "/resultados-busca",
+            "/search-results"
+
+        ]
+
+        if any(
+            termo in caminho
+            for termo in caminhos_busca
+        ):
+            return False
+
+        parametros_busca = [
+
+            "search=",
+            "query=",
+            "q=",
+            "s=",
+            "keyword=",
+            "keywords=",
+            "busca=",
+            "buscar="
+
+        ]
+
+        if any(
+            parametro in consulta
+            for parametro in parametros_busca
+        ):
+            return False
+
+        # ----------------------------------------------------
+        # AUTOR / TAG / FEED / ARQUIVOS AUTOMÁTICOS
+        # ----------------------------------------------------
+
+        caminhos_arquivos_editoriais = [
+
+            "/author/",
+            "/autor/",
+            "/tag/",
+            "/tags/",
+            "/feed",
+            "/rss",
+            "/category/",
+            "/categoria/",
+            "/arquivo/",
+            "/archives/",
+            "/wp-json/",
+            "/xmlrpc.php"
+
+        ]
+
+        if any(
+            termo in caminho
+            for termo in caminhos_arquivos_editoriais
+        ):
+            return False
+
+        # ----------------------------------------------------
+        # ENDPOINTS SEM INTERESSE EDITORIAL
+        # ----------------------------------------------------
+
+        endpoints_tecnicos = [
+
+            "/api/",
+            "/ajax/",
+            "/graphql",
+            "/wp-admin/",
+            "/wp-login.php"
+
+        ]
+
+        if any(
+            termo in caminho
+            for termo in endpoints_tecnicos
+        ):
+            return False
+
+        # ----------------------------------------------------
+        # IMAGENS / VÍDEOS / ÁUDIO / BINÁRIOS
+        #
+        # PDF permanece permitido porque a v9.14 pesquisa
+        # e coleta PDF como fonte editorial.
+        # ----------------------------------------------------
+
+        extensao = ""
+
+        ultimo_ponto = caminho.rfind(".")
+
+        if ultimo_ponto >= 0:
+            extensao = caminho[
+                ultimo_ponto:
+            ].lower()
+
+        extensoes_nao_editoriais = [
+
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".gif",
+            ".webp",
+            ".svg",
+            ".bmp",
+            ".ico",
+            ".tif",
+            ".tiff",
+            ".avif",
+
+            ".mp4",
+            ".webm",
+            ".mov",
+            ".avi",
+            ".mkv",
+            ".mpeg",
+            ".mpg",
+            ".m4v",
+
+            ".mp3",
+            ".wav",
+            ".ogg",
+            ".oga",
+            ".m4a",
+            ".flac",
+
+            ".zip",
+            ".rar",
+            ".7z",
+            ".tar",
+            ".gz",
+            ".exe",
+            ".msi",
+            ".apk",
+            ".dmg",
+            ".iso",
+
+            ".doc",
+            ".docx",
+            ".xls",
+            ".xlsx",
+            ".ppt",
+            ".pptx"
+
+        ]
+
+        if extensao in extensoes_nao_editoriais:
+            return False
+
+        # ----------------------------------------------------
+        # DOMÍNIO OBRIGATÓRIO
+        # ----------------------------------------------------
+
+        if not dominio:
+            return False
+
+        # ----------------------------------------------------
+        # IMPORTANTE:
+        # NÃO verificar se o tema aparece na URL.
+        # A validação temática ocorre no conteúdo.
+        # ----------------------------------------------------
+
+        return True
+
+    except Exception:
+        # Se a própria avaliação falhar, não permitir download.
+        return False
+
+
+def filtrar_urls_pre_download(
+    urls,
+    tema=None
+):
+
+    """
+    Aplica a pré-barreira depois de filtrar_urls()
+    e antes de qualquer download.
+    """
+
+    if not isinstance(
+        urls,
+        list
+    ):
+        return []
+
+    resultado = []
+
+    vistas = set()
+
+    bloqueadas = 0
+
+    for url in urls:
+
+        url_limpa = str(
+            url or ""
+        ).strip()
+
+        if not url_limpa:
+            continue
+
+        chave = url_limpa.casefold()
+
+        if chave in vistas:
+            continue
+
+        vistas.add(chave)
+
+        if not avaliar_url_pre_download(
+            url_limpa,
+            tema
+        ):
+
+            bloqueadas += 1
+
+            print(
+                "PRÉ-BARREIRA BLOQUEOU:",
+                url_limpa
+            )
+
+            continue
+
+        resultado.append(
+            url_limpa
+        )
+
+    print()
+    print("==============================")
+    print("PRÉ-BARREIRA DE URLS — v9.15")
+    print("==============================")
+    print(
+        "RECEBIDAS:",
+        len(urls)
+    )
+    print(
+        "APROVADAS:",
+        len(resultado)
+    )
+    print(
+        "BLOQUEADAS:",
+        bloqueadas
+    )
+    print("==============================")
+
+    return resultado
+
+
 # FILTRAR URLS RUINS
 # ============================================================
 
@@ -3730,6 +4206,18 @@ def pesquisar_completo(tema):
 
     )
 
+    # ========================================================
+    # PRÉ-BARREIRA ANTES DE QUALQUER DOWNLOAD
+    # ========================================================
+
+    urls_unicas = filtrar_urls_pre_download(
+
+        urls_unicas,
+
+        tema
+
+    )
+
 
     print()
     print("URLS APROVADAS PARA COLETA:")
@@ -4029,7 +4517,29 @@ def limpar_texto_coletado(texto):
 # COLETAR PÁGINA
 # ============================================================
 
-def coletar_pagina(url):
+def coletar_pagina(
+    url,
+    tema=None
+):
+
+    # ========================================================
+    # SEGUNDA BARREIRA — PROTEÇÃO NO PONTO DE DOWNLOAD
+    # ========================================================
+
+    if not avaliar_url_pre_download(
+        url,
+        tema
+    ):
+
+        print()
+        print(
+            "DOWNLOAD BLOQUEADO PELA PRÉ-BARREIRA:"
+        )
+        print(
+            url
+        )
+
+        return None
 
     try:
 
@@ -5256,6 +5766,16 @@ def carregar_bruto(tema):
 
                 continue
 
+
+            # A partir da v9.16, registros explicitamente
+            # descartados NÃO podem voltar ao patrimônio bruto.
+            # Registros legados sem status continuam compatíveis.
+            status_registro = str(
+                item.get("status", "") or ""
+            ).strip().casefold()
+
+            if status_registro and status_registro != "aprovado":
+                continue
 
 
             texto = item.get(
@@ -10806,14 +11326,15 @@ def selecionar_informacoes_relevantes(
     # Não basta penalizar índice, comentários, menus ou tabelas.
     # Esses fragmentos devem ser retirados ANTES da pontuação.
     #
-    # Cada candidato terá entre 70 e 100 palavras.
+    # Não existe limite artificial de palavras para um candidato.
+    # O Python trabalha com unidades editoriais naturais: parágrafos
+    # e grupos de frases completos, sempre extraídos literalmente da
+    # fonte original. A quantidade de palavras vira apenas um sinal
+    # de qualidade/pontuação, nunca uma barreira de seleção.
     #
     # ========================================================
 
     candidatos = []
-
-    MIN_PALAVRAS_FRAGMENTO = 70
-    MAX_PALAVRAS_FRAGMENTO = 100
     
     
 
@@ -10837,535 +11358,6 @@ def selecionar_informacoes_relevantes(
     # aproveitável para a construção editorial.
     # ========================================================
 
-    def fragmento_eh_comercialmente_limpo(
-        texto,
-        identidade_fonte=None
-    ):
-
-        texto = str(
-            texto or ""
-        ).strip()
-
-        if not texto:
-            return False
-
-        texto_normalizado = (
-            normalizar_assunto_texto(
-                texto
-            )
-        )
-
-        # ====================================================
-        # 00. IDENTIDADE DA FONTE / MARCA CONHECIDA
-        # ====================================================
-        #
-        # Se a etapa de coleta já identificou explicitamente
-        # uma empresa ou marca da fonte, o nome não pode entrar
-        # no fragmento editorial. Isso fecha o principal ponto
-        # cego da v8.2: nomes comerciais sem "Ltda.", "S.A." etc.
-        #
-        # Não usamos o domínio como nome de empresa, pois o próprio
-        # domínio pode aparecer somente nos metadados da fonte.
-        # ====================================================
-
-        if isinstance(identidade_fonte, dict):
-
-            nome_empresa_fonte = str(
-                identidade_fonte.get(
-                    "nome",
-                    ""
-                )
-                or ""
-            ).strip()
-
-            nome_empresa_normalizado = normalizar_assunto_texto(
-                nome_empresa_fonte
-            ).strip()
-
-            # Evita bloquear identificações genéricas da coleta.
-            nomes_genericos = {
-                "",
-                "fonte",
-                "site",
-                "pagina",
-                "página",
-                "documento",
-                "arquivo",
-                "pdf",
-                "html"
-            }
-
-            if (
-                len(nome_empresa_normalizado) >= 4
-                and nome_empresa_normalizado not in nomes_genericos
-                and re.search(
-                    r"(?<![a-z0-9])"
-                    + re.escape(nome_empresa_normalizado)
-                    + r"(?![a-z0-9])",
-                    texto_normalizado,
-                    re.IGNORECASE
-                )
-            ):
-                return False
-
-        # ----------------------------------------------------
-        # 00.2. NOME DE PRODUTO / MARCA ASSOCIADO AO TEMA
-        #
-        # Rejeita construções do tipo "produto BrandX",
-        # "sistema FlameGuard" ou "revestimento BrandZ 500"
-        # quando o nome possui forma comercial própria.
-        # ----------------------------------------------------
-
-        padroes_produto_marca = [
-            r"\b(?:produto|sistema|revestimento|material|linha)\s+"
-            r"([A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.'’\-]*"
-            r"(?:\s+[A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.'’\-]*){0,2})"
-            r"(?:\s+\d{2,6})?\b"
-        ]
-
-        for padrao in padroes_produto_marca:
-
-            if re.search(
-                padrao,
-                texto
-            ):
-                return False
-
-        # ----------------------------------------------------
-        # 01. URL / DOMÍNIO / E-MAIL
-        # ----------------------------------------------------
-
-        if re.search(
-            r"(https?://|www\.)\S+",
-            texto,
-            re.IGNORECASE
-        ):
-            return False
-
-        if re.search(
-            r"\b[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}\b",
-            texto,
-            re.IGNORECASE
-        ):
-            return False
-
-        # ----------------------------------------------------
-        # 02. CNPJ
-        # ----------------------------------------------------
-
-        if re.search(
-            r"\b\d{2}\.?\d{3}\.?\d{3}/?\d{4}-?\d{2}\b",
-            texto
-        ):
-            return False
-
-        # ----------------------------------------------------
-        # 03. TELEFONE
-        # ----------------------------------------------------
-
-        if re.search(
-            r"(?<!\d)"
-            r"(?:\+?55[\s.-]*)?"
-            r"\(?\d{2}\)?[\s.-]*"
-            r"\d{4,5}[\s.-]*\d{4}"
-            r"(?!\d)",
-            texto
-        ):
-            return False
-            
-        # ========================================================
-        # 03.1. ENTENDIMENTO MEAD + EDITORES ANTES DA SELEÇÃO
-        # ========================================================
-        #
-        # O Python deve considerar o MEAD e as regras editoriais
-        # ANTES de selecionar qualquer fragmento.
-        #
-        # A seleção não deve ocorrer apenas pela presença da
-        # palavra-chave ou por similaridade com o tema.
-        #
-        # O fragmento precisa ser compatível com o conteúdo
-        # solicitado pelo MEAD e pelos editores.
-        # ========================================================
-        
-        contexto_mead_editores = {
-        
-            "tema": tema,
-        
-            "mapa_mead": mapa_texto,
-        
-            "assuntos_editoriais": assuntos,
-        
-            "instrucao_selecao": (
-                "Antes de selecionar qualquer fragmento, "
-                "considerar integralmente o MEAD e os assuntos "
-                "definidos pelos editores. "
-                "Selecionar somente informações que contribuam "
-                "diretamente para o conteúdo editorial solicitado. "
-                "Não selecionar textos apenas por conterem a "
-                "palavra-chave. "
-                "Evitar títulos isolados, menus, textos truncados, "
-                "frases incompletas, conteúdo comercial, conteúdo "
-                "sem desenvolvimento técnico e informações que "
-                "não contribuam para o objetivo editorial."
-            )
-        
-        }
-        
-        if not getattr(selecionar_informacoes_relevantes, "_log_entendimento_mead_editores_mostrado", False):
-            print()
-            print("==============================")
-            print("ENTENDIMENTO MEAD + EDITORES")
-            print("==============================")
-            
-            print(
-                "MEAD CONSIDERADO:",
-                "SIM" if mapa_texto else "NÃO"
-            )
-            
-            print(
-                "EDITORES CONSIDERADOS:",
-                "SIM" if assuntos else "NÃO"
-            )
-            
-            print(
-                "SELEÇÃO ORIENTADA PELO MEAD:",
-                "SIM"
-            )
-
-            selecionar_informacoes_relevantes._log_entendimento_mead_editores_mostrado = True
-
-        # ----------------------------------------------------
-        # 04. IDENTIFICADORES COMERCIAIS EXPLÍCITOS
-        # ----------------------------------------------------
-
-        padroes_identificadores = [
-
-            r"\bsku\b",
-            r"\bmpn\b",
-            r"\bpart[\s-]*number\b",
-            r"\bpart[\s-]*no\.?\b",
-            r"\bpart[\s-]*n[oº°]?\b",
-            r"\bserial[\s-]*number\b",
-            r"\bn[uú]mero[\s-]*de[\s-]*s[eé]rie\b",
-            r"\bc[oó]digo[\s-]*(?:do|de)?[\s-]*produto\b",
-            r"\bc[oó]digo[\s-]*comercial\b",
-            r"\brefer[eê]ncia[\s-]*(?:do|de)?[\s-]*produto\b",
-            r"\bref\.?[\s-]*(?:do|de)?[\s-]*produto\b",
-            r"\bmodelo[\s-]*(?:do|de)?[\s-]*produto\b"
-
-        ]
-
-        for padrao in padroes_identificadores:
-
-            if re.search(
-                padrao,
-                texto_normalizado,
-                re.IGNORECASE
-            ):
-                return False
-
-        # ----------------------------------------------------
-        # 05. CÓDIGOS / MODELOS ALFANUMÉRICOS
-        #
-        # Não rejeita números técnicos comuns isoladamente.
-        #
-        # Rejeita combinações típicas de catálogo:
-        # ABC-123
-        # XYZ123
-        # 123-ABC
-        # AB-1234-CD
-        # etc.
-        # ----------------------------------------------------
-
-        padrao_codigo = re.compile(
-            r"(?<![A-Za-z0-9])"
-            r"(?=[A-Za-z0-9-]{4,30}(?![A-Za-z0-9]))"
-            r"(?=[A-Za-z0-9-]*[A-Za-z])"
-            r"(?=[A-Za-z0-9-]*\d)"
-            r"[A-Za-z]{1,8}"
-            r"(?:[-_/]?[A-Za-z0-9]{1,12}){1,4}"
-            r"(?![A-Za-z0-9])"
-        )
-
-        ocorrencias_codigo = padrao_codigo.findall(
-            texto
-        )
-
-        # ----------------------------------------------------
-        # Evitar rejeitar siglas técnicas normais.
-        # ----------------------------------------------------
-
-        codigos_tecnicos_permitidos = {
-            "pvc",
-            "pead",
-            "cpvc",
-            "ppr",
-            "nbr",
-            "iso",
-            "ansi",
-            "astm",
-            "din",
-            "api",
-            "rpm",
-            "ip",
-            "dn",
-            "pn",
-            "mca",
-            "kw",
-            "cv",
-            "hp"
-        }
-
-        codigos_suspeitos = []
-
-        for codigo in ocorrencias_codigo:
-
-            codigo_normalizado = (
-                codigo.casefold()
-            )
-
-            if codigo_normalizado in (
-                codigos_tecnicos_permitidos
-            ):
-                continue
-
-            # Siglas técnicas simples não são códigos
-            # comerciais.
-            if re.fullmatch(
-                r"[A-Za-z]{2,5}",
-                codigo
-            ):
-                continue
-
-            codigos_suspeitos.append(
-                codigo
-            )
-
-        if len(codigos_suspeitos) >= 1:
-
-            # Um código isolado pode ser uma especificação.
-            # Dois ou mais aumentam muito a probabilidade
-            # de catálogo/modelo.
-            if len(codigos_suspeitos) >= 2:
-                return False
-
-            # Código acompanhado de contexto comercial
-            # também deve ser descartado.
-            contexto_codigo = [
-                "modelo",
-                "codigo",
-                "código",
-                "referencia",
-                "referência",
-                "serie",
-                "série",
-                "item",
-                "produto",
-                "catalogo",
-                "catálogo"
-            ]
-
-            if any(
-                termo in texto_normalizado
-                for termo in contexto_codigo
-            ):
-                return False
-
-        # ====================================================
-        # 05.5. MARCA / EMPRESA SEM SUFIXO JURÍDICO
-        # ====================================================
-        #
-        # Captura nomes comerciais que aparecem como marca, mas
-        # não trazem "Ltda.", "S.A.", "EPP" etc.
-        #
-        # Exemplos bloqueados:
-        #   "A FireShield oferece ..."
-        #   "O sistema FireShield é ..."
-        #   "A ProtecFogo desenvolve ..."
-        #
-        # O detector é deliberadamente contextual para não bloquear
-        # substantivos técnicos comuns.
-        # ====================================================
-
-        padrao_marca_contextual = (
-            r"\b(?:A|O|As|Os)\s+"
-            r"[A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.'’\-]{3,}"
-            r"(?:\s+[A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.'’\-]{2,})?"
-            r"\s+(?:oferece|fornece|produz|fabrica|"
-            r"comercializa|distribui|vende|desenvolve|atua|"
-            r"representa|disponibiliza)\b"
-        )
-
-        if re.search(
-            padrao_marca_contextual,
-            texto
-        ):
-            return False
-
-        # Marcas em CamelCase, comuns em nomes comerciais, também
-        # são bloqueadas mesmo quando aparecem sem verbo comercial.
-        # Siglas técnicas simples (NBR, ISO, ASTM etc.) não entram
-        # nesse padrão.
-        if re.search(
-            r"\b[A-Z][a-z]+[A-Z][A-Za-zÀ-ÿ0-9]+\b",
-            texto
-        ):
-            return False
-
-        # ----------------------------------------------------
-        # 06. CONTEXTO EXPLÍCITO DE EMPRESA / FABRICANTE
-        # ----------------------------------------------------
-
-        padroes_empresa = [
-
-            r"\bfabricad[oa]\s+pel[ao]\b",
-            r"\bproduzid[oa]\s+pel[ao]\b",
-            r"\bfornecid[oa]\s+pel[ao]\b",
-            r"\bcomercializad[oa]\s+pel[ao]\b",
-            r"\bdistribu[ií]d[oa]\s+pel[ao]\b",
-            r"\bvendid[oa]\s+pel[ao]\b",
-
-            r"\bfabricante\s*:",
-            r"\bfornecedor\s*:",
-            r"\bempresa\s*:",
-            r"\bmarca\s*:",
-            r"\bmodelo\s*:",
-
-            r"\bfabricante\s+[\w.-]+",
-            r"\bfornecedor\s+[\w.-]+",
-            r"\bmarca\s+[\w.-]+",
-
-            r"\bltda\.?\b",
-            r"\bltda\b",
-            r"\bepp\b",
-            r"\bs\.?a\.?\b",
-            r"\bs/a\b",
-            r"\binc\.?\b",
-            r"\bcorp\.?\b",
-            r"\bllc\b"
-
-        ]
-
-        ocorrencias_empresa = 0
-
-        for padrao in padroes_empresa:
-
-            if re.search(
-                padrao,
-                texto_normalizado,
-                re.IGNORECASE
-            ):
-                ocorrencias_empresa += 1
-
-        if ocorrencias_empresa >= 1:
-            return False
-
-        # ----------------------------------------------------
-        # 07. SÍMBOLOS DE MARCA REGISTRADA
-        # ----------------------------------------------------
-
-        if (
-            "®" in texto
-            or
-            "™" in texto
-        ):
-            return False
-
-        # ----------------------------------------------------
-        # 08. LINGUAGEM DE CATÁLOGO / VENDA
-        # ----------------------------------------------------
-
-        marcadores_catalogo = [
-
-            "consulte o catalogo",
-            "consulte o catálogo",
-            "entre em contato",
-            "fale conosco",
-            "solicite um orcamento",
-            "solicite um orçamento",
-            "peca seu orcamento",
-            "peça seu orçamento",
-            "compre agora",
-            "adquira agora",
-            "saiba mais",
-            "clique aqui",
-            "disponivel para compra",
-            "disponível para compra",
-            "preco sob consulta",
-            "preço sob consulta",
-            "cotacao sob consulta",
-            "cotação sob consulta"
-
-        ]
-
-        ocorrencias_catalogo = sum(
-
-            1
-
-            for marcador
-            in marcadores_catalogo
-
-            if marcador
-            in texto_normalizado
-
-        )
-
-        if ocorrencias_catalogo >= 1:
-            return False
-
-        # ----------------------------------------------------
-        # 09. CABEÇALHOS COMERCIAIS
-        # ----------------------------------------------------
-
-        cabecalhos_comerciais = [
-
-            "por que escolher",
-            "porque escolher",
-            "why choose",
-            "our products",
-            "our product",
-            "nossos produtos",
-            "nossa empresa",
-            "sobre nossa empresa",
-            "conheca nossa empresa",
-            "conheça nossa empresa",
-            "fale com nossa equipe"
-
-        ]
-
-        for marcador in cabecalhos_comerciais:
-
-            if marcador in texto_normalizado:
-                return False
-
-        # ----------------------------------------------------
-        # 10. NOME COMERCIAL EM INGLÊS
-        #
-        # Não basta o texto conter uma palavra em inglês.
-        # A rejeição ocorre quando aparecem marcadores
-        # comerciais claros.
-        # ----------------------------------------------------
-
-        marcadores_comerciais_ingles = [
-
-            "manufacturer",
-            "supplier",
-            "manufacturer's",
-            "product code",
-            "model number",
-            "part number",
-            "serial number",
-            "catalog",
-            "catalogue"
-
-        ]
-
-        for marcador in marcadores_comerciais_ingles:
-
-            if marcador in texto_normalizado:
-                return False
-
-        return True
 
 
 
@@ -12294,19 +12286,10 @@ def selecionar_informacoes_relevantes(
                 )
             )
 
-            if (
-                quantidade
-                <
-                MIN_PALAVRAS_FRAGMENTO
-                or
-                quantidade
-                >
-                MAX_PALAVRAS_FRAGMENTO
-            ):
-                return
-            
-            
-        
+            # A quantidade de palavras NÃO bloqueia o candidato.
+            # O trecho precisa ser editorialmente válido, tematicamente
+            # aderente e extraído da fonte original.
+            #
             # ------------------------------------------------
             # ------------------------------------------------
             # CONTABILIZAR TRECHO PARA AUDITORIA
@@ -12430,7 +12413,19 @@ def selecionar_informacoes_relevantes(
 
 
         # ----------------------------------------------------
-        # CONVERTER FRASES EM INTERVALOS DE PALAVRAS
+        # EXTRAÇÃO EDITORIAL NATURAL — v9.16
+        # ----------------------------------------------------
+        #
+        # O candidato deixa de ser definido por uma faixa fixa de
+        # palavras. O Python procura unidades que já existem na fonte:
+        #
+        # 1. parágrafos reais, quando a fonte preserva separação;
+        # 2. grupos de frases completas, quando não há parágrafos;
+        # 3. janelas contextuais ao redor do tema, apenas como fallback.
+        #
+        # Em todos os casos o texto é recortado literalmente da fonte
+        # original. Não há resumo, concatenação artificial ou limite
+        # mínimo/máximo de palavras.
         # ----------------------------------------------------
 
         intervalos_frases = []
@@ -12438,534 +12433,133 @@ def selecionar_informacoes_relevantes(
         for frase in frases_analise:
 
             palavras_da_frase = [
-
                 indice
-
-                for indice, palavra
-                in enumerate(mapa_palavras)
-
+                for indice, palavra in enumerate(mapa_palavras)
                 if (
-                    palavra["analise_inicio"]
-                    >=
-                    frase["inicio"]
-
+                    palavra["analise_inicio"] >= frase["inicio"]
                     and
-
-                    palavra["analise_fim"]
-                    <=
-                    frase["fim"]
+                    palavra["analise_fim"] <= frase["fim"]
                 )
-
             ]
 
             if not palavras_da_frase:
                 continue
 
             intervalos_frases.append({
-
-                "inicio":
-                    palavras_da_frase[0],
-
-                "fim":
-                    palavras_da_frase[-1] + 1
-
+                "inicio": palavras_da_frase[0],
+                "fim": palavras_da_frase[-1] + 1
             })
 
-
-        # ----------------------------------------------------
-        # ACUMULAR FRASES
-        # ----------------------------------------------------
-
-        acumulado_inicio = None
-        acumulado_fim = None
-        palavras_acumuladas = 0
-
-
-        for intervalo in intervalos_frases:
-
-            inicio = intervalo["inicio"]
-            fim = intervalo["fim"]
-
-            quantidade = (
-                fim - inicio
-            )
-
-
-            # ------------------------------------------------
-            # FRASE PEQUENA / MÉDIA
-            # ------------------------------------------------
-
-            if quantidade <= MAX_PALAVRAS_FRAGMENTO:
-
-                if acumulado_inicio is None:
-
-                    acumulado_inicio = inicio
-                    acumulado_fim = fim
-                    palavras_acumuladas = quantidade
-
-                elif (
-                    palavras_acumuladas
-                    + quantidade
-                    <= MAX_PALAVRAS_FRAGMENTO
-                ):
-
-                    acumulado_fim = fim
-
-                    palavras_acumuladas += (
-                        quantidade
-                    )
-
-                else:
-
-                    if (
-                        MIN_PALAVRAS_FRAGMENTO
-                        <=
-                        palavras_acumuladas
-                        <=
-                        MAX_PALAVRAS_FRAGMENTO
-                    ):
-
-                        adicionar_candidato_por_palavras(
-                            acumulado_inicio,
-                            acumulado_fim
-                        )
-
-                    acumulado_inicio = inicio
-                    acumulado_fim = fim
-                    palavras_acumuladas = quantidade
-
-
-                # --------------------------------------------
-                # CANDIDATO PRONTO
-                # --------------------------------------------
-
-                if (
-                    MIN_PALAVRAS_FRAGMENTO
-                    <=
-                    palavras_acumuladas
-                    <=
-                    MAX_PALAVRAS_FRAGMENTO
-                ):
-
-                    adicionar_candidato_por_palavras(
-                        acumulado_inicio,
-                        acumulado_fim
-                    )
-
-                    acumulado_inicio = None
-                    acumulado_fim = None
-                    palavras_acumuladas = 0
-
-
-            # ------------------------------------------------
-            # FRASE GRANDE
-            # ------------------------------------------------
-
-            else:
-
-                # --------------------------------------------
-                # SALVAR ACUMULADO ANTERIOR
-                # --------------------------------------------
-
-                if (
-                    acumulado_inicio is not None
-                    and
-                    MIN_PALAVRAS_FRAGMENTO
-                    <=
-                    palavras_acumuladas
-                    <=
-                    MAX_PALAVRAS_FRAGMENTO
-                ):
-
-                    adicionar_candidato_por_palavras(
-                        acumulado_inicio,
-                        acumulado_fim
-                    )
-
-
-                acumulado_inicio = None
-                acumulado_fim = None
-                palavras_acumuladas = 0
-
-
-                # --------------------------------------------
-                # DIVIDIR FRASE GRANDE
-                # --------------------------------------------
-
-                inicio_parte = inicio
-
-                while inicio_parte < fim:
-
-                    fim_parte = min(
-                        inicio_parte
-                        + MAX_PALAVRAS_FRAGMENTO,
-                        fim
-                    )
-
-                    quantidade_parte = (
-                        fim_parte
-                        -
-                        inicio_parte
-                    )
-
-                    # ----------------------------------------
-                    # PARTE COMPLETA
-                    # ----------------------------------------
-
-                    if (
-                        MIN_PALAVRAS_FRAGMENTO
-                        <=
-                        quantidade_parte
-                        <=
-                        MAX_PALAVRAS_FRAGMENTO
-                    ):
-
-                        adicionar_candidato_por_palavras(
-                            inicio_parte,
-                            fim_parte
-                        )
-
-                    # ----------------------------------------
-                    # PARTE FINAL PEQUENA
-                    # ----------------------------------------
-                    #
-                    # Não descartamos imediatamente.
-                    # Guardamos para tentar combinar com a
-                    # próxima frase.
-                    # ----------------------------------------
-
-                    elif (
-                        quantidade_parte
-                        <
-                        MIN_PALAVRAS_FRAGMENTO
-                    ):
-
-                        acumulado_inicio = (
-                            inicio_parte
-                        )
-
-                        acumulado_fim = (
-                            fim_parte
-                        )
-
-                        palavras_acumuladas = (
-                            quantidade_parte
-                        )
-
-                    inicio_parte = fim_parte
-
-
-        # ----------------------------------------------------
-        # ÚLTIMO ACUMULADO
-        # ----------------------------------------------------
-
-        if (
-            acumulado_inicio is not None
-            and
-            MIN_PALAVRAS_FRAGMENTO
-            <=
-            palavras_acumuladas
-            <=
-            MAX_PALAVRAS_FRAGMENTO
+        # 1) Parágrafos reais da fonte original.
+        intervalos_paragrafos = []
+        for correspondencia in re.finditer(
+            r"(?s)(.*?)(?:\n\s*\n|\Z)",
+            texto_original
         ):
+            trecho = correspondencia.group(0).strip()
+            if not trecho:
+                continue
 
-            adicionar_candidato_por_palavras(
-                acumulado_inicio,
-                acumulado_fim
-            )
+            inicio_char = correspondencia.start()
+            fim_char = correspondencia.end()
 
+            indices = [
+                indice
+                for indice, palavra in enumerate(palavras_original)
+                if palavra.end() > inicio_char and palavra.start() < fim_char
+            ]
 
+            if indices:
+                intervalo = (indices[0], indices[-1] + 1)
+                if intervalo not in intervalos_paragrafos:
+                    intervalos_paragrafos.append(intervalo)
 
+        # Se a fonte veio sem quebras de parágrafo, usamos grupos de
+        # frases completas. Isso evita produzir uma fonte inteira como
+        # um único candidato.
+        if intervalos_paragrafos:
+            for inicio, fim in intervalos_paragrafos:
+                adicionar_candidato_por_palavras(inicio, fim)
 
-            # ----------------------------------------------------
-            # FALLBACK DE EXTRAÇÃO POR JANELA TEMÁTICA
-            # ----------------------------------------------------
-            #
-            # Alguns PDFs e páginas chegam sem pontuação adequada
-            # para a segmentação por frases. Nesses casos, o texto
-            # pode ser tecnicamente válido, mas não gerar nenhum
-            # intervalo entre 35 e 75 palavras.
-            #
-            # Se a fonte não produziu nenhum candidato pelo método
-            # normal, procuramos uma janela CONTÍGUA no texto original
-            # ao redor dos termos do tema e reutilizamos a mesma
-            # rotina de validação do candidato.
-            #
-            # O conteúdo continua sendo recortado da fonte original;
-            # não há reescrita nem criação de texto.
-            # ----------------------------------------------------
-
-            # ----------------------------------------------------
-            # DIAGNÓSTICO: FALLBACK SOMENTE QUANDO A FONTE NÃO
-            # GEROU NENHUM CANDIDATO PELO MÉTODO NORMAL.
-            # ----------------------------------------------------
-
-            candidatos_antes_fallback = len(candidatos)
-
-            # Se a fonte produziu poucos candidatos, tentamos uma
-            # segunda extração independente da segmentação por frases.
-            # Isso é importante para PDFs, OCR, catálogos e páginas
-            # com pontuação/estrutura irregular.
-            if len(candidatos) - candidatos_antes_fonte < 3:
-
-                tema_normalizado_fallback = normalizar_assunto_texto(
-                    tema
-                )
-
-                termos_tema_fallback = [
-                    termo
-                    for termo in re.findall(
-                        r"\b[a-z0-9]{3,}\b",
-                        tema_normalizado_fallback
-                    )
-                    if len(termo) >= 4
+                # Parágrafos excessivamente longos ganham trechos naturais
+                # por frases, sem cortar palavras nem impor quantidade de
+                # palavras.
+                frases_do_paragrafo = [
+                    (f["inicio"], f["fim"])
+                    for f in intervalos_frases
+                    if f["inicio"] >= inicio and f["fim"] <= fim
                 ]
 
-                print(
-                    "FALLBACK TEMÁTICO FONTE",
-                    fonte.get("indice", ""),
-                    "| TERMOS:",
-                    termos_tema_fallback
+                if len(frases_do_paragrafo) > 4:
+                    for pos in range(0, len(frases_do_paragrafo), 3):
+                        grupo = frases_do_paragrafo[pos:pos + 3]
+                        if grupo:
+                            adicionar_candidato_por_palavras(
+                                grupo[0][0],
+                                grupo[-1][1]
+                            )
+        else:
+            # 2) Sem parágrafos: frases completas em grupos de até 3.
+            if intervalos_frases:
+                for pos in range(0, len(intervalos_frases), 2):
+                    grupo = intervalos_frases[pos:pos + 3]
+                    adicionar_candidato_por_palavras(
+                        grupo[0]["inicio"],
+                        grupo[-1]["fim"]
+                    )
+
+                # Também preserva frases individuais, permitindo que uma
+                # frase técnica muito boa concorra sem ser descartada por
+                # tamanho.
+                for intervalo in intervalos_frases:
+                    adicionar_candidato_por_palavras(
+                        intervalo["inicio"],
+                        intervalo["fim"]
+                    )
+
+        # 3) Fallback contextual: quando a extração natural produziu poucos
+        # candidatos, criar janelas de frases ao redor das ocorrências do
+        # tema. Continua sendo um recorte literal da fonte original.
+        if len(candidatos) < 3 and intervalos_frases:
+            termos_contextuais = [
+                termo for termo in re.findall(
+                    r"\b[a-z0-9]{3,}\b",
+                    normalizar_assunto_texto(tema)
+                )
+                if termo not in {
+                    "de", "da", "das", "do", "dos", "em", "na", "nas",
+                    "no", "nos", "para", "por", "com", "sem", "e", "a",
+                    "o", "as", "os"
+                }
+            ]
+
+            ocorrencias = []
+            for indice, intervalo in enumerate(intervalos_frases):
+                texto_frase = texto_para_analise[
+                    0:0
+                ]
+                inicio = intervalo["inicio"]
+                fim = intervalo["fim"]
+                texto_frase = " ".join(
+                    mapa_palavras[i]["palavra_analise"]
+                    for i in range(inicio, fim)
+                )
+                normalizado = normalizar_assunto_texto(texto_frase)
+                if any(termo in normalizado for termo in termos_contextuais):
+                    ocorrencias.append(indice)
+
+            for indice in ocorrencias[:8]:
+                inicio_frase = max(0, indice - 1)
+                fim_frase = min(
+                    len(intervalos_frases),
+                    indice + 2
+                )
+                adicionar_candidato_por_palavras(
+                    intervalos_frases[inicio_frase]["inicio"],
+                    intervalos_frases[fim_frase - 1]["fim"]
                 )
 
-                if termos_tema_fallback and mapa_palavras:
-
-                    # Localiza cada termo no mapa de palavras.
-                    ocorrencias_por_termo = {}
-
-                    for termo in termos_tema_fallback:
-                        ocorrencias = []
-
-                        for indice_palavra, item_palavra in enumerate(mapa_palavras):
-                            palavra_normalizada = normalizar_assunto_texto(
-                                item_palavra.get("palavra_analise", "")
-                            )
-
-                            if palavra_normalizada.startswith(termo):
-                                ocorrencias.append(indice_palavra)
-
-                        ocorrencias_por_termo[termo] = ocorrencias
-
-                    termos_encontrados_no_texto = [
-                        termo
-                        for termo, ocorrencias in ocorrencias_por_termo.items()
-                        if ocorrencias
-                    ]
-
-                    print(
-                        "TERMOS ENCONTRADOS FONTE",
-                        fonte.get("indice", ""),
-                        ":",
-                        termos_encontrados_no_texto
-                    )
-
-                    # Para tema composto, procura pares/grupos de ocorrências
-                    # próximos. Para tema simples, usa cada ocorrência.
-                    janelas = []
-
-                    if len(termos_tema_fallback) == 1:
-                        bases = [(i, i) for i in ocorrencias_por_termo.get(termos_tema_fallback[0], [])]
-                    else:
-                        bases = []
-                        primeira = ocorrencias_por_termo.get(termos_tema_fallback[0], [])
-
-                        for indice_primeiro in primeira:
-                            grupo = [indice_primeiro]
-
-                            for termo in termos_tema_fallback[1:]:
-                                ocorrencias = ocorrencias_por_termo.get(termo, [])
-                                if not ocorrencias:
-                                    grupo = []
-                                    break
-
-                                proximo = min(
-                                    ocorrencias,
-                                    key=lambda x: abs(x - indice_primeiro)
-                                )
-
-                                if abs(proximo - indice_primeiro) <= 90:
-                                    grupo.append(proximo)
-                                else:
-                                    grupo = []
-                                    break
-
-                            if grupo:
-                                bases.append((min(grupo), max(grupo)))
-
-                    for inicio_tema, fim_tema in bases:
-
-                        # Janela contígua sempre recortada da fonte original.
-                        inicio_janela = max(
-                            0,
-                            inicio_tema - 22
-                        )
-
-                        fim_janela = min(
-                            len(mapa_palavras),
-                            fim_tema + 48
-                        )
-
-                        # Garante o mínimo sem ultrapassar o máximo.
-                        if fim_janela - inicio_janela < MIN_PALAVRAS_FRAGMENTO:
-                            fim_janela = min(
-                                len(mapa_palavras),
-                                inicio_janela + MAX_PALAVRAS_FRAGMENTO
-                            )
-
-                        if fim_janela - inicio_janela > MAX_PALAVRAS_FRAGMENTO:
-                            fim_janela = inicio_janela + MAX_PALAVRAS_FRAGMENTO
-
-                        if (
-                            MIN_PALAVRAS_FRAGMENTO
-                            <= fim_janela - inicio_janela
-                            <= MAX_PALAVRAS_FRAGMENTO
-                        ):
-                            chave_janela = (inicio_janela, fim_janela)
-                            if chave_janela not in janelas:
-                                janelas.append(chave_janela)
-
-                        if len(janelas) >= 5:
-                            break
-
-                    for inicio_janela, fim_janela in janelas:
-                        adicionar_candidato_por_palavras(
-                            inicio_janela,
-                            fim_janela
-                        )
-
-            # ----------------------------------------------------
-            # FALLBACK V7.4 — RELEVÂNCIA CONTEXTUAL DA FONTE
-            # ----------------------------------------------------
-            #
-            # Alguns textos técnicos não repetem todos os termos do tema
-            # dentro de cada janela de 35–75 palavras. Exigir que
-            # "bomba" e "centrifuga" apareçam simultaneamente na mesma
-            # janela pode eliminar conteúdo factual legítimo.
-            #
-            # Primeiro verificamos se a FONTE, como um todo, demonstra
-            # relação inequívoca com o tema. Depois extraímos janelas
-            # ao redor dos termos encontrados, mantendo o texto original.
-            # Isso NÃO autoriza uma fonte irrelevante: a fonte precisa
-            # conter a expressão composta ou todos os termos significativos.
-            # ----------------------------------------------------
-
-            if len(candidatos) - candidatos_antes_fonte < 3 and mapa_palavras:
-
-                tema_normalizado_contextual = normalizar_assunto_texto(tema)
-                termos_contextuais = [
-                    termo for termo in re.findall(
-                        r"\b[a-z0-9]{3,}\b",
-                        tema_normalizado_contextual
-                    )
-                    if termo not in {
-                        "de", "da", "das", "do", "dos", "em", "na", "nas",
-                        "no", "nos", "para", "por", "com", "sem", "e", "a",
-                        "o", "as", "os"
-                    }
-                ]
-
-                texto_fonte_normalizado = normalizar_assunto_texto(texto_original)
-                frase_tema_exata = " ".join(termos_contextuais)
-
-                ocorrencias_contextuais = []
-                for indice_palavra, item_palavra in enumerate(mapa_palavras):
-                    palavra_norm = normalizar_assunto_texto(
-                        item_palavra.get("palavra_analise", "")
-                    )
-                    if any(
-                        palavra_norm.startswith(termo)
-                        for termo in termos_contextuais
-                    ):
-                        ocorrencias_contextuais.append(indice_palavra)
-
-                fonte_tem_relacao_contextual = False
-
-                if len(termos_contextuais) == 1:
-                    fonte_tem_relacao_contextual = bool(ocorrencias_contextuais)
-                elif frase_tema_exata and frase_tema_exata in texto_fonte_normalizado:
-                    fonte_tem_relacao_contextual = True
-                else:
-                    termos_presentes_fonte = {
-                        termo
-                        for termo in termos_contextuais
-                        if any(
-                            normalizar_assunto_texto(
-                                item_palavra.get("palavra_analise", "")
-                            ).startswith(termo)
-                            for item_palavra in mapa_palavras
-                        )
-                    }
-                    fonte_tem_relacao_contextual = (
-                        len(termos_presentes_fonte) == len(termos_contextuais)
-                    )
-
-                if fonte_tem_relacao_contextual and ocorrencias_contextuais:
-
-                    print(
-                        "FALLBACK CONTEXTUAL V7.4 FONTE",
-                        fonte.get("indice", ""),
-                        "| RELAÇÃO COM TEMA: SIM",
-                        "| OCORRÊNCIAS:",
-                        len(ocorrencias_contextuais)
-                    )
-
-                    janelas_contextuais = []
-
-                    for centro in ocorrencias_contextuais:
-                        inicio_janela = max(0, centro - 18)
-                        fim_janela = min(
-                            len(mapa_palavras),
-                            inicio_janela + MAX_PALAVRAS_FRAGMENTO
-                        )
-
-                        if fim_janela - inicio_janela < MIN_PALAVRAS_FRAGMENTO:
-                            inicio_janela = max(
-                                0,
-                                fim_janela - MIN_PALAVRAS_FRAGMENTO
-                            )
-
-                        chave = (inicio_janela, fim_janela)
-                        if chave not in janelas_contextuais:
-                            janelas_contextuais.append(chave)
-
-                        if len(janelas_contextuais) >= 8:
-                            break
-
-                    antes_contextual = len(candidatos)
-                    for inicio_janela, fim_janela in janelas_contextuais:
-                        adicionar_candidato_por_palavras(
-                            inicio_janela,
-                            fim_janela
-                        )
-
-                    adicionados_contextual = len(candidatos) - antes_contextual
-                    diagnostico_fonte["fallback_aprovado"] += max(0, adicionados_contextual)
-
-                else:
-                    print(
-                        "FALLBACK CONTEXTUAL V7.4 FONTE",
-                        fonte.get("indice", ""),
-                        "| RELAÇÃO COM TEMA: NÃO"
-                    )
-
-            # ----------------------------------------------------
-            # DIAGNÓSTICO POR FONTE
-            # ----------------------------------------------------
-
-            candidatos_depois_fallback = len(candidatos)
-
-            print(
-                "FONTE",
-                fonte.get("indice", ""),
-                "| CANDIDATOS NORMAIS:",
-                candidatos_antes_fallback - candidatos_antes_fonte,
-                "| FALLBACK:",
-                candidatos_depois_fallback - candidatos_antes_fallback,
-                "| TOTAL FONTE:",
-                candidatos_depois_fallback - candidatos_antes_fonte
-            )
-
-        # ========================================================
+    # ========================================================
     # 05. REMOVER DUPLICADOS
     # ========================================================
 
@@ -15808,6 +15402,24 @@ def selecionar_informacoes_relevantes(
                 candidato["motivo_rejeicao_python_final"] = motivo_final
                 continue
 
+            # ====================================================
+            # PORTÃO DE QUALIDADE v9.18
+            # ====================================================
+            # Este é o último bloqueio antes de o candidato poder
+            # ser escolhido e, posteriormente, entrar em
+            # informacoes_relevantes. Qualidade baixa não pode ser
+            # compensada por relevância temática ou pontuação.
+            # ====================================================
+            ok_qualidade, nota_qualidade, motivo_qualidade = portao_qualidade_fragmento(
+                candidato.get("texto", ""),
+                candidato.get("identidade_fonte", {}),
+                tema
+            )
+            candidato["nota_portao_qualidade"] = nota_qualidade
+            candidato["motivo_portao_qualidade"] = motivo_qualidade
+            if not ok_qualidade:
+                continue
+
             hash_trecho = candidato.get(
                 "hash",
                 ""
@@ -16941,6 +16553,27 @@ def selecionar_informacoes_relevantes(
 
     for fragmento in fragmentos_selecionados:
 
+        # Defesa final: nenhum caminho alternativo pode colocar um
+        # fragmento sem o PORTÃO DE QUALIDADE dentro de
+        # informacoes_relevantes. Em condições normais este teste já
+        # passou na seleção; aqui ele funciona como trava de segurança.
+        ok_qualidade_final, nota_qualidade_final, motivo_qualidade_final = portao_qualidade_fragmento(
+            fragmento.get("texto", ""),
+            fragmento.get("identidade_fonte", {}),
+            tema
+        )
+
+        if not ok_qualidade_final:
+            print(
+                "[PORTAO DE QUALIDADE] BLOQUEADO ANTES DE informacoes_relevantes:",
+                fragmento.get("id", "SEM_ID"),
+                motivo_qualidade_final
+            )
+            continue
+
+        fragmento["nota_portao_qualidade"] = nota_qualidade_final
+        fragmento["motivo_portao_qualidade"] = motivo_qualidade_final
+
         informacoes_relevantes.append({
 
             "id":
@@ -17027,6 +16660,17 @@ def selecionar_informacoes_relevantes(
             fragmentos_reserva_por_bloco
 
     }
+
+    # ========================================================
+    # RESUMO DO PORTÃO DE QUALIDADE v9.18
+    # ========================================================
+    print()
+    print("==============================")
+    print("PORTÃO DE QUALIDADE v9.18")
+    print("==============================")
+    print("FRAGMENTOS APROVADOS:", len(informacoes_relevantes))
+    print("NOTAS:", [x.get("nota_portao_qualidade") for x in informacoes_relevantes])
+    print("==============================")
 
     # ========================================================
     # 15. SALVAMENTO INTERMEDIÁRIO DESATIVADO
@@ -17716,6 +17360,740 @@ def fragmento_eh_aproveitavel_editorialmente(
 # Objetivo: o Ollama recebe um texto técnico já fechado, coerente
 # e sem lixo editorial, e sua função passa a ser apenas humanizar.
 # ============================================================
+
+def fragmento_eh_comercialmente_limpo(
+    texto,
+    identidade_fonte=None
+):
+
+    texto = str(
+        texto or ""
+    ).strip()
+
+    if not texto:
+        return False
+
+    texto_normalizado = (
+        normalizar_assunto_texto(
+            texto
+        )
+    )
+
+    # ====================================================
+    # 00. IDENTIDADE DA FONTE / MARCA CONHECIDA
+    # ====================================================
+    #
+    # Se a etapa de coleta já identificou explicitamente
+    # uma empresa ou marca da fonte, o nome não pode entrar
+    # no fragmento editorial. Isso fecha o principal ponto
+    # cego da v8.2: nomes comerciais sem "Ltda.", "S.A." etc.
+    #
+    # Não usamos o domínio como nome de empresa, pois o próprio
+    # domínio pode aparecer somente nos metadados da fonte.
+    # ====================================================
+
+    if isinstance(identidade_fonte, dict):
+
+        nome_empresa_fonte = str(
+            identidade_fonte.get(
+                "nome",
+                ""
+            )
+            or ""
+        ).strip()
+
+        nome_empresa_normalizado = normalizar_assunto_texto(
+            nome_empresa_fonte
+        ).strip()
+
+        # Evita bloquear identificações genéricas da coleta.
+        nomes_genericos = {
+            "",
+            "fonte",
+            "site",
+            "pagina",
+            "página",
+            "documento",
+            "arquivo",
+            "pdf",
+            "html"
+        }
+
+        if (
+            len(nome_empresa_normalizado) >= 4
+            and nome_empresa_normalizado not in nomes_genericos
+            and re.search(
+                r"(?<![a-z0-9])"
+                + re.escape(nome_empresa_normalizado)
+                + r"(?![a-z0-9])",
+                texto_normalizado,
+                re.IGNORECASE
+            )
+        ):
+            return False
+
+    # ----------------------------------------------------
+    # 00.2. NOME DE PRODUTO / MARCA ASSOCIADO AO TEMA
+    #
+    # Rejeita construções do tipo "produto BrandX",
+    # "sistema FlameGuard" ou "revestimento BrandZ 500"
+    # quando o nome possui forma comercial própria.
+    # ----------------------------------------------------
+
+    padroes_produto_marca = [
+        r"\b(?:produto|sistema|revestimento|material|linha)\s+"
+        r"([A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.'’\-]*"
+        r"(?:\s+[A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.'’\-]*){0,2})"
+        r"(?:\s+\d{2,6})?\b"
+    ]
+
+    for padrao in padroes_produto_marca:
+
+        if re.search(
+            padrao,
+            texto
+        ):
+            return False
+
+    # ----------------------------------------------------
+    # 01. URL / DOMÍNIO / E-MAIL
+    # ----------------------------------------------------
+
+    if re.search(
+        r"(https?://|www\.)\S+",
+        texto,
+        re.IGNORECASE
+    ):
+        return False
+
+    if re.search(
+        r"\b[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}\b",
+        texto,
+        re.IGNORECASE
+    ):
+        return False
+
+    # ----------------------------------------------------
+    # 02. CNPJ
+    # ----------------------------------------------------
+
+    if re.search(
+        r"\b\d{2}\.?\d{3}\.?\d{3}/?\d{4}-?\d{2}\b",
+        texto
+    ):
+        return False
+
+    # ----------------------------------------------------
+    # 03. TELEFONE
+    # ----------------------------------------------------
+
+    if re.search(
+        r"(?<!\d)"
+        r"(?:\+?55[\s.-]*)?"
+        r"\(?\d{2}\)?[\s.-]*"
+        r"\d{4,5}[\s.-]*\d{4}"
+        r"(?!\d)",
+        texto
+    ):
+        return False
+
+    # ========================================================
+    # 03.1. ENTENDIMENTO MEAD + EDITORES ANTES DA SELEÇÃO
+    # ========================================================
+    #
+    # O Python deve considerar o MEAD e as regras editoriais
+    # ANTES de selecionar qualquer fragmento.
+    #
+    # A seleção não deve ocorrer apenas pela presença da
+    # palavra-chave ou por similaridade com o tema.
+    #
+    # O fragmento precisa ser compatível com o conteúdo
+    # solicitado pelo MEAD e pelos editores.
+    # ========================================================
+
+    contexto_mead_editores = {
+
+        "tema": tema,
+
+        "mapa_mead": mapa_texto,
+
+        "assuntos_editoriais": assuntos,
+
+        "instrucao_selecao": (
+            "Antes de selecionar qualquer fragmento, "
+            "considerar integralmente o MEAD e os assuntos "
+            "definidos pelos editores. "
+            "Selecionar somente informações que contribuam "
+            "diretamente para o conteúdo editorial solicitado. "
+            "Não selecionar textos apenas por conterem a "
+            "palavra-chave. "
+            "Evitar títulos isolados, menus, textos truncados, "
+            "frases incompletas, conteúdo comercial, conteúdo "
+            "sem desenvolvimento técnico e informações que "
+            "não contribuam para o objetivo editorial."
+        )
+
+    }
+
+    if not getattr(selecionar_informacoes_relevantes, "_log_entendimento_mead_editores_mostrado", False):
+        print()
+        print("==============================")
+        print("ENTENDIMENTO MEAD + EDITORES")
+        print("==============================")
+
+        print(
+            "MEAD CONSIDERADO:",
+            "SIM" if mapa_texto else "NÃO"
+        )
+
+        print(
+            "EDITORES CONSIDERADOS:",
+            "SIM" if assuntos else "NÃO"
+        )
+
+        print(
+            "SELEÇÃO ORIENTADA PELO MEAD:",
+            "SIM"
+        )
+
+        selecionar_informacoes_relevantes._log_entendimento_mead_editores_mostrado = True
+
+    # ----------------------------------------------------
+    # 04. IDENTIFICADORES COMERCIAIS EXPLÍCITOS
+    # ----------------------------------------------------
+
+    padroes_identificadores = [
+
+        r"\bsku\b",
+        r"\bmpn\b",
+        r"\bpart[\s-]*number\b",
+        r"\bpart[\s-]*no\.?\b",
+        r"\bpart[\s-]*n[oº°]?\b",
+        r"\bserial[\s-]*number\b",
+        r"\bn[uú]mero[\s-]*de[\s-]*s[eé]rie\b",
+        r"\bc[oó]digo[\s-]*(?:do|de)?[\s-]*produto\b",
+        r"\bc[oó]digo[\s-]*comercial\b",
+        r"\brefer[eê]ncia[\s-]*(?:do|de)?[\s-]*produto\b",
+        r"\bref\.?[\s-]*(?:do|de)?[\s-]*produto\b",
+        r"\bmodelo[\s-]*(?:do|de)?[\s-]*produto\b"
+
+    ]
+
+    for padrao in padroes_identificadores:
+
+        if re.search(
+            padrao,
+            texto_normalizado,
+            re.IGNORECASE
+        ):
+            return False
+
+    # ----------------------------------------------------
+    # 05. CÓDIGOS / MODELOS ALFANUMÉRICOS
+    #
+    # Não rejeita números técnicos comuns isoladamente.
+    #
+    # Rejeita combinações típicas de catálogo:
+    # ABC-123
+    # XYZ123
+    # 123-ABC
+    # AB-1234-CD
+    # etc.
+    # ----------------------------------------------------
+
+    padrao_codigo = re.compile(
+        r"(?<![A-Za-z0-9])"
+        r"(?=[A-Za-z0-9-]{4,30}(?![A-Za-z0-9]))"
+        r"(?=[A-Za-z0-9-]*[A-Za-z])"
+        r"(?=[A-Za-z0-9-]*\d)"
+        r"[A-Za-z]{1,8}"
+        r"(?:[-_/]?[A-Za-z0-9]{1,12}){1,4}"
+        r"(?![A-Za-z0-9])"
+    )
+
+    ocorrencias_codigo = padrao_codigo.findall(
+        texto
+    )
+
+    # ----------------------------------------------------
+    # Evitar rejeitar siglas técnicas normais.
+    # ----------------------------------------------------
+
+    codigos_tecnicos_permitidos = {
+        "pvc",
+        "pead",
+        "cpvc",
+        "ppr",
+        "nbr",
+        "iso",
+        "ansi",
+        "astm",
+        "din",
+        "api",
+        "rpm",
+        "ip",
+        "dn",
+        "pn",
+        "mca",
+        "kw",
+        "cv",
+        "hp"
+    }
+
+    codigos_suspeitos = []
+
+    for codigo in ocorrencias_codigo:
+
+        codigo_normalizado = (
+            codigo.casefold()
+        )
+
+        if codigo_normalizado in (
+            codigos_tecnicos_permitidos
+        ):
+            continue
+
+        # Siglas técnicas simples não são códigos
+        # comerciais.
+        if re.fullmatch(
+            r"[A-Za-z]{2,5}",
+            codigo
+        ):
+            continue
+
+        codigos_suspeitos.append(
+            codigo
+        )
+
+    if len(codigos_suspeitos) >= 1:
+
+        # Um código isolado pode ser uma especificação.
+        # Dois ou mais aumentam muito a probabilidade
+        # de catálogo/modelo.
+        if len(codigos_suspeitos) >= 2:
+            return False
+
+        # Código acompanhado de contexto comercial
+        # também deve ser descartado.
+        contexto_codigo = [
+            "modelo",
+            "codigo",
+            "código",
+            "referencia",
+            "referência",
+            "serie",
+            "série",
+            "item",
+            "produto",
+            "catalogo",
+            "catálogo"
+        ]
+
+        if any(
+            termo in texto_normalizado
+            for termo in contexto_codigo
+        ):
+            return False
+
+    # ====================================================
+    # 05.5. MARCA / EMPRESA SEM SUFIXO JURÍDICO
+    # ====================================================
+    #
+    # Captura nomes comerciais que aparecem como marca, mas
+    # não trazem "Ltda.", "S.A.", "EPP" etc.
+    #
+    # Exemplos bloqueados:
+    #   "A FireShield oferece ..."
+    #   "O sistema FireShield é ..."
+    #   "A ProtecFogo desenvolve ..."
+    #
+    # O detector é deliberadamente contextual para não bloquear
+    # substantivos técnicos comuns.
+    # ====================================================
+
+    padrao_marca_contextual = (
+        r"\b(?:A|O|As|Os)\s+"
+        r"[A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.'’\-]{3,}"
+        r"(?:\s+[A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.'’\-]{2,})?"
+        r"\s+(?:oferece|fornece|produz|fabrica|"
+        r"comercializa|distribui|vende|desenvolve|atua|"
+        r"representa|disponibiliza)\b"
+    )
+
+    if re.search(
+        padrao_marca_contextual,
+        texto
+    ):
+        return False
+
+    # Marcas em CamelCase, comuns em nomes comerciais, também
+    # são bloqueadas mesmo quando aparecem sem verbo comercial.
+    # Siglas técnicas simples (NBR, ISO, ASTM etc.) não entram
+    # nesse padrão.
+    if re.search(
+        r"\b[A-Z][a-z]+[A-Z][A-Za-zÀ-ÿ0-9]+\b",
+        texto
+    ):
+        return False
+
+    # ----------------------------------------------------
+    # 06. CONTEXTO EXPLÍCITO DE EMPRESA / FABRICANTE
+    # ----------------------------------------------------
+
+    padroes_empresa = [
+
+        r"\bfabricad[oa]\s+pel[ao]\b",
+        r"\bproduzid[oa]\s+pel[ao]\b",
+        r"\bfornecid[oa]\s+pel[ao]\b",
+        r"\bcomercializad[oa]\s+pel[ao]\b",
+        r"\bdistribu[ií]d[oa]\s+pel[ao]\b",
+        r"\bvendid[oa]\s+pel[ao]\b",
+
+        r"\bfabricante\s*:",
+        r"\bfornecedor\s*:",
+        r"\bempresa\s*:",
+        r"\bmarca\s*:",
+        r"\bmodelo\s*:",
+
+        r"\bfabricante\s+[\w.-]+",
+        r"\bfornecedor\s+[\w.-]+",
+        r"\bmarca\s+[\w.-]+",
+
+        r"\bltda\.?\b",
+        r"\bltda\b",
+        r"\bepp\b",
+        r"\bs\.?a\.?\b",
+        r"\bs/a\b",
+        r"\binc\.?\b",
+        r"\bcorp\.?\b",
+        r"\bllc\b"
+
+    ]
+
+    ocorrencias_empresa = 0
+
+    for padrao in padroes_empresa:
+
+        if re.search(
+            padrao,
+            texto_normalizado,
+            re.IGNORECASE
+        ):
+            ocorrencias_empresa += 1
+
+    if ocorrencias_empresa >= 1:
+        return False
+
+    # ----------------------------------------------------
+    # 07. SÍMBOLOS DE MARCA REGISTRADA
+    # ----------------------------------------------------
+
+    if (
+        "®" in texto
+        or
+        "™" in texto
+    ):
+        return False
+
+    # ----------------------------------------------------
+    # 08. LINGUAGEM DE CATÁLOGO / VENDA
+    # ----------------------------------------------------
+
+    marcadores_catalogo = [
+
+        "consulte o catalogo",
+        "consulte o catálogo",
+        "entre em contato",
+        "fale conosco",
+        "solicite um orcamento",
+        "solicite um orçamento",
+        "peca seu orcamento",
+        "peça seu orçamento",
+        "compre agora",
+        "adquira agora",
+        "saiba mais",
+        "clique aqui",
+        "disponivel para compra",
+        "disponível para compra",
+        "preco sob consulta",
+        "preço sob consulta",
+        "cotacao sob consulta",
+        "cotação sob consulta"
+
+    ]
+
+    ocorrencias_catalogo = sum(
+
+        1
+
+        for marcador
+        in marcadores_catalogo
+
+        if marcador
+        in texto_normalizado
+
+    )
+
+    if ocorrencias_catalogo >= 1:
+        return False
+
+    # ----------------------------------------------------
+    # 09. CABEÇALHOS COMERCIAIS
+    # ----------------------------------------------------
+
+    cabecalhos_comerciais = [
+
+        "por que escolher",
+        "porque escolher",
+        "why choose",
+        "our products",
+        "our product",
+        "nossos produtos",
+        "nossa empresa",
+        "sobre nossa empresa",
+        "conheca nossa empresa",
+        "conheça nossa empresa",
+        "fale com nossa equipe"
+
+    ]
+
+    for marcador in cabecalhos_comerciais:
+
+        if marcador in texto_normalizado:
+            return False
+
+    # ----------------------------------------------------
+    # 10. NOME COMERCIAL EM INGLÊS
+    #
+    # Não basta o texto conter uma palavra em inglês.
+    # A rejeição ocorre quando aparecem marcadores
+    # comerciais claros.
+    # ----------------------------------------------------
+
+    marcadores_comerciais_ingles = [
+
+        "manufacturer",
+        "supplier",
+        "manufacturer's",
+        "product code",
+        "model number",
+        "part number",
+        "serial number",
+        "catalog",
+        "catalogue"
+
+    ]
+
+    for marcador in marcadores_comerciais_ingles:
+
+        if marcador in texto_normalizado:
+            return False
+
+    return True
+
+def portao_qualidade_fragmento(texto, identidade_fonte=None, tema=None):
+    """
+    PORTÃO DE QUALIDADE — v9.18
+
+    Decide se um fragmento está realmente apto a entrar na seleção editorial.
+    Não reescreve o conteúdo e não tenta "salvar" um trecho contaminado.
+
+    Retorno:
+        (True, nota, "OK")
+        (False, nota, "MOTIVO")
+
+    Filosofia:
+      1. contaminação grave = rejeição imediata;
+      2. texto estruturalmente ruim = rejeição imediata;
+      3. qualidade linguística/editorial = nota mínima;
+      4. relevância temática continua sendo responsabilidade dos filtros existentes.
+    """
+
+    texto = str(texto or '').strip()
+    if not texto:
+        return False, 0, 'VAZIO'
+
+    normalizado = normalizar_assunto_texto(texto)
+    palavras = re.findall(r"\b[\wÀ-ÿ][\wÀ-ÿ'’-]*\b", texto)
+    n_palavras = len(palavras)
+
+    # ============================================================
+    # 1. LIXO DURO — NÃO PODE SER COMPENSADO POR PONTUAÇÃO
+    # ============================================================
+    ok_contaminacao, motivo_contaminacao = diagnosticar_contaminacao_editorial(
+        texto, identidade_fonte
+    )
+    # O portao e global; todas as dependencias devem estar no escopo global.
+    if not ok_contaminacao:
+        return False, 0, f'CONTAMINACAO:{motivo_contaminacao}'
+
+    ok_comercial = fragmento_eh_comercialmente_limpo(
+        texto, identidade_fonte
+    )
+    if not ok_comercial:
+        return False, 0, 'COMERCIAL_IDENTIDADE_CODIGO'
+
+    # URLs, HTML, marcadores internos e artefatos de coleta.
+    if re.search(r'https?://|www\.|\b[\w.%+-]+@[\w.-]+\.[A-Za-z]{2,}\b', texto, re.I):
+        return False, 0, 'URL_EMAIL'
+
+    if re.search(r'<[^>]{1,80}>|\[/?(?:BLOCO|PARAGRAFO|FRAGMENTO|TEXTO)[^]]*\]', texto, re.I):
+        return False, 0, 'ARTEFATO_COLETA'
+
+    # ============================================================
+    # 2. TÍTULO / NAVEGAÇÃO / META-TEXTO
+    # ============================================================
+    padroes_lixo_editorial = [
+        r'\b(?:leia\s+tamb[eé]m|saiba\s+mais|clique\s+aqui|confira\s+tamb[eé]m)\b',
+        r'\b(?:artigos?|posts?|conte[uú]dos?)\s+relacionados\b',
+        r'\b(?:p[aá]gina|page)\s+\d+(?:\s+de\s+\d+)?\b',
+        r'\b(?:pr[oó]ximo|anterior|voltar|menu|home|in[ií]cio)\b',
+        r'\b(?:acompanhe|neste\s+artigo|neste\s+texto|como\s+veremos\s+a\s+seguir)\b',
+        r'\b(?:neste\s+artigo)\s*,?\s+(?:voc[eê]|iremos|vamos)\b',
+    ]
+    for padrao in padroes_lixo_editorial:
+        if re.search(padrao, normalizado, re.I):
+            return False, 0, 'META_TEXTO_EDITORIAL'
+
+    # Cabeçalho solto colado antes do conteúdo.
+    primeiras = re.split(r'(?<=[.!?])\s+', texto, maxsplit=1)[0].strip()
+    primeira_norm = normalizar_assunto_texto(primeiras)
+    if re.match(
+        r'^(?:o que (?:e|sao)|como funciona|funcionamento|caracteristicas|aplicacoes|problemas frequentes|diferencas entre|tipos de)\b',
+        primeira_norm,
+        re.I
+    ) and len(primeiras.split()) <= 14:
+        return False, 0, 'TITULO_EMBUTIDO'
+
+    # Títulos em caixa alta no meio do fragmento.
+    if re.search(r'(?:^|[.!?]\s+)[A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][A-ZÁÀÃÂÉÊÍÓÔÕÚÇ\s&-]{8,}(?:[.!?]|\n)', texto):
+        return False, 0, 'TITULO_CAIXA_ALTA'
+
+    # ============================================================
+    # 3. IDIOMA / FRAGMENTO ESTRANHO
+    # ============================================================
+    marcadores_estrangeiros = [
+        r'\b(?:adem[aá]s|por\s+lo\s+tanto|sin\s+embargo|para\s+ello|estructura\s+de|caracter[ií]sticas\s+de)\b',
+        r'\b(?:the|this|these|therefore|however|according\s+to|features\s+of)\b',
+    ]
+    ocorrencias_estrangeiras = sum(
+        1 for p in marcadores_estrangeiros if re.search(p, normalizado, re.I)
+    )
+    if ocorrencias_estrangeiras >= 1:
+        return False, 0, 'IDIOMA_ESTRANHO'
+
+    # ============================================================
+    # 4. FRASES ESTRUTURALMENTE RUINS
+    # ============================================================
+    if texto.count('?') >= 2:
+        return False, 0, 'EXCESSO_PERGUNTAS'
+
+    if re.search(r'(?:^|\s)[•▪◦●○◆◇►▸→]|(?:^|\n)\s*[-*]\s+', texto):
+        return False, 0, 'LISTA_EMBUTIDA'
+
+    if re.search(r'\.{4,}|,{3,}|-{4,}|_{3,}', texto):
+        return False, 0, 'PONTUACAO_CORROMPIDA'
+
+    if not re.search(r'[.!?]$', texto):
+        return False, 0, 'FINAL_ABERTO'
+
+    if re.search(r'[,;:]\s*$', texto):
+        return False, 0, 'FINAL_TRUNCADO'
+
+    inicio = normalizado.lstrip(' -–—•·')
+    if re.match(r'^(?:e|ou|que|de|da|do|das|dos|para|por|com|quando|onde|sendo|alem de|além de)\s+', inicio):
+        return False, 0, 'INICIO_TRUNCADO'
+
+    # Conectores no fim: sinal forte de corte no meio da frase.
+    if re.search(
+        r'\b(?:e|ou|que|de|da|do|das|dos|para|por|com|como|quando|onde|sendo|incluindo|conforme|atraves|através)\s*[.!?]$',
+        normalizado,
+        re.I
+    ):
+        return False, 0, 'FINAL_COM_CONECTOR'
+
+    # ============================================================
+    # 5. QUALIDADE TEXTUAL — NOTA
+    # ============================================================
+    frases = [
+        x.strip() for x in re.split(r'(?<=[.!?])\s+', texto) if x.strip()
+    ]
+    if len(frases) < 2:
+        return False, 0, 'POUCAS_FRASES'
+
+    nota = 100
+
+    # Frases excessivamente longas costumam indicar cópia de estrutura
+    # quebrada ou emenda de vários conteúdos.
+    tamanhos_frases = [
+        len(re.findall(r"\b[\wÀ-ÿ][\wÀ-ÿ'’-]*\b", f))
+        for f in frases
+    ]
+    if tamanhos_frases and max(tamanhos_frases) > 55:
+        nota -= 18
+    elif tamanhos_frases and max(tamanhos_frases) > 42:
+        nota -= 8
+
+    # Fragmentos com uma única frase gigantesca são menos úteis como
+    # unidade editorial.
+    if len(frases) == 1 and n_palavras > 75:
+        nota -= 20
+
+    # Muitas frases muito curtas indicam lista, texto picotado ou navegação.
+    curtas = sum(1 for n in tamanhos_frases if n <= 5)
+    if curtas >= 2:
+        nota -= 20
+    elif curtas == 1:
+        nota -= 8
+
+    # Repetição excessiva de uma mesma palavra não-stopword.
+    stop = {
+        'a','o','as','os','um','uma','uns','umas','de','do','da','dos','das',
+        'e','ou','em','no','na','nos','nas','por','para','com','sem','que',
+        'como','mais','menos','se','sua','seu','suas','seus','ao','aos','à','às',
+        'é','são','ser','tem','têm','pode','podem','também','isso','essa','esse'
+    }
+    frequencias = {}
+    for p in palavras:
+        k = normalizar_assunto_texto(p).lower()
+        if len(k) >= 4 and k not in stop:
+            frequencias[k] = frequencias.get(k, 0) + 1
+    if frequencias:
+        maior = max(frequencias.values())
+        if maior >= 8 and maior / max(n_palavras, 1) > 0.10:
+            nota -= 15
+        elif maior >= 6 and maior / max(n_palavras, 1) > 0.09:
+            nota -= 8
+
+    # Pouca variedade lexical pode indicar texto muito repetitivo.
+    tokens_validos = [
+        normalizar_assunto_texto(p).lower()
+        for p in palavras
+        if len(normalizar_assunto_texto(p)) >= 4 and normalizar_assunto_texto(p).lower() not in stop
+    ]
+    if tokens_validos:
+        diversidade = len(set(tokens_validos)) / len(tokens_validos)
+        if n_palavras >= 60 and diversidade < 0.42:
+            nota -= 12
+        elif n_palavras >= 60 and diversidade < 0.50:
+            nota -= 6
+
+    # Mudança brusca de idioma/alfabeto ou excesso de tokens não textuais.
+    tokens_nao_textuais = re.findall(r'[^\s]+', texto)
+    suspeitos = sum(
+        1 for token in tokens_nao_textuais
+        if re.search(r'[_=<>\[\]{}]|\b(?:sku|mpn|pn)\b', token, re.I)
+    )
+    if suspeitos:
+        return False, 0, 'TOKENS_NAO_TEXTUAIS'
+
+    # Nota mínima deliberadamente alta: qualidade não pode ser compensada
+    # pela relevância temática.
+    if nota < 72:
+        return False, nota, 'QUALIDADE_TEXTUAL_BAIXA'
+
+    return True, nota, 'OK'
+
 
 def auditar_fragmento_final_python(texto, identidade_fonte=None):
     texto_original = str(texto or '').strip()
@@ -20012,12 +20390,13 @@ REGRAS ABSOLUTAS:
 - Não crie introdução, conclusão, CTA, propaganda ou lista.
 
 TAMANHO:
-- Produza entre 60 e 70 palavras.
-- Prefira aproximadamente 65 palavras.
-- Se o trecho já estiver próximo dessa faixa, preserve praticamente todo o conteúdo.
+- Preserve o volume informativo e o tamanho natural do trecho de origem.
+- A faixa de 60--70 palavras é uma preferência, NÃO uma obrigação.
+- Para trechos maiores, não resuma artificialmente apenas para atingir 60--70 palavras.
+- Para trechos menores, não invente conteúdo para atingir 60--70 palavras.
 - Se precisar reduzir, remova somente redundâncias evidentes.
-- Se precisar completar, desenvolva apenas relações já explícitas no próprio trecho.
-- Nunca transforme um trecho técnico completo em um resumo curto.
+- Se precisar reorganizar, mantenha todas as relações técnicas essenciais.
+- O Python fará a validação proporcional ao tamanho do trecho recebido.
 
 TRECHO AUTORIZADO:
 {texto_fonte}
@@ -20081,10 +20460,33 @@ Responda somente com o parágrafo final, sem título, sem comentários e sem mar
                 print("❌", ultimo_erro)
                 continue
 
-            if quantidade < 60 or quantidade > 70:
+            # Validação proporcional ao trecho de origem.
+            # A seleção Python não impõe mais uma faixa artificial de palavras;
+            # portanto a saída do Ollama também não deve obrigar 60--70 quando
+            # isso destruiria a densidade ou o conteúdo do trecho autorizado.
+            # Limites: mínimo 55, máximo 105, com tolerância de aproximadamente
+            # -15% / +15% em relação ao tamanho real da entrada.
+            minimo_adaptativo = max(55, int(palavras_fonte * 0.85))
+            maximo_adaptativo = min(105, int(palavras_fonte * 1.15) + 1)
+
+            # Para entradas muito curtas, não forçar artificialmente 55 palavras.
+            if palavras_fonte < 55:
+                minimo_adaptativo = max(45, int(palavras_fonte * 0.80))
+                maximo_adaptativo = max(55, int(palavras_fonte * 1.20) + 1)
+
+            print(
+                "FAIXA ADAPTATIVA:",
+                f"{minimo_adaptativo}--{maximo_adaptativo}",
+                "| ENTRADA:",
+                palavras_fonte,
+                "palavras"
+            )
+
+            if not minimo_adaptativo <= quantidade <= maximo_adaptativo:
                 ultimo_erro = (
-                    f"TAMANHO: parágrafo possui {quantidade} palavras; "
-                    "faixa individual obrigatória é 60--70"
+                    f"TAMANHO PROPORCIONAL: parágrafo possui {quantidade} palavras; "
+                    f"trecho de origem possui {palavras_fonte}; "
+                    f"faixa aceitável é {minimo_adaptativo}--{maximo_adaptativo}"
                 )
                 print("❌", ultimo_erro)
                 continue
@@ -20162,11 +20564,11 @@ REGRA DE CORREÇÃO — PRIORIDADE ABSOLUTA NESTA RETENTATIVA:
 - Corrija especificamente o problema indicado no motivo.
 - Preserve somente informações e relações já presentes nos trechos autorizados.
 - Não altere os demais parágrafos se eles não apresentarem o problema indicado.
-- Cada parágrafo deve ter entre 55 e 70 palavras.
-- O bloco deve ficar entre 165 e 210 palavras.
-- NÃO reduza um trecho de 80–95 palavras para 20–40 palavras.
-- Preserve pelo menos 65% das palavras do trecho correspondente, salvo quando houver repetição evidente.
-- A distribuição deve permanecer próxima do tamanho dos três trechos recebidos.
+- Preserve o tamanho natural de cada trecho.
+- 60--70 palavras é apenas uma preferência quando o trecho de origem comportar isso.
+- Não reduza um trecho de 80--100 palavras para 20--40 palavras.
+- Não aumente um trecho curto com fatos ou explicações que não estejam autorizados.
+- A distribuição deve permanecer proporcional aos três trechos recebidos.
 
 Retorne novamente somente:
 
@@ -20592,109 +20994,57 @@ Retorne novamente somente:
                 return None, ultimo_erro
 
             # ----------------------------------------------------
-            # TAMANHO — VALIDAÇÃO PELO CONJUNTO DO BLOCO
+            # TAMANHO — VALIDAÇÃO PROPORCIONAL AOS TRECHOS DE ORIGEM
             # ----------------------------------------------------
             #
-            # Cada parágrafo deve ficar na faixa desejada de 55 a 70
-            # palavras. Como o bloco possui exatamente 3 parágrafos,
-            # o total coerente passa a ser de 165 a 210 palavras.
-            #
-            # A faixa individual é obrigatória: não queremos mais casos
-            # como 29, 40 ou 44 palavras em um dos parágrafos.
-            # A soma do bloco serve como segunda proteção estrutural.
-
-            MIN_PALAVRAS_PARAGRAFO = 55
-            MAX_PALAVRAS_PARAGRAFO = 70
-            META_PALAVRAS_PARAGRAFO = 62
-            MIN_PALAVRAS_BLOCO = 165
-            MAX_PALAVRAS_BLOCO = 210
-            MIN_PALAVRAS_BLOCO_IDEAL = 180
-            MAX_PALAVRAS_BLOCO_IDEAL = 200
-            META_PALAVRAS_BLOCO = 186
+            # O tamanho do parágrafo não é mais uma meta rígida de 55--70.
+            # Cada saída deve permanecer próxima do respectivo trecho que
+            # o Python autorizou. Isso evita que o Ollama resuma artificialmente
+            # trechos de 80--100 palavras e também evita completar trechos curtos
+            # com informação inventada.
 
             quantidades_palavras = []
             erro_tamanho = None
 
-            for indice_paragrafo, paragrafo in enumerate(
-                paragrafos_extraidos
-            ):
-
-                quantidade_palavras = len(
-                    str(paragrafo or "").split()
-                )
+            for indice_paragrafo, paragrafo in enumerate(paragrafos_extraidos):
+                quantidade_palavras = len(str(paragrafo or "").split())
                 quantidades_palavras.append(quantidade_palavras)
 
+                entrada_palavras = 0
+                if indice_paragrafo < len(fragmentos_autorizados):
+                    entrada_palavras = len(
+                        str(fragmentos_autorizados[indice_paragrafo].get("texto", "")).split()
+                    )
+
+                minimo_adaptativo = max(55, int(entrada_palavras * 0.85))
+                maximo_adaptativo = min(105, int(entrada_palavras * 1.15) + 1)
+                if entrada_palavras < 55:
+                    minimo_adaptativo = max(45, int(entrada_palavras * 0.80))
+                    maximo_adaptativo = max(55, int(entrada_palavras * 1.20) + 1)
+
                 print(
-                    "PARÁGRAFO",
-                    indice_paragrafo + 1,
-                    ":",
-                    quantidade_palavras,
-                    "palavras"
+                    f"PARÁGRAFO {indice_paragrafo + 1}: {quantidade_palavras} palavras | "
+                    f"ENTRADA: {entrada_palavras} | "
+                    f"FAIXA ADAPTATIVA: {minimo_adaptativo}--{maximo_adaptativo}"
                 )
 
-                if not (
-                    MIN_PALAVRAS_PARAGRAFO
-                    <= quantidade_palavras
-                    <= MAX_PALAVRAS_PARAGRAFO
-                ):
+                if not minimo_adaptativo <= quantidade_palavras <= maximo_adaptativo:
                     erro_tamanho = (
-                        f"parágrafo {indice_paragrafo + 1} possui "
-                        f"{quantidade_palavras} palavras; faixa individual obrigatória é "
-                        f"{MIN_PALAVRAS_PARAGRAFO}--{MAX_PALAVRAS_PARAGRAFO}"
+                        f"parágrafo {indice_paragrafo + 1} possui {quantidade_palavras} palavras; "
+                        f"trecho de origem possui {entrada_palavras}; "
+                        f"faixa aceitável é {minimo_adaptativo}--{maximo_adaptativo}"
                     )
                     break
 
-            # PROTEÇÃO CONTRA COMPACTAÇÃO: o tamanho da saída deve permanecer
-            # proporcional ao trecho que o Python entregou. Isso impede que o
-            # modelo satisfaça a faixa mínima com um resumo artificial.
-            if erro_tamanho is None:
-                for indice_ratio, paragrafo in enumerate(paragrafos_extraidos):
-                    if indice_ratio >= len(fragmentos_autorizados):
-                        break
-                    entrada_palavras = len(
-                        str(fragmentos_autorizados[indice_ratio].get("texto", "")).split()
-                    )
-                    saida_palavras = len(str(paragrafo or "").split())
-                    if entrada_palavras >= 70:
-                        cobertura = saida_palavras / max(entrada_palavras, 1)
-                        print(
-                            f"COBERTURA TRECHO {indice_ratio + 1}: "
-                            f"{saida_palavras}/{entrada_palavras} = {cobertura:.1%}"
-                        )
-                        if cobertura < 0.65:
-                            erro_tamanho = (
-                                f"compactação excessiva no parágrafo {indice_ratio + 1}: "
-                                f"saída {saida_palavras} palavras para entrada de "
-                                f"{entrada_palavras} (mínimo 65%)"
-                            )
-                            break
-
             total_palavras_bloco = sum(quantidades_palavras)
 
-            if erro_tamanho is None and not (
-                MIN_PALAVRAS_BLOCO <= total_palavras_bloco <= MAX_PALAVRAS_BLOCO
-            ):
-                erro_tamanho = (
-                    f"bloco possui {total_palavras_bloco} palavras; "
-                    f"faixa permitida é {MIN_PALAVRAS_BLOCO}--{MAX_PALAVRAS_BLOCO} "
-                    f"(meta aproximada: {META_PALAVRAS_BLOCO})"
-                )
-
-            if quantidades_palavras and erro_tamanho is None:
-                if MIN_PALAVRAS_BLOCO_IDEAL <= total_palavras_bloco <= MAX_PALAVRAS_BLOCO_IDEAL:
-                    classificacao_bloco = "IDEAL"
-                else:
-                    classificacao_bloco = "ACEITÁVEL"
-
+            # A soma do bloco é apenas informativa. Ela não pode rejeitar um
+            # conjunto válido, porque cada um dos três trechos pode ter tamanho
+            # legítimo diferente.
+            if erro_tamanho is None:
                 print(
-                    "🟢 TAMANHO DO BLOCO:",
-                    classificacao_bloco,
-                    "| TOTAL:",
-                    total_palavras_bloco,
-                    "| META:",
-                    META_PALAVRAS_BLOCO,
-                    "| FAIXA PARÁGRAFO:",
-                    f"{MIN_PALAVRAS_PARAGRAFO}-{MAX_PALAVRAS_PARAGRAFO}"
+                    "🟢 TAMANHO DO BLOCO: ACEITO PROPORCIONALMENTE",
+                    "| TOTAL:", total_palavras_bloco
                 )
 
             if erro_tamanho:
@@ -21618,6 +21968,7 @@ REGRAS:
 - Não crie introdução, conclusão, CTA, propaganda ou lista.
 - Corrija apenas clareza, fluidez, naturalidade, ordem das frases e repetições evidentes.
 - Cada saída deve corresponder ao respectivo trecho.
+- Preserve aproximadamente o volume de cada trecho; 60--70 palavras é somente uma referência editorial.
 
 REFERÊNCIA DE TAMANHO:
 Trecho 1: {tamanhos_entrada[0] if len(tamanhos_entrada)>0 else 0} palavras
@@ -34137,7 +34488,8 @@ def executar():
         )
 
         dados = coletar_pagina(
-            url
+            url,
+            tema
         )
 
     # ========================================================
