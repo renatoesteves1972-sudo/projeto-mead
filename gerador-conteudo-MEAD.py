@@ -1,4 +1,4 @@
-# versão 9.18-v51-v65 - 07/10/2026
+# versão 9.18-v51-v67 - 07/10/2026
 # Reservatório ampliado de candidatos limpos — seleção final continua em 15
 # Pré-barreira de URLs + seleção natural de trechos + bruto sem descartados
 
@@ -32,7 +32,7 @@ from ddgs import DDGS
 
 ARQUIVO_BANCO = r"C:\Python\gerador-conteudo\banco\conteudo-site.json"
 
-ARQUIVO_MEAD = r"C:\Python\gerador-conteudo\mead\mead.json"
+ARQUIVO_MEAD = r"C:\Python\gerador-conteudo\mead\MEAD_EDITORES_v2.0-final.json"
 
 ARQUIVO_PROGRESSO = r"C:\Python\gerador-conteudo\banco\progresso.json"
 
@@ -262,75 +262,13 @@ def gerar_segmentos_validos(
     tema,
     tipo
 ):
+    """Não fabrica segmentos universais.
 
-    tema = str(
-        tema or ""
-    ).strip()
-
-    if not tema:
-        return []
-
-    tipo_normalizado = str(
-        tipo or ""
-    ).strip().casefold()
-
-    if tipo_normalizado == "servico":
-
-        biblioteca = (
-            SEGMENTOS_SERVICOS
-            +
-            SEGMENTOS_CORINGAS
-        )
-
-    else:
-
-        biblioteca = (
-            SEGMENTOS_PRODUTOS
-            +
-            SEGMENTOS_CORINGAS
-        )
-
-    segmentos_validos = []
-
-    for segmento in biblioteca:
-
-        segmento = str(
-            segmento or ""
-        ).strip()
-
-        if not segmento:
-            continue
-
-        segmento = segmento.replace(
-            "[TEMA]",
-            tema
-        )
-
-        segmento = re.sub(
-            r"\s+",
-            " ",
-            segmento
-        ).strip()
-
-        if not segmento:
-            continue
-
-        # Todo segmento precisa conter o tema.
-        if tema.casefold() not in segmento.casefold():
-            continue
-
-        # Evitar duplicidade.
-        if segmento.casefold() in [
-            item.casefold()
-            for item in segmentos_validos
-        ]:
-            continue
-
-        segmentos_validos.append(
-            segmento
-        )
-
-    return segmentos_validos
+    O MEAD v2 determina que listas/segmentos usem somente itens sustentados
+    pelo patrimônio. Como esta função recebe apenas tema/tipo, ela não tem
+    evidência suficiente para inventar setores, aplicações ou clientes.
+    """
+    return []
 
     
     
@@ -339,47 +277,52 @@ def gerar_segmentos_validos(
 # ============================================================
 
 def carregar_mead():
+    """Carrega exclusivamente o MEAD EDITORES v2.0.
 
-    if not os.path.exists(ARQUIVO_MEAD):
+    Primeiro tenta o caminho configurado pelo projeto. Se ele ainda não tiver
+    sido atualizado, procura automaticamente um arquivo MEAD_EDITORES_v2*.json
+    na mesma pasta, evitando que uma configuração legada seja usada em silêncio.
+    """
+    candidatos = [Path(ARQUIVO_MEAD)]
+    pasta_mead = Path(ARQUIVO_MEAD).parent
+    if pasta_mead.exists():
+        candidatos.extend(sorted(pasta_mead.glob("MEAD_EDITORES_v2*.json")))
 
-        print("❌ Arquivo MEAD não encontrado:")
+    caminho = next((x for x in candidatos if x.exists()), None)
+    if caminho is None:
+        print("❌ MEAD EDITORES v2.0 não encontrado:")
         print(ARQUIVO_MEAD)
-
         return {}
 
     try:
-
-        with open(
-            ARQUIVO_MEAD,
-            "r",
-            encoding="utf-8"
-        ) as arquivo:
-
+        with caminho.open("r", encoding="utf-8") as arquivo:
             mead = json.load(arquivo)
-
         if not isinstance(mead, dict):
-
-            print("❌ MEAD inválido. Estrutura esperada: objeto JSON.")
-
+            print("❌ MEAD inválido: estrutura JSON não é objeto.")
             return {}
-
-        print("\nMEAD carregado:")
-        print(mead)
-
+        obrigatorios = {
+            "identificacao", "fronteiras", "pipeline", "politica_editorial",
+            "estrutura_configuravel", "plano_editorial_schema", "validacao",
+            "prompt_mestre"
+        }
+        faltantes = sorted(obrigatorios - set(mead.keys()))
+        versao = str(mead.get("identificacao", {}).get("versao", ""))
+        if faltantes or not versao.startswith("2.0"):
+            print("❌ Arquivo encontrado não é um MEAD EDITORES v2.0 válido.")
+            if faltantes:
+                print("Campos ausentes:", faltantes)
+            print("Versão encontrada:", versao or "não informada")
+            return {}
+        print("\nMEAD EDITORES v2.0 carregado:")
+        print(caminho)
         return mead
-
     except json.JSONDecodeError as erro:
-
         print("❌ Erro no JSON do MEAD:")
         print(erro)
-
         return {}
-
     except Exception as erro:
-
         print("❌ Erro ao carregar MEAD:")
         print(erro)
-
         return {}
 
 
@@ -396,327 +339,59 @@ MEAD = carregar_mead()
 # ============================================================
 
 def preparar_mead(mead):
+    """Prepara o MEAD EDITORES v2.0-auditada como autoridade editorial.
 
+    O programa continua responsável por patrimônio, limpeza, seleção factual,
+    armazenamento e validações determinísticas. O MEAD passa a fornecer as
+    decisões editoriais: plano, narrativa, DESVER, ISI, keyword, títulos,
+    fidelidade, reparo localizado e freio de refinamento.
     """
-    Prepara somente as regras editoriais necessárias do MEAD
-    para serem utilizadas pelo Ollama.
-
-    IMPORTANTE:
-    - Não envia o JSON MEAD inteiro.
-    - Não envia patrimônio ou textos de pesquisa.
-    - Não seleciona informações.
-    - Não altera os fragmentos escolhidos pelo Python.
-    - O Python continua responsável pela seleção.
-    - O Ollama continua responsável pela redação.
-    """
-
     if not isinstance(mead, dict):
         return ""
 
     try:
-
-        identidade = mead.get("identidade", {})
-        principio = mead.get("principio_operacional", {})
-        preparacao = mead.get("preparacao", {})
-        tags = preparacao.get("tags", {})
-        construcao = mead.get("construcao_conteudo", {})
-        estrutura = mead.get("estrutura_pagina_editorial", {})
-        seo = mead.get("regras_seo", {})
-        fidelidade = mead.get("fidelidade", {})
-        contexto_blocos = mead.get("contexto_blocos", {})
-        lista_segmentos = mead.get("lista_segmentos", {})
-
-        mead_ia = {
-
-            "metodo": identidade.get(
-                "metodo",
-                "MEAD"
-            ),
-
-            "objetivo": identidade.get(
-                "objetivo",
-                ""
-            ),
-
-            "principio_operacional": {
-
-                "regra_principal": principio.get(
-                    "regra_principal",
-                    ""
-                ),
-
-                "regra_de_fidelidade": principio.get(
-                    "regra_de_fidelidade",
-                    ""
-                ),
-
-                "regra_de_protagonismo": principio.get(
-                    "regra_de_protagonismo",
-                    ""
-                ),
-
-                "regra_de_diversidade": principio.get(
-                    "regra_de_diversidade",
-                    ""
-                ),
-
-                "regra_de_separacao": principio.get(
-                    "regra_de_separacao",
-                    ""
-                )
-            },
-
-            # ==================================================
-            # PALAVRA-CHAVE
-            # ==================================================
-
-            "palavra_chave": preparacao.get(
-                "palavra_chave",
-                {}
-            ),
-
-            # ==================================================
-            # REGRAS DE TAGS PARA O OLLAMA
-            # ==================================================
-
-            "tags": {
-
-                "quantidade": tags.get(
-                    "quantidade",
-                    30
-                ),
-
-                "regra": tags.get(
-                    "regra",
-                    ""
-                ),
-
-                "principio_origem": tags.get(
-                    "principio_origem",
-                    {}
-                ),
-
-                "grupos": tags.get(
-                    "grupos",
-                    []
-                ),
-
-                "ordem_prioridade": tags.get(
-                    "ordem_prioridade",
-                    []
-                ),
-
-                "regra_localizacao": tags.get(
-                    "regra_localizacao",
-                    {}
-                ),
-
-                "regra_servicos": {
-
-                    "usar": tags.get(
-                        "regra_servicos",
-                        {}
-                    ).get(
-                        "usar",
-                        True
-                    ),
-
-                    "base": tags.get(
-                        "regra_servicos",
-                        {}
-                    ).get(
-                        "base",
-                        ""
-                    ),
-
-                    "variacoes_permitidas": tags.get(
-                        "regra_servicos",
-                        {}
-                    ).get(
-                        "variacoes_permitidas",
-                        []
-                    ),
-
-                    "regra": tags.get(
-                        "regra_servicos",
-                        {}
-                    ).get(
-                        "regra",
-                        ""
-                    )
-                },
-
-                "regra_produtos": {
-
-                    "usar": tags.get(
-                        "regra_produtos",
-                        {}
-                    ).get(
-                        "usar",
-                        True
-                    ),
-
-                    "base": tags.get(
-                        "regra_produtos",
-                        {}
-                    ).get(
-                        "base",
-                        ""
-                    ),
-
-                    "variacoes_permitidas": tags.get(
-                        "regra_produtos",
-                        {}
-                    ).get(
-                        "variacoes_permitidas",
-                        []
-                    ),
-
-                    "regra": tags.get(
-                        "regra_produtos",
-                        {}
-                    ).get(
-                        "regra",
-                        ""
-                    )
-                },
-
-                "regra_completude": tags.get(
-                    "regra_completude",
-                    {}
-                ),
-
-                "regra_substituicao": tags.get(
-                    "regra_substituicao",
-                    {}
-                ),
-
-                "restricoes": tags.get(
-                    "restricoes",
-                    []
-                )
-            },
-
-            # ==================================================
-            # CONTEXTO DOS CINCO BLOCOS
-            # ==================================================
-
-            "contexto_blocos": contexto_blocos,
-
-            # ==================================================
-            # CONSTRUÇÃO DO CONTEÚDO
-            # ==================================================
-
-            "construcao_conteudo": {
-
-                "total_blocos": construcao.get(
-                    "total_blocos",
-                    5
-                ),
-
-                "paragrafos_por_bloco": construcao.get(
-                    "paragrafos_por_bloco",
-                    3
-                ),
-
-                "total_paragrafos": construcao.get(
-                    "total_paragrafos",
-                    15
-                ),
-
-                "palavras_por_paragrafo":
-                    construcao.get(
-                        "palavras_por_paragrafo",
-                        {}
-                    ),
-
-                "regra_narrativa":
-                    construcao.get(
-                        "regra_narrativa",
-                        {}
-                    )
-            },
-
-            # ==================================================
-            # ESTRUTURA DA PÁGINA
-            # ==================================================
-
-            "estrutura_pagina": {
-
-                "blocos_texto": estrutura.get(
-                    "blocos_texto",
-                    5
-                ),
-
-                "paragrafos_por_bloco":
-                    estrutura.get(
-                        "paragrafos_por_bloco",
-                        3
-                    ),
-
-                "total_paragrafos":
-                    estrutura.get(
-                        "total_paragrafos",
-                        15
-                    ),
-
-                "palavras_por_paragrafo":
-                    estrutura.get(
-                        "palavras_por_paragrafo",
-                        {}
-                    )
-            },
-
-
-           
-
-            # ==================================================
-            # SEO
-            # ==================================================
-
-            "regras_seo": {
-
-                "evitar": seo.get(
-                    "evitar",
-                    []
-                ),
-
-                "priorizar": seo.get(
-                    "priorizar",
-                    []
-                )
-            },
-
-            # ==================================================
-            # FIDELIDADE
-            # ==================================================
-
-            "fidelidade": {
-
-                "permitido": fidelidade.get(
-                    "permitido",
-                    []
-                ),
-
-                "proibido": fidelidade.get(
-                    "proibido",
-                    []
-                )
-            }
+        # O v2 é deliberadamente preservado quase sem tradução para evitar
+        # que uma camada legada altere o significado da especificação.
+        autoridade = {
+            "identificacao": mead.get("identificacao", {}),
+            "fronteiras": mead.get("fronteiras", {}),
+            "principio_central": mead.get("principio_central", ""),
+            "pipeline": mead.get("pipeline", []),
+            "politica_editorial": mead.get("politica_editorial", {}),
+            "estrutura_configuravel": mead.get("estrutura_configuravel", {}),
+            "plano_editorial_schema": mead.get("plano_editorial_schema", {}),
+            "validacao": mead.get("validacao", {}),
+            "prompt_mestre": mead.get("prompt_mestre", "")
         }
-
-        return json.dumps(
-            mead_ia,
-            ensure_ascii=False,
-            indent=2
-        )
-
+        return json.dumps(autoridade, ensure_ascii=False, indent=2)
     except Exception as erro:
-
-        print("❌ Erro ao preparar MEAD para IA:")
+        print("❌ Erro ao preparar MEAD EDITORES v2.0:")
         print(erro)
-
         return ""
+
+
+def validar_mead_v2(mead):
+    """Valida a presença mínima do contrato editorial v2 sem impor regras legadas."""
+    if not isinstance(mead, dict):
+        return False, ["MEAD não é objeto JSON"]
+    obrigatorios = (
+        "identificacao", "fronteiras", "pipeline", "politica_editorial",
+        "estrutura_configuravel", "plano_editorial_schema", "validacao",
+        "prompt_mestre"
+    )
+    faltantes = [k for k in obrigatorios if k not in mead]
+    if faltantes:
+        return False, faltantes
+    ident = mead.get("identificacao", {})
+    if str(ident.get("versao", "")).startswith("2.0") is False:
+        return False, ["identificacao.versao não corresponde ao MEAD v2.0"]
+    return True, []
+
+
+MEAD_V2_OK, MEAD_V2_ERROS = validar_mead_v2(MEAD)
+print("MEAD EDITORES v2.0:", "ATIVO" if MEAD_V2_OK else "INCOMPLETO")
+if MEAD_V2_ERROS:
+    print("MEAD — pendências:", MEAD_V2_ERROS)
 
 
 # ============================================================
@@ -1676,6 +1351,14 @@ def montar_pagina_json(
             grupo_principal_projeto
         )
 
+        # A variável precisa existir neste escopo antes do posicionamento das
+        # imagens. O erro antigo causava NameError e podia fazer a montagem
+        # retornar None silenciosamente.
+        imagens_existentes = {}
+        if isinstance(dados_pagina, dict):
+            imagens_existentes = dados_pagina.get("imagens", {})
+        if not isinstance(imagens_existentes, dict):
+            imagens_existentes = {}
 
         if not tema:
 
@@ -10751,21 +10434,25 @@ def assuntos_editoriais_ativos(estrutura_editorial=None):
 
 
 def blocos_autorizados_pelos_checkboxes(estrutura_editorial=None):
-    ativos = assuntos_editoriais_ativos(estrutura_editorial)
-    blocos = {f"bloco_{i}": set() for i in range(1, 6)}
-    for assunto in ativos:
-        for bloco in MAPEAMENTO_ASSUNTO_BLOCOS.get(assunto, set()):
-            blocos.setdefault(bloco, set()).add(assunto)
-    return blocos
+    """Autoriza assuntos ativos em qualquer bloco.
+
+    O MEAD v2 remove funções narrativas impostas pelo número do bloco. Os
+    checkboxes continuam podendo restringir assuntos, mas o plano editorial
+    decide onde cada relação legítima será usada.
+    """
+    ativos = set(assuntos_editoriais_ativos(estrutura_editorial))
+    return {f"bloco_{i}": set(ativos) for i in range(1, 6)}
 
 
 def funcoes_autorizadas_pelos_checkboxes(estrutura_editorial=None):
+    """Retorna funções compatíveis sem criar roteiro fixo por número de bloco."""
     ativos = assuntos_editoriais_ativos(estrutura_editorial)
     funcoes = {f"bloco_{i}": set() for i in range(1, 6)}
-    blocos = blocos_autorizados_pelos_checkboxes(estrutura_editorial)
-    for bloco, assuntos in blocos.items():
-        for assunto in assuntos:
-            funcoes[bloco].update(MAPEAMENTO_ASSUNTO_FUNCOES.get(assunto, set()))
+    todas = set()
+    for assunto in ativos:
+        todas.update(MAPEAMENTO_ASSUNTO_FUNCOES.get(assunto, set()))
+    for bloco in funcoes:
+        funcoes[bloco] = set(todas)
     return funcoes
 
 
@@ -13447,15 +13134,10 @@ def selecionar_informacoes_relevantes(
             termo_n=normalizar_assunto_texto(termo)
             if termo_n and termo_n not in palavras_ruido_mead and termo_n not in tokens: tokens.append(termo_n)
         termos_mead_prioritarios[chave_bloco]=tokens
-    termos_blocos_mead_fallback={
-        "bloco_1":["definição","funcionamento","contexto","necessidade","importância","cenário"],
-        "bloco_2":["funcionamento","aplicações","características","uso","desempenho"],
-        "bloco_3":["critérios","cuidados","instalação","operação","manutenção","segurança","especificação","dimensionamento"],
-        "bloco_4":["empresa","conhecimento","serviço","suporte","produto","solução","experiência","atendimento"],
-        "bloco_5":["necessidade","aplicação","conhecimento","solução","seleção","fornecimento","suporte"],
-    }
-    for chave_bloco, termos in termos_blocos_mead_fallback.items():
-        termos_blocos[chave_bloco]=(termos_mead_prioritarios.get(chave_bloco,[])*3)+termos+termos_blocos.get(chave_bloco,[])
+    # O MEAD v2 não fornece funções narrativas por número de bloco.
+    # Qualquer vocabulário de seleção deve vir dos checkboxes ativos e do
+    # patrimônio, nunca de um roteiro fixo bloco_1...bloco_5.
+    termos_blocos_mead_fallback = {}
 
     # ========================================================
     # AUTORIDADE DOS CHECKBOXES SOBRE OS TERMOS DE BLOCO
@@ -16329,13 +16011,8 @@ def selecionar_informacoes_relevantes(
         # Preferir expressões técnicas/factuais nas buscas; o checkbox
         # comercial autoriza a dimensão comercial, mas não autoriza
         # propaganda, CTA ou catálogo promocional.
-        qualificadores = {
-            "bloco_1": ["manual", "documento técnico"],
-            "bloco_2": ["manual", "especificação técnica"],
-            "bloco_3": ["manual", "procedimento técnico"],
-            "bloco_4": ["especificação técnica", "suporte técnico"],
-            "bloco_5": ["especificação técnica", "seleção técnica"],
-        }.get(chave_bloco, ["informação técnica"])
+        # Não há qualificador semântico imposto pelo número do bloco.
+        qualificadores = ["documento técnico", "informação técnica"]
 
         # Mantém no máximo duas buscas por lacuna para evitar transformar
         # uma falha de cobertura em pesquisa indiscriminada.
@@ -16591,6 +16268,136 @@ def selecionar_informacoes_relevantes(
         pontuacao += len(fontes) * 3
         return pontuacao, total_palavras
 
+    # ========================================================
+    # CONTROLE DE COMPLEXIDADE DA SELEÇÃO GLOBAL — v66
+    # ========================================================
+    # O reservatório pode ser grande para garantir evidência, mas a etapa
+    # de combinações NÃO pode crescer com C(n,3) sem limite.
+    #
+    # Exemplo real observado:
+    #   38 candidatos -> milhares de combinações
+    #   37 candidatos -> milhares de combinações
+    # Isso pode consumir dezenas de minutos antes de qualquer chamada ao
+    # Ollama. O reservatório continua grande; somente o pool usado para
+    # combinações é limitado.
+    # ========================================================
+
+    MAX_CANDIDATOS_COMBINACAO = 25
+    MAX_COMBINACOES_POR_BLOCO = 2300  # C(25,3)
+    # 15 era rápido, mas podia excluir um candidato exclusivo de baixo ranking.
+    # 25 mantém o custo controlado e reduz muito esse falso bloqueio.
+
+    def _pontuacao_candidato_para_pool(cand):
+        try:
+            return (
+                float(cand.get('nota_trecho_otimo', 0) or 0) * 2.0
+                + float(cand.get('nota_portao_qualidade', 0) or 0) * 0.5
+                + float(cand.get('_pontuacao_original_selecao', 0) or 0)
+                + min(_palavras_fragmento(cand), 140) * 0.05
+            )
+        except Exception:
+            return 0.0
+
+    def _chave_diversidade_candidato(cand):
+        identidade = cand.get('identidade_fonte', {})
+        if not isinstance(identidade, dict):
+            identidade = {}
+        fonte = str(cand.get('fonte', '') or '').strip().casefold()
+        nome = str(identidade.get('nome', '') or '').strip().casefold()
+        dominio = str(identidade.get('dominio', '') or '').strip().casefold()
+        return (fonte, nome, dominio)
+
+    def _reduzir_pool_para_combinacao(candidatos, chave_bloco, limite=None, expansivo=False):
+        """
+        Reduz somente o pool de COMBINAÇÃO.
+
+        Os candidatos originais permanecem intactos no reservatório e podem
+        continuar sendo usados pelo resgate/reseleção. A redução ocorre
+        exclusivamente antes de itertools.combinations(..., 3).
+        """
+        if expansivo:
+            # Modo expansivo usado somente na contingência/resgate global.
+            # Aqui NÃO descartamos candidatos elegíveis por ranking.
+            # O objetivo é justamente recuperar candidatos exclusivos ou
+            # compartilhados que poderiam resolver a colisão entre blocos.
+            limite = int(limite or 60)
+        else:
+            limite = int(limite or MAX_CANDIDATOS_COMBINACAO)
+        limite = max(3, limite)
+
+        unicos = []
+        hashes = set()
+        for cand in candidatos or []:
+            if not isinstance(cand, dict):
+                continue
+            h = str(
+                cand.get('hash')
+                or gerar_hash_trecho(cand.get('texto', ''))
+                or ''
+            ).strip()
+            if not h or h in hashes:
+                continue
+            hashes.add(h)
+            unicos.append(cand)
+
+        ordenados = sorted(
+            unicos,
+            key=_pontuacao_candidato_para_pool,
+            reverse=True
+        )
+
+        if expansivo:
+            # CONTINGÊNCIA: preservar todos os candidatos elegíveis dentro
+            # da janela expansiva. Não aplicar a redução por diversidade,
+            # porque ela pode esconder justamente o candidato exclusivo
+            # necessário para fechar os 15 hashes globais.
+            pool = ordenados[:limite]
+        else:
+            pool = []
+            chaves_diversidade = set()
+
+            # Primeiro preserva diversidade de origem/identidade entre os melhores.
+            for cand in ordenados:
+                chave_div = _chave_diversidade_candidato(cand)
+                if chave_div in chaves_diversidade:
+                    continue
+                pool.append(cand)
+                chaves_diversidade.add(chave_div)
+                if len(pool) >= limite:
+                    break
+
+            # Depois completa o pool com os melhores restantes.
+            if len(pool) < limite:
+                hashes_pool = {
+                    str(x.get('hash') or gerar_hash_trecho(x.get('texto', '')) or '').strip()
+                    for x in pool
+                }
+                for cand in ordenados:
+                    h = str(
+                        cand.get('hash')
+                        or gerar_hash_trecho(cand.get('texto', ''))
+                        or ''
+                    ).strip()
+                    if h in hashes_pool:
+                        continue
+                    pool.append(cand)
+                    hashes_pool.add(h)
+                    if len(pool) >= limite:
+                        break
+
+        n = len(pool)
+        combinacoes_teoricas = n * (n - 1) * (n - 2) // 6 if n >= 3 else 0
+
+        print(
+            'POOL DE COMBINAÇÃO', chave_bloco,
+            '| elegíveis:', len(unicos),
+            '| pool limitado:', len(pool),
+            '| combinações possíveis:', combinacoes_teoricas,
+            '| limite informativo:', MAX_COMBINACOES_POR_BLOCO
+        )
+
+        return pool
+
     def _selecionar_conjunto_bloco_com_capacidade(chave_bloco):
         disponiveis = []
         diagnostico = {}
@@ -16604,10 +16411,15 @@ def selecionar_informacoes_relevantes(
         # não sacrificar capacidade em favor do primeiro ranking.
         
 
+        disponiveis_pool = _reduzir_pool_para_combinacao(
+            disponiveis,
+            chave_bloco
+        )
+
         melhor = None
         melhor_chave = None
         import itertools
-        for combinacao in itertools.combinations(disponiveis, 3):
+        for combinacao in itertools.combinations(disponiveis_pool, 3):
             hashes = [x.get('hash') for x in combinacao]
             if len(set(hashes)) < 3:
                 continue
@@ -16663,8 +16475,13 @@ def selecionar_informacoes_relevantes(
 
         print('DIAGNOSTICO DE FILTROS', chave_bloco, ':', diagnostico)
         
+        disponiveis_pool = _reduzir_pool_para_combinacao(
+            disponiveis,
+            chave_bloco
+        )
+
         combinacoes = []
-        for combinacao in itertools.combinations(disponiveis, 3):
+        for combinacao in itertools.combinations(disponiveis_pool, 3):
             hashes = [x.get('hash') for x in combinacao]
             if len(set(hashes)) < 3:
                 continue
@@ -16716,8 +16533,14 @@ def selecionar_informacoes_relevantes(
     # Busca global com retrocesso. Em vez de escolher um conjunto por bloco
     # e torcer para não colidir, escolhemos os 5 conjuntos simultaneamente.
     solucao_global = {}
+    nos_alocacao_global = 0
+    MAX_NOS_ALOCACAO_GLOBAL = 20000
 
     def _buscar_alocacao_global(indice, usados):
+        nonlocal nos_alocacao_global
+        nos_alocacao_global += 1
+        if nos_alocacao_global > MAX_NOS_ALOCACAO_GLOBAL:
+            return False
         if indice >= len(ordem_blocos):
             return True
 
@@ -16768,8 +16591,15 @@ def selecionar_informacoes_relevantes(
                 if cand is not None:
                     disponiveis_cont.append(cand)
 
+            disponiveis_cont_pool = _reduzir_pool_para_combinacao(
+                disponiveis_cont,
+                chave_bloco,
+                limite=60,
+                expansivo=True
+            )
+
             combos_cont = []
-            for combinacao in itertools.combinations(disponiveis_cont, 3):
+            for combinacao in itertools.combinations(disponiveis_cont_pool, 3):
                 hashes = [x.get('hash') for x in combinacao]
                 if len(set(hashes)) < 3:
                     continue
@@ -16805,34 +16635,136 @@ def selecionar_informacoes_relevantes(
 
         solucao_contingencia = {}
         melhor_solucao_contingencia = None
+        nos_contingencia = 0
+        # A busca antiga tinha teto de 20.000 nós e ordem fixa. Isso podia
+        # produzir falso negativo mesmo quando existia uma combinação global.
+        # A nova busca usa ordem dinâmica e poda por capacidade de hashes.
+        MAX_NOS_CONTINGENCIA = 250000
 
-        def _buscar_contingencia(indice, usados, acumulado):
-            nonlocal melhor_solucao_contingencia
-            if indice >= len(ordem_blocos):
-                # Quanto maior a narrativa e a qualidade, melhor;
-                # diversidade de fontes entra como desempate indireto.
+        def _hashes_registro(registro):
+            return {
+                str(x.get('hash') or gerar_hash_trecho(x.get('texto', '')) or '').strip()
+                for x in registro[3]
+            }
+
+        def _buscar_contingencia(usados, acumulado, blocos_restantes):
+            nonlocal melhor_solucao_contingencia, nos_contingencia
+            nos_contingencia += 1
+            if nos_contingencia > MAX_NOS_CONTINGENCIA:
+                return False
+
+            if not blocos_restantes:
                 nota_total = sum(x[0] + (x[1] * 0.01) for x in acumulado)
-                if melhor_solucao_contingencia is None or nota_total > melhor_solucao_contingencia[0]:
-                    melhor_solucao_contingencia = (nota_total, dict(solucao_contingencia))
+                if (
+                    melhor_solucao_contingencia is None
+                    or nota_total > melhor_solucao_contingencia[0]
+                ):
+                    # Snapshot completo da solução. O dicionário da busca é
+                    # mutável e continua recebendo pop() durante o backtracking.
+                    snapshot_solucao = {
+                        chave: list(grupo)
+                        for chave, grupo in solucao_contingencia.items()
+                    }
+                    melhor_solucao_contingencia = (
+                        nota_total,
+                        snapshot_solucao
+                    )
                 return True
 
-            numero_bloco = ordem_blocos[indice]
-            chave_bloco = f'bloco_{numero_bloco}'
-            encontrou = False
+            # --------------------------------------------------------
+            # PODA 1: cada bloco restante precisa ainda ter uma combinação
+            # de 3 hashes que não colida com os já utilizados.
+            # --------------------------------------------------------
+            disponiveis_por_bloco = {}
+            uniao_disponiveis = set()
 
-            for registro in combinacoes_contingencia.get(chave_bloco, []):
+            for chave_bloco in blocos_restantes:
+                registros_livres = []
+                hashes_livres_bloco = set()
+
+                for registro in combinacoes_contingencia.get(chave_bloco, []):
+                    hashes = _hashes_registro(registro)
+                    if len(hashes) != 3 or hashes & usados:
+                        continue
+                    registros_livres.append(registro)
+                    hashes_livres_bloco.update(hashes)
+
+                if not registros_livres:
+                    return False
+
+                disponiveis_por_bloco[chave_bloco] = registros_livres
+                uniao_disponiveis.update(hashes_livres_bloco)
+
+            # Cada bloco restante precisa de 3 hashes novos.
+            if len(uniao_disponiveis) < (3 * len(blocos_restantes)):
+                return False
+
+            # --------------------------------------------------------
+            # PODA 2 / HEURÍSTICA: escolher primeiro o bloco com menor
+            # número de combinações livres. Isso reduz brutalmente a árvore.
+            # --------------------------------------------------------
+            chave_escolhida = min(
+                blocos_restantes,
+                key=lambda chave: len(disponiveis_por_bloco[chave])
+            )
+
+            encontrou = False
+            candidatos_registros = disponiveis_por_bloco[chave_escolhida]
+
+            # Prioriza conjuntos que preservam mais alternativas para os
+            # demais blocos. O score original continua sendo o primeiro
+            # critério; a quantidade de colisões é o desempate.
+            demais = [
+                b for b in blocos_restantes
+                if b != chave_escolhida
+            ]
+
+            def _custo_colisao(registro):
+                hashes = _hashes_registro(registro)
+                colisoes = 0
+                for b in demais:
+                    for outro in combinacoes_contingencia.get(b, []):
+                        if not (_hashes_registro(outro) & hashes):
+                            break
+                    else:
+                        colisoes += 1
+                return colisoes
+
+            candidatos_registros = sorted(
+                candidatos_registros,
+                key=lambda r: (
+                    _custo_colisao(r),
+                    -r[0],
+                    -r[1],
+                    -r[2]
+                )
+            )
+
+            for registro in candidatos_registros:
                 _narr, _nota, _total, combinacao = registro
-                hashes = {x.get('hash') for x in combinacao}
+                hashes = _hashes_registro(registro)
                 if hashes & usados:
                     continue
-                solucao_contingencia[chave_bloco] = combinacao
-                if _buscar_contingencia(indice + 1, usados | hashes, acumulado + [registro]):
+
+                solucao_contingencia[chave_escolhida] = combinacao
+                if _buscar_contingencia(
+                    usados | hashes,
+                    acumulado + [registro],
+                    demais
+                ):
                     encontrou = True
-                solucao_contingencia.pop(chave_bloco, None)
+                    # Não paramos imediatamente: se já existe solução,
+                    # continuamos procurando somente até encontrar uma
+                    # solução melhor dentro do orçamento de nós.
+                solucao_contingencia.pop(chave_escolhida, None)
+
+                if nos_contingencia > MAX_NOS_CONTINGENCIA:
+                    break
 
             return encontrou
 
-        _buscar_contingencia(0, set(), [])
+        _buscar_contingencia(set(), [], list(ordem_blocos))
+        print('NÓS DA BUSCA GLOBAL DE CONTINGÊNCIA:', nos_contingencia)
 
         if melhor_solucao_contingencia is None:
             # ============================================================
@@ -16864,8 +16796,15 @@ def selecionar_informacoes_relevantes(
                         if cand is not None:
                             disponiveis_cont.append(cand)
 
+                    disponiveis_cont_pool = _reduzir_pool_para_combinacao(
+                        disponiveis_cont,
+                        chave_bloco,
+                        limite=60,
+                        expansivo=True
+                    )
+
                     combos_cont = []
-                    for combinacao in itertools.combinations(disponiveis_cont, 3):
+                    for combinacao in itertools.combinations(disponiveis_cont_pool, 3):
                         hashes = [x.get('hash') for x in combinacao]
                         if len(set(hashes)) < 3:
                             continue
@@ -17088,7 +17027,10 @@ def selecionar_informacoes_relevantes(
                 solucao_contingencia = {}
                 melhor_solucao_contingencia = None
 
-                _buscar_contingencia(0, set(), [])
+                # v72: a busca recebe (usados, acumulado, blocos_restantes).
+                # Passar 0 aqui fazia a busca interpretar os argumentos
+                # incorretamente e atingir a base com solução vazia.
+                _buscar_contingencia(set(), [], list(ordem_blocos))
                 if melhor_solucao_contingencia is not None:
                     print('🟢 RESGATE GLOBAL CONSEGUIU FORMAR 15 FRAGMENTOS ÚNICOS')
                     break
@@ -17112,7 +17054,44 @@ def selecionar_informacoes_relevantes(
                 min([x.get('nota_combinacao_narrativa', 0) for x in grupo], default=0)
             )
 
-    conjuntos_por_bloco = solucao_global
+    # ------------------------------------------------------------
+    # v71 — CONGELAR E VALIDAR A SOLUÇÃO GLOBAL ANTES DA CONSUMIÇÃO
+    # ------------------------------------------------------------
+    conjuntos_por_bloco = {}
+
+    for numero_bloco in range(1, 6):
+        chave_bloco = f'bloco_{numero_bloco}'
+        grupo = solucao_global.get(chave_bloco)
+
+        if not isinstance(grupo, list) or len(grupo) != 3:
+            print(
+                '❌ INTEGRIDADE DA SOLUÇÃO GLOBAL:',
+                chave_bloco,
+                '| esperado: 3 | encontrado:',
+                len(grupo) if isinstance(grupo, list) else 'ausente'
+            )
+            print('❌ OLLAMA BLOQUEADO: a alocação global não possui os 5 blocos completos.')
+            return resultado_vazio
+
+        conjuntos_por_bloco[chave_bloco] = list(grupo)
+
+    hashes_solucao = []
+    for chave_bloco, grupo in conjuntos_por_bloco.items():
+        for escolhido in grupo:
+            h = str(
+                escolhido.get('hash')
+                or gerar_hash_trecho(escolhido.get('texto', ''))
+                or ''
+            ).strip()
+            if not h:
+                print('❌ INTEGRIDADE DA SOLUÇÃO GLOBAL:', chave_bloco, '| fragmento sem hash.')
+                return resultado_vazio
+            hashes_solucao.append(h)
+
+    if len(hashes_solucao) != 15 or len(set(hashes_solucao)) != 15:
+        print('❌ INTEGRIDADE DA SOLUÇÃO GLOBAL: hashes dos 15 fragmentos não são únicos.')
+        print('HASHES:', len(hashes_solucao), '| ÚNICOS:', len(set(hashes_solucao)))
+        return resultado_vazio
 
     for numero_bloco in range(1, 6):
         chave_bloco = f'bloco_{numero_bloco}'
@@ -18316,12 +18295,133 @@ def normalizar_assunto_texto(
 # FILTRO DE CONTAMINAÇÃO EDITORIAL
 # ========================================================
 
+# ============================================================
+# AUDITORIA DETERMINÍSTICA DE INTEGRIDADE — v68
+# ============================================================
+# Esta camada existe ANTES de qualquer pontuação. Ela não tenta
+# "salvar" um fragmento contaminado e não depende de ENTIDADES_PROIBIDAS.
+# Se o texto contém resíduos estruturais, linguagem institucional,
+# corrupção evidente ou uma entidade de terceiro em construção factual,
+# o fragmento é rejeitado.
+# ============================================================
+
+def _auditoria_integridade_deterministica(texto, identidade_fonte=None):
+    t = str(texto or '').strip()
+    if not t:
+        return False, 'VAZIO'
+
+    n = normalizar_assunto_texto(t)
+
+    # 1. Corrupção textual evidente / mistura de idioma.
+    padroes_corrompidos = (
+        r'\bcon\s+(?:a|o|as|os|um|uma|uns|umas|todo|toda|todos|todas)\b',
+        r'\breales\b',
+        r'\b(?:ofrecemos|ofrece|nuestro|nuestra|nuestros|nuestras)\b',
+        # Palavra partida: "possí vel", "eficiê ncia" etc.
+        r'\b[a-z]{4,}[áàâãéêíóôõúç]\s+[a-z]{2,6}\b',
+        r'[\uf000-\uf8ff]',
+    )
+    for pat in padroes_corrompidos:
+        if re.search(pat, t, re.I):
+            return False, 'TEXTO_CORROMPIDO'
+
+    # 2. Navegação, site, CTA e metatexto editorial.
+    lixo_interface = (
+        r'\bem\s+nosso\s+site\b', r'\bem\s+nosso\s+website\b',
+        r'\bno\s+nosso\s+site\b', r'\bno\s+site\b',
+        r'\bneste\s+post\b', r'\bneste\s+artigo\b',
+        r'\bvamos\s+abordar\b', r'\babordaremos\b',
+        r'\bsaiba\s+mais\b', r'\bclique\s+aqui\b',
+        r'\bconfira\b', r'\bentre\s+em\s+contato\b',
+        r'\bfale\s+conosco\b', r'\bsolicite\s+(?:um\s+)?orcamento\b',
+        r'\bnossa\s+empresa\b', r'\bnossos\s+produtos\b',
+        r'\bnossos\s+servicos\b', r'\bpodemos\s+oferecer\b',
+        r'\boferecemos\b', r'\bfornecemos\b', r'\bvoce\s+pode\b',
+    )
+    for pat in lixo_interface:
+        if re.search(pat, n, re.I):
+            return False, 'NAVEGACAO_SITE_INSTITUCIONAL'
+
+    # 3. Perguntas/títulos: um fragmento factual entregue ao Ollama deve
+    # ser prosa declarativa, não uma pergunta herdada da página.
+    if '?' in t:
+        return False, 'PERGUNTA_HERDADA'
+    if re.search(r'^\s*(?:resumo\s+tecnico|introducao|conclusao|principais\s+componentes|componentes\s+principais|caracteristicas\s+tecnicas|especificacoes)\s*$', n, re.I):
+        return False, 'TITULO_ISOLADO'
+    if re.search(r'\b(?:resumo\s+tecnico|introducao|conclusao|principais\s+componentes|componentes\s+principais|caracteristicas\s+tecnicas)\s*[:\-]', n, re.I):
+        return False, 'ROTULO_ESTRUTURAL'
+
+    # Lista numerada mesmo sem "." ou ")": "2 Bombas...".
+    if re.search(r'(?:^|[.!?]\s+)\d{1,2}\s+[A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][^.!?]{2,100}(?:\.|$)', t):
+        return False, 'ITEM_DE_LISTA_NUMERADA'
+
+    # Cabeçalho embutido após ponto/quebra: "Resumo técnico ...".
+    if re.search(r'(?:^|[.!?]\s+)(?:resumo\s+tecnico|principais\s+componentes|componentes\s+principais|introducao|conclusao)\b', n, re.I):
+        return False, 'CABECALHO_EMBUTIDO'
+
+    # 4. Promoção/opinião que contamina a evidência.
+    promocoes = (
+        r'\bo\s+melhor\s+equipamento\b', r'\ba\s+melhor\s+opcao\b',
+        r'\bmelhor\s+equipamento\b', r'\b(?:e|é|sao|são)\s+ideal(?:es)?\b',
+        r'\bopcao\s+ideal\b', r'\bopcao\s+perfeita\b',
+        r'\b(?:e|é|sao|são)\s+crucial(?:es)?\b',
+        r'\b(?:e|é|sao|são)\s+indispensavel(?:is)?\b',
+        r'\b(?:equipamento|solucao|produto|processo)\s+essencial(?:is)?\b',
+        r'\b(?:papel|funcao|importancia)\s+vital\b',
+        r'\bdesempenho\s+superior\b', r'\bqualidade\s+superior\b',
+        r'\balta\s+qualidade\b', r'\bexcelente(?:s)?\b',
+        r'\bsolucao\s+(?:definitiva|perfeita|ideal|completa)\b',
+        r'\bconfiavel\b', r'\bconfiaveis\b',
+        r'\bmelhor\s+preco\b', r'\bpreco\s+competitivo\b',
+        r'\bgarante\b', r'\bgarantindo\b', r'\bsempre\b', r'\bnunca\b',
+    )
+    for pat in promocoes:
+        if re.search(pat, n, re.I):
+            return False, 'LINGUAGEM_PROMOCIONAL'
+
+    # 5. Histórico institucional de terceiro / fabricante. Não depende
+    # de uma lista externa de entidades: o próprio padrão sujeito + verbo
+    # revela a entidade em contexto empresarial.
+    verbos_empresa = r'(?:começou|comecou|fundou|fabricou|fabrica|produz|produziu|desenvolveu|desenvolve|atua|atuou|oferece|ofereceu|fornece|forneceu|iniciou|iniciava|passou\s+a\s+fabricar)'
+    padroes_terceiro = (
+        rf'\b([A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.\-]+(?:\s+[A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.\-]+){{0,3}})\s+{verbos_empresa}\b',
+        rf'\b(?:a|o)\s+([A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.\-]+(?:\s+[A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.\-]+){{0,3}})\s+{verbos_empresa}\b',
+    )
+    nome_fonte = ''
+    if isinstance(identidade_fonte, dict):
+        nome_fonte = normalizar_assunto_texto(identidade_fonte.get('nome', '')).strip()
+    tecnicas = {'bomba', 'bombas', 'centrifuga', 'centrifugas', 'industria', 'industrias', 'empresa', 'fabricante', 'sistema', 'sistemas'}
+    for pat in padroes_terceiro:
+        m = re.search(pat, t)
+        if not m:
+            continue
+        entidade = normalizar_assunto_texto(m.group(1)).strip()
+        palavras_ent = set(entidade.split())
+        if entidade == nome_fonte:
+            return False, 'EMPRESA_DA_FONTE'
+        if entidade and not palavras_ent.issubset(tecnicas):
+            return False, 'ENTIDADE_TERCEIRO_DETECTADA'
+
+    # 6. Nome empresarial conhecido da fonte continua sendo proibido.
+    if nome_fonte and len(nome_fonte) >= 4 and nome_fonte not in {'fonte','site','pagina','documento','arquivo','pdf','html'}:
+        if re.search(r'(?<![a-z0-9])' + re.escape(nome_fonte) + r'(?![a-z0-9])', n, re.I):
+            return False, 'EMPRESA_DA_FONTE'
+
+    return True, 'OK'
+
+
 def diagnosticar_contaminacao_editorial(texto, identidade_fonte=None):
     """Retorna (ok, motivo) para bloquear lixo antes da pontuação."""
     t = str(texto or "").strip()
     n = normalizar_assunto_texto(t)
     if not t:
         return False, "VAZIO"
+
+    ok_integridade, motivo_integridade = _auditoria_integridade_deterministica(
+        t, identidade_fonte
+    )
+    if not ok_integridade:
+        return False, motivo_integridade
 
     # Identidade conhecida da fonte: nunca permitir o nome da empresa/marca.
     if isinstance(identidade_fonte, dict):
@@ -19681,6 +19781,12 @@ def auditar_fragmento_final_python(texto, identidade_fonte=None):
     if not texto_original:
         return False, 'VAZIO'
 
+    ok_integridade, motivo_integridade = _auditoria_integridade_deterministica(
+        texto_original, identidade_fonte
+    )
+    if not ok_integridade:
+        return False, motivo_integridade
+
     ok_lixo, motivo_lixo = diagnosticar_contaminacao_editorial(
         texto_original, identidade_fonte
     )
@@ -19895,6 +20001,13 @@ def auditar_saida_ollama_editorial(texto, identidade_fonte=None, entidades_proib
     if not t:
         return False, "VAZIO"
 
+    # HARD VETO DETERMINÍSTICO: não depende de ENTIDADES_PROIBIDAS.
+    ok_integridade, motivo_integridade = _auditoria_integridade_deterministica(
+        t, identidade_fonte
+    )
+    if not ok_integridade:
+        return False, motivo_integridade
+
     # Reaproveita os bloqueios comerciais/identidade já consolidados.
     if not fragmento_eh_comercialmente_limpo(t, identidade_fonte):
         return False, "CONTAMINACAO_COMERCIAL_ENTIDADE"
@@ -20045,13 +20158,12 @@ def auditar_saida_ollama_editorial(texto, identidade_fonte=None, entidades_proib
     # Comercialização, propaganda e texto institucional residual.
     padroes_comerciais_saida = (
         r"\bem promocao\b", r"\bpromocao\b",
-        r"\bconfira nossa selecao\b", r"\bconfira nossa selecao de\b",
-        r"\bmelhores? bombas?\b", r"\botimas? opcoes?\b",
-        r"\bmelhor escolha\b", r"\bpreco competitivo\b",
-        r"\bpreco justo\b", r"\bcomprar\b", r"\bvenda\b",
-        r"\ba empresa oferece\b", r"\bservicos personalizados\b",
-        r"\bqualidade dos produtos\b", r"\bganhou reconhecimento\b",
-        r"\bexcelentes qualidades?\b",
+        r"\bmelhor escolha\b", r"\bdesempenho superior\b",
+        r"\bsolucao definitiva\b", r"\bqualidade superior\b",
+        r"\bpreco competitivo\b", r"\bpreco justo\b",
+        r"\bsempre\b", r"\bnunca\b",
+        r"\bgarante\b", r"\bgarantindo\b",
+        r"\bexcelente(?:s)?\b", r"\bindispensavel\b",
     )
     for padrao in padroes_comerciais_saida:
         if re.search(padrao, n, re.I):
@@ -20113,13 +20225,34 @@ def validar_progressao_editorial_bloco(paragrafos):
     return True, "OK"
 
 
-def validar_bloco_editorial_unico(paragrafos):
+def validar_keyword_exata_por_paragrafo(paragrafos, keyword):
+    """MEAD v2: a keyword principal aparece exatamente uma vez por parágrafo."""
+    keyword = str(keyword or "").strip()
+    if not keyword:
+        return True, "KEYWORD_AUSENTE_NAO_VALIDADA"
+    # Literal e indivisível: a busca ignora apenas maiúsculas/minúsculas.
+    padrao = re.compile(r"(?<!\w)" + re.escape(keyword) + r"(?!\w)", re.IGNORECASE)
+    for idx, texto in enumerate(paragrafos, start=1):
+        ocorrencias = len(padrao.findall(str(texto or "")))
+        if ocorrencias != 1:
+            return False, f"KEYWORD_P{idx}_OCORRENCIAS={ocorrencias}"
+    return True, "KEYWORD_1X_POR_PARAGRAFO"
+
+
+def validar_bloco_editorial_unico(paragrafos, keyword=""):
     """Autoridade para estrutura e integridade editorial do bloco, sem limite de palavras."""
     if not isinstance(paragrafos, list) or len(paragrafos) != 3:
         return False, "BLOCO_DEVE_TER_3_PARAGRAFOS", None
 
     contagens = [len(str(p or "").split()) for p in paragrafos]
     total = sum(contagens)
+
+    ok_keyword, motivo_keyword = validar_keyword_exata_por_paragrafo(
+        paragrafos,
+        keyword
+    )
+    if not ok_keyword:
+        return False, motivo_keyword, None
 
     for idx, paragrafo in enumerate(paragrafos, start=1):
         ok, motivo = auditar_saida_ollama_editorial(str(paragrafo or ""), None)
@@ -20211,7 +20344,7 @@ def validar_pagina_editorial_final(pagina, tema=""):
         if not isinstance(bloco, dict):
             return False, f"{chave}_INVALIDO"
         paras = bloco.get("paragrafos_ollama", [])
-        ok, motivo, _ = validar_bloco_editorial_unico(paras)
+        ok, motivo, _ = validar_bloco_editorial_unico(paras, tema)
         if not ok:
             return False, f"{chave}:{motivo}"
         blocos[chave] = bloco
@@ -20297,185 +20430,12 @@ def gerar_segmentos_pagina(
     tema,
     tipo=None
 ):
+    """Retorna segmentos somente quando houver patrimônio já fornecido.
 
-    import random
-
-    tema = str(
-        tema or ""
-    ).strip()
-
-    if not tema:
-        return []
-
-    # ========================================================
-    # OBTER SEGMENTOS EXCLUSIVAMENTE DA BIBLIOTECA FIXA
-    # ========================================================
-
-    segmentos_validos = gerar_segmentos_validos(
-        tema,
-        tipo
-    )
-
-    if not isinstance(
-        segmentos_validos,
-        list
-    ):
-        segmentos_validos = []
-
-    # ========================================================
-    # LIMPAR DUPLICIDADES
-    # ========================================================
-
-    segmentos_unicos = []
-
-    vistos = set()
-
-    for segmento in segmentos_validos:
-
-        segmento = str(
-            segmento or ""
-        ).strip()
-
-        if not segmento:
-            continue
-
-        chave = segmento.casefold()
-
-        if chave in vistos:
-            continue
-
-        vistos.add(chave)
-
-        segmentos_unicos.append(
-            segmento
-        )
-
-    # ========================================================
-    # SEGURANÇA
-    # ========================================================
-
-    if len(segmentos_unicos) < 12:
-
-        print()
-        print(
-            "❌ ERRO: biblioteca fixa possui menos "
-            "de 12 segmentos válidos."
-        )
-
-        print(
-            f"TEMA: {tema}"
-        )
-
-        print(
-            f"SEGMENTOS DISPONÍVEIS: "
-            f"{len(segmentos_unicos)}"
-        )
-
-        return []
-
-    # ========================================================
-    # GARANTIR QUE TODOS REFERENCIAM O TEMA
-    # ========================================================
-
-    tema_normalizado = tema.casefold()
-
-    segmentos_com_tema = []
-
-    for segmento in segmentos_unicos:
-
-        if tema_normalizado in segmento.casefold():
-
-            segmentos_com_tema.append(
-                segmento
-            )
-
-    # ========================================================
-    # SEGURANÇA FINAL
-    # ========================================================
-
-    if len(segmentos_com_tema) < 12:
-
-        print()
-        print(
-            "❌ ERRO: biblioteca fixa não possui "
-            "12 segmentos com referência ao tema."
-        )
-
-        print(
-            f"TEMA: {tema}"
-        )
-
-        print(
-            f"SEGMENTOS VÁLIDOS: "
-            f"{len(segmentos_com_tema)}"
-        )
-
-        return []
-
-    # ========================================================
-    # SORTEAR EXATAMENTE 12
-    # ========================================================
-
-    segmentos_finais = random.sample(
-        segmentos_com_tema,
-        12
-    )
-
-    # ========================================================
-    # AUDITORIA
-    # ========================================================
-
-    print()
-    print(
-        "=========================================="
-    )
-
-    print(
-        "SEGMENTOS DA PÁGINA"
-    )
-
-    print(
-        "=========================================="
-    )
-
-    print(
-        f"TEMA: {tema}"
-    )
-
-    print(
-        f"TIPO: {tipo or 'não informado'}"
-    )
-
-    print(
-        f"BANCO FIXO DISPONÍVEL: "
-        f"{len(segmentos_unicos)}"
-    )
-
-    print(
-        f"SEGMENTOS COM TEMA: "
-        f"{len(segmentos_com_tema)}"
-    )
-
-    print(
-        "SEGMENTOS SORTEADOS: 12"
-    )
-
-    for numero, segmento in enumerate(
-        segmentos_finais,
-        start=1
-    ):
-
-        print(
-            f"SEGMENTO_{numero}: "
-            f"{segmento}"
-        )
-
-    print(
-        "=========================================="
-    )
-
-    return segmentos_finais
-
+    A versão anterior criava 12 itens a partir de uma taxonomia industrial
+    universal. Isso foi removido por incompatibilidade com o MEAD v2.
+    """
+    return []
 
 # ============================================================
 # FORMAS GRAMATICAIS DO TEMA
@@ -21218,8 +21178,8 @@ def gerar_conteudo_completo(
     total_blocos = 5
     paragrafos_por_bloco = 3
     total_paragrafos = 15
-    total_segmentos = 12
-    total_tags = 30
+    total_segmentos = None
+    total_tags = None
     
     print()
     print("======================================")
@@ -21241,15 +21201,8 @@ def gerar_conteudo_completo(
         total_paragrafos
     )
     
-    print(
-        "SEGMENTOS:",
-        total_segmentos
-    )
-    
-    print(
-        "TAGS:",
-        total_tags
-    )
+    print("SEGMENTOS: quantidade definida pelo patrimônio/MEAD")
+    print("TAGS: quantidade definida pelo patrimônio/MEAD")
     
     # ========================================================
     # 04. SELECIONAR INFORMAÇÕES RELEVANTES
@@ -22194,10 +22147,18 @@ def gerar_conteudo_completo(
     # O Ollama NÃO gera nenhum desses elementos.
     # ============================================================
     
+    plano_editorial = construir_plano_editorial(
+        tema,
+        informacoes_blocos,
+        setor=str(grupo_principal_projeto or tipo or ""),
+        publico=""
+    )
+
     titulos_python = gerar_titulos(
         tema,
         informacoes_blocos,
-        mapa_mead
+        mapa_mead,
+        plano_editorial=plano_editorial
     )
     
     h1 = titulos_python.get(
@@ -22775,14 +22736,11 @@ def gerar_conteudo_completo(
 
         def _pesquisar_novas_evidencias_para_bloco(chave_bloco):
             """Busca nova matéria-prima .br quando a reserva/candidatos locais acabaram."""
-            termos_blocos = {
-                "bloco_1": ["definição", "funcionamento", "contexto"],
-                "bloco_2": ["características", "funcionamento", "aplicações"],
-                "bloco_3": ["critérios técnicos", "instalação", "manutenção", "segurança"],
-                "bloco_4": ["conhecimento técnico", "suporte", "atendimento"],
-                "bloco_5": ["seleção", "aplicação", "dimensionamento", "solução"],
-            }
-            termos = termos_blocos.get(chave_bloco, ["informação técnica"])
+            ativos = assuntos_editoriais_ativos(estrutura_editorial)
+            termos = []
+            for assunto in ativos:
+                termos.extend(TERMOS_PESQUISA_CHECKBOX.get(assunto, []))
+            termos = list(dict.fromkeys(termos)) or ["informação técnica"]
             urls = []
             vistas = set()
             for termo in termos:
@@ -23517,7 +23475,8 @@ Preserve proporcionalmente o conteúdo deles, sem meta ou limite de palavras.
             # VALIDAÇÃO ÚNICA DE BLOCO — SEM LIMITE DE PALAVRAS
             # ----------------------------------------------------
             ok_bloco, motivo_bloco, indice_ajuste = validar_bloco_editorial_unico(
-                paragrafos_extraidos
+                paragrafos_extraidos,
+                tema
             )
 
             quantidades_palavras = [len(str(p or "").split()) for p in paragrafos_extraidos]
@@ -24461,24 +24420,157 @@ Preserve proporcionalmente o conteúdo deles, sem meta ou limite de palavras.
         # ========================================================
         
         # ========================================================
-        # MATERIAL AUTORIZADO AO OLLAMA — v51
+        # MATERIAL AUTORIZADO AO OLLAMA — v9.19 FRASES COMPLETAS
         # ========================================================
-        # As três evidências 100/100 são enviadas integralmente.
-        # Nenhum corte, redução ou faixa de palavras é aplicada.
+        # O Ollama NÃO recebe mais os fragmentos brutos.
+        # Cada fragmento é desmontado em frases completas.
+        #
+        # 1. frases limpas passam pelos mesmos filtros editoriais;
+        # 2. as melhores frases formam o material principal;
+        # 3. frases boas não utilizadas ficam em reserva;
+        # 4. frases rejeitadas desaparecem antes do prompt.
+        #
+        # Não existe faixa fixa de 45--80 palavras.
         # ========================================================
-        fragmentos_ollama = list(fragmentos_bloco)
 
+        def _extrair_frases_completas_para_ollama(fragmento, chave_bloco):
+            texto = str(fragmento.get("texto", "") or "").strip()
+            identidade = fragmento.get("identidade_fonte", {}) or {}
+            frases = [
+                x.strip()
+                for x in re.split(r"(?<=[.!?])\s+", texto)
+                if x.strip()
+            ]
+
+            aprovadas = []
+            rejeitadas = []
+
+            termos_bloco = set(termos_blocos_normalizados.get(chave_bloco, []) or [])
+            sinais_tecnicos = {
+                "vazao", "pressao", "temperatura", "viscosidade",
+                "corrosao", "corrosivo", "energia", "fluido",
+                "sucção", "descarga", "manutencao", "manutenção",
+                "instalacao", "instalação", "seguranca", "segurança",
+                "altura", "perda", "tubulacao", "tubulação", "valvula",
+                "válvula", "potencia", "potência", "eficiencia",
+                "eficiência", "operacao", "operação", "funcionamento",
+                "aplicacao", "aplicação", "sistema", "estrutura",
+                "processo", "material", "revestimento", "protecao",
+                "proteção"
+            }
+
+            for frase in frases:
+                motivo = ""
+                n = normalizar_assunto_texto(frase)
+
+                # Frase realmente completa.
+                if not re.search(r"[.!?]$", frase):
+                    motivo = "SEM_PONTUACAO_FINAL"
+                elif len(re.findall(r"\b[\wÀ-ÿ][\wÀ-ÿ'’-]*\b", frase)) < 5:
+                    motivo = "FRASE_CURTA_SEM_CONTEUDO"
+                elif re.search(r"^(e|ou|que|de|da|do|das|dos|para|por|com|como|quando|onde|sendo)\b", n, re.I):
+                    motivo = "INICIO_TRUNCADO"
+                elif re.search(r"\b(e|ou|que|de|da|do|das|dos|para|por|com|como|quando|onde|sendo|incluindo|conforme)[.!?]$", n, re.I):
+                    motivo = "FINAL_ABERTO"
+                else:
+                    ok_ed, motivo_ed = diagnosticar_contaminacao_editorial(frase, identidade)
+                    ok_com = fragmento_eh_comercialmente_limpo(frase, identidade)
+                    if not ok_ed:
+                        motivo = f"CONTAMINACAO:{motivo_ed}"
+                    elif not ok_com:
+                        motivo = "CONTAMINACAO_COMERCIAL"
+
+                if motivo:
+                    rejeitadas.append({"texto": frase, "motivo": motivo})
+                    continue
+
+                termos_conteudo = obter_palavras_conteudo(frase)
+                encontrados_bloco = sum(1 for termo in termos_bloco if termo and termo in n)
+                encontrados_tecnicos = sum(1 for termo in sinais_tecnicos if termo in n)
+                palavras = len(frase.split())
+
+                # Nota de ordenação, sem impor faixa fixa de palavras.
+                nota = 0
+                nota += min(40, len(termos_conteudo) * 2)
+                nota += min(20, encontrados_bloco * 5)
+                nota += min(20, encontrados_tecnicos * 4)
+                if palavras >= 8:
+                    nota += 5
+                if palavras >= 14:
+                    nota += 5
+
+                aprovadas.append({
+                    "texto": frase,
+                    "nota": min(100, nota),
+                    "fragmento_origem": fragmento.get("id", ""),
+                    "hash_origem": fragmento.get("hash", ""),
+                    "fonte": fragmento.get("fonte", ""),
+                    "url": fragmento.get("url", ""),
+                    "bloco_mead": chave_bloco
+                })
+
+            aprovadas.sort(key=lambda x: (-x["nota"], -len(x["texto"])))
+            return aprovadas, rejeitadas
+
+        frases_aprovadas_por_bloco = {}
+        frases_sobressalentes_por_bloco = {}
+        frases_rejeitadas_por_bloco = {}
+
+        todas_aprovadas = []
+        for fragmento in fragmentos_bloco:
+            aprovadas, rejeitadas = _extrair_frases_completas_para_ollama(
+                fragmento, chave_bloco
+            )
+            todas_aprovadas.extend(aprovadas)
+            frases_rejeitadas_por_bloco.setdefault(chave_bloco, []).extend(rejeitadas)
+
+        # Remove frases idênticas antes de formar a reserva.
+        unicas = []
+        vistos_frases = set()
+        for item in sorted(todas_aprovadas, key=lambda x: (-x["nota"], -len(x["texto"]))):
+            chave_frase = normalizar_assunto_texto(item["texto"]).strip()
+            if not chave_frase or chave_frase in vistos_frases:
+                continue
+            vistos_frases.add(chave_frase)
+            unicas.append(item)
+
+        # As 3 melhores frases são o material principal deste bloco.
+        # Todas as outras frases aprovadas continuam guardadas como reserva.
+        frases_principais = unicas[:3]
+        frases_sobressalentes = unicas[3:]
+
+        frases_aprovadas_por_bloco[chave_bloco] = frases_principais
+        frases_sobressalentes_por_bloco[chave_bloco] = frases_sobressalentes
+
+        # Guarda também no objeto do bloco para reeleição/diagnóstico posterior.
+        dados_bloco["frases_aprovadas_ollama"] = [x["texto"] for x in frases_principais]
+        dados_bloco["frases_sobressalentes"] = [x["texto"] for x in frases_sobressalentes]
+
+        if len(frases_principais) < 3:
+            print("🔴 BLOCO SEM 3 FRASES COMPLETAS LIMPAS:", chave_bloco)
+            print("FRASES APROVADAS:", len(unicas))
+            return None
+
+        print("FRASES PRINCIPAIS PARA O OLLAMA:", chave_bloco, len(frases_principais))
+        print("FRASES SOBRESSALENTES GUARDADAS:", chave_bloco, len(frases_sobressalentes))
+
+        # O contexto enviado ao Ollama contém somente frases completas limpas.
         contexto_tres_fragmentos = ""
-
-        for fragmento in fragmentos_ollama:
-
+        for indice_frase, item_frase in enumerate(frases_principais, 1):
             contexto_tres_fragmentos += f"""
 --------------------------------------------------
-TRECHO {fragmento["numero"]}
+FRASE AUTORIZADA {indice_frase}
 --------------------------------------------------
 
-{fragmento["texto"]}
+{item_frase["texto"]}
 """
+
+        # Compatibilidade com o restante do código: a estatística de entrada
+        # passa a representar somente o material efetivamente enviado.
+        fragmentos_ollama = [
+            {"numero": i + 1, "texto": item["texto"]}
+            for i, item in enumerate(frases_principais)
+        ]
 
         # ========================================================
         # PROMPT FINAL DO BLOCO
@@ -24500,17 +24592,26 @@ TRECHO {fragmento["numero"]}
 
         prompt_bloco = f"""Você é um editor técnico de preservação factual.
 
-O Python já entregou três trechos limpos e autorizados. Sua tarefa NÃO é resumir. Sua tarefa é reescrever com linguagem natural, preservando o conteúdo factual recebido.
+O Python já entregou três frases completas, limpas e autorizadas, além de manter frases aprovadas sobressalentes fora do prompt. Sua tarefa NÃO é resumir. Sua tarefa é reeditar e desenvolver o conteúdo factual recebido.
+
+AUTORIDADE EDITORIAL — MEAD EDITORES v2.0:
+{contexto_mead}
+
+PLANO EDITORIAL DA PÁGINA:
+{json.dumps(plano_editorial, ensure_ascii=False, indent=2)}
+
+IMPORTANTE: o plano define relações e caminhos editoriais; ele NÃO é evidência factual.
+A única evidência factual autorizada são as três evidências abaixo.
 
 REGRA CENTRAL — TRÊS EVIDÊNCIAS FORMAM UMA ÚNICA NARRATIVA:
 - Não existe mínimo ou máximo de palavras.
-- Os três trechos são EVIDÊNCIAS COMPLEMENTARES do mesmo bloco; não são três parágrafos independentes.
+- As três frases são EVIDÊNCIAS COMPLEMENTARES do mesmo bloco; não são três parágrafos independentes.
 - Construa exatamente 3 parágrafos desenvolvidos usando o conjunto das três evidências.
 - Organize as ideias em progressão natural conforme o que as evidências realmente sustentam.
 - Um parágrafo pode combinar informações de mais de uma evidência. Não faça TRECHO 1 = PARÁGRAFO 1 por obrigação.
 - Não repita a mesma informação apenas porque ela aparece em mais de uma evidência.
 - Cada parágrafo deve acrescentar ou desenvolver uma ideia relevante em relação ao anterior.
-- Preserve exemplos, condições, aplicações, características, critérios e relações técnicas presentes nas evidências.
+- Preserve exemplos, condições, aplicações, características, critérios e relações técnicas presentes nas frases autorizadas.
 - Conecte evidências complementares naturalmente em vez de tratá-las como três resumos isolados.
 
 REGRAS DE REDAÇÃO:
@@ -25333,297 +25434,32 @@ EVIDÊNCIA 3:
         lista_segmentos
     )
 
-    if len(lista_segmentos) != 12:
-
-        print()
-        print(
-            "❌ FALHA NA GERAÇÃO DOS SEGMENTOS."
-        )
-
-        print(
-            "A página não será considerada válida "
-            "sem exatamente 12 segmentos."
-        )
-
-        print(
-            "SEGMENTOS VÁLIDOS:",
-            len(lista_segmentos)
-        )
-
-        return None
+    # O MEAD v2 não determina uma quota de segmentos.
+    # Se não houver patrimônio suficiente, não fabricamos itens para completar.
+    print("SEGMENTOS SUSTENTADOS:", len(lista_segmentos))
 
 
 
     # ========================================================
-    # 18. CRIAR TAGS COM PYTHON
+    # 18. TAGS — MEAD EDITORES v2
     # ========================================================
-    #
-    # As tags NÃO são mais geradas pelo Ollama.
-    #
-    # O Python monta exatamente 30 tags a partir do tema,
-    # mantendo o padrão PRODUTO/SERVIÇO.
-    #
-    # REGRA OBRIGATÓRIA:
-    # A palavra-chave NUNCA pode aparecer sozinha como tag.
-    #
-    # Exemplo:
-    #
-    # ❌ "bomba centrifuga"
-    #
-    # ✅ "bomba centrifuga industrial"
-    # ✅ "manutenção de bomba centrifuga"
-    # ✅ "aplicações de bomba centrifuga"
-    #
+    # O MEAD não autoriza quotas artificiais nem taxonomias universais.
+    # Como esta etapa possui apenas a keyword e não pode inventar fatos,
+    # preservamos a keyword literal em minúsculas como tag-base segura.
+    # Variações adicionais só devem ser acrescentadas quando confirmadas
+    # pelo patrimônio da página.
     # ========================================================
-
-    # --------------------------------------------------------
-    # BASE FIXA DE 10/09/2026
-    # A base padronizada pertence ao Python.
-    # Os placeholders [tema] são substituídos pelo tema real.
-    # --------------------------------------------------------
-
-    tags_fixas = (
-        TAGS_FIXAS_SERVICOS
-        if tipo == "servico"
-        else TAGS_FIXAS_PRODUTOS
-    )
-
-    tags_base_fixas = [
-        str(tag).replace(
-            "[tema]",
-            tema_base
-        )
-        for tag in tags_fixas
-    ]
-
-    # --------------------------------------------------------
-    # Variações adicionais do Python
-    # Servem apenas para completar as 30 tags quando necessário.
-    # --------------------------------------------------------
-
-    if tipo == "servico":
-
-        tags_base_adicionais = [
-            f"{tema_base} industrial",
-            f"{tema_base} técnica",
-            f"{tema_base} especializada",
-            f"{tema_base} preventiva",
-            f"{tema_base} corretiva",
-            f"{tema_base} profissional",
-            f"{tema_base} em equipamentos",
-            f"{tema_base} em sistemas",
-            f"{tema_base} em processos",
-            f"serviços de {tema_base}",
-            f"assistência em {tema_base}",
-            f"diagnóstico de {tema_base}",
-            f"inspeção de {tema_base}",
-            f"suporte técnico {tema_base}",
-            f"consultoria em {tema_base}"
-        ]
-
-    else:
-
-        tags_base_adicionais = [
-            f"{tema_base} industrial",
-            f"{tema_base} profissional",
-            f"{tema_base} técnica",
-            f"{tema_base} especializada",
-            f"{tema_base} para indústria",
-            f"{tema_base} para sistemas",
-            f"{tema_base} para processos",
-            f"{tema_base} hidráulica",
-            f"{tema_base} industrial hidráulica",
-            f"aplicações de {tema_base}",
-            f"uso de {tema_base}",
-            f"soluções com {tema_base}",
-            f"equipamento {tema_base}",
-            f"sistema com {tema_base}",
-            f"assistência técnica {tema_base}"
-        ]
-
-    # As tags fixas vêm primeiro e não são substituídas por outras.
-    tags_base = tags_base_fixas + tags_base_adicionais
-
-    # ========================================================
-    # LIMPAR E VALIDAR TAGS
-    # ========================================================
-
-    lista_tags = []
 
     tema_normalizado = re.sub(
         r"\s+",
         " ",
-        str(tema_base).strip()
-    ).casefold()
-
-    for tag in tags_base:
-
-        tag = re.sub(
-            r"\s+",
-            " ",
-            str(tag).strip()
-        )
-
-        if not tag:
-            continue
-
-        # ----------------------------------------------------
-        # REGRA FUNDAMENTAL:
-        # A tag não pode ser exatamente a palavra-chave.
-        # ----------------------------------------------------
-
-        if tag.casefold() == tema_normalizado:
-
-            print(
-                "⚠️ TAG REJEITADA: "
-                "palavra-chave isolada ->",
-                tag
-            )
-
-            continue
-
-        # ----------------------------------------------------
-        # EVITAR DUPLICIDADES
-        # ----------------------------------------------------
-
-        if tag.casefold() in [
-            item.casefold()
-            for item in lista_tags
-        ]:
-
-            continue
-
-        lista_tags.append(
-            tag
-        )
-
-    # ========================================================
-    # GARANTIA ESTRUTURAL
-    # ========================================================
-
-    lista_tags = remover_duplicados(
-        lista_tags
+        str(tema_base).strip().casefold()
     )
+    lista_tags = [tema_normalizado] if tema_normalizado else []
 
-    # ========================================================
-    # GARANTIA FINAL:
-    # NENHUMA TAG PODE SER O TEMA PURO
-    # ========================================================
-
-    lista_tags = [
-        tag
-        for tag in lista_tags
-        if str(tag).strip().casefold()
-        != tema_normalizado
-    ]
-
-    # --------------------------------------------------------
-    # COMPLEMENTO CONTROLADO — SOMENTE PYTHON
-    #
-    # A palavra-chave pura é proibida, mas isso não pode fazer
-    # a página terminar com 29 tags. Quando a base fixa não
-    # atingir 30, acrescentamos variações semânticas controladas
-    # do próprio tema, sem Ollama e sem tags aleatórias.
-    # --------------------------------------------------------
-
-    if len(lista_tags) < 30:
-
-        if tipo == "servico":
-            tags_complementares = [
-                f"aplicação de {tema_base}",
-                f"execução de {tema_base}",
-                f"planejamento de {tema_base}",
-                f"avaliação de {tema_base}",
-                f"controle de {tema_base}",
-                f"qualidade em {tema_base}",
-                f"soluções técnicas em {tema_base}",
-                f"atendimento técnico de {tema_base}",
-            ]
-        else:
-            tags_complementares = [
-                f"aplicação de {tema_base}",
-                f"seleção de {tema_base}",
-                f"dimensionamento de {tema_base}",
-                f"instalação de {tema_base}",
-                f"operação de {tema_base}",
-                f"manutenção de {tema_base}",
-                f"desempenho de {tema_base}",
-                f"eficiência de {tema_base}",
-                f"especificação de {tema_base}",
-                f"fornecimento de {tema_base}",
-                f"soluções técnicas com {tema_base}",
-                f"características de {tema_base}",
-            ]
-
-        for tag in tags_complementares:
-
-            tag = re.sub(
-                r"\s+",
-                " ",
-                str(tag).strip()
-            )
-
-            if not tag:
-                continue
-
-            if tag.casefold() == tema_normalizado:
-                continue
-
-            if tag.casefold() in [
-                item.casefold()
-                for item in lista_tags
-            ]:
-                continue
-
-            lista_tags.append(tag)
-
-            if len(lista_tags) >= 30:
-                break
-
-    # --------------------------------------------------------
-    # A quantidade continua sendo obrigatória. Se mesmo a base
-    # fixa + complemento controlado não alcançar 30, abortamos.
-    # --------------------------------------------------------
-
-    if len(lista_tags) < 30:
-
-        print()
-        print(
-            "❌ ERRO: quantidade insuficiente de "
-            "tags válidas."
-        )
-
-        print(
-            "TAGS VÁLIDAS:",
-            len(lista_tags)
-        )
-
-        print(
-            "MÍNIMO NECESSÁRIO:",
-            30
-        )
-
-        return None
-
-    lista_tags = lista_tags[:30]
-
-    # ========================================================
-    # VALIDAÇÃO ABSOLUTA
-    # ========================================================
-
-    for tag in lista_tags:
-
-        if str(tag).strip().casefold() == tema_normalizado:
-
-            print()
-            print(
-                "❌ ERRO GRAVE: palavra-chave isolada "
-                "detectada nas tags:"
-            )
-
-            print(tag)
-
-            return None
+    print("TAGS SUSTENTADAS PELO MEAD:", len(lista_tags))
+    for numero, tag in enumerate(lista_tags, 1):
+        print(f"TAG {numero:02d}: {tag}")
 
     # ========================================================
     # LOG
@@ -27625,164 +27461,113 @@ def validar_estrutura_pagina(
 # 05. GERAR TÍTULOS
 # ========================================================
 
-def gerar_titulos(
-    tema,
-    blocos_informacoes,
-    mapa_mead
-):
-
-    print()
-    print("==============================")
-    print("GERANDO TÍTULOS PELO PYTHON")
-    print("==============================")
-
-    tema = str(
-        tema or ""
-    ).strip()
-
-    if not tema:
-        return {}
-
-
-    # ========================================================
-    # 01. H1 / TÍTULO
-    # ========================================================
-    
-    # Formata o tema para exibição, preservando a acentuação
-    # original e colocando a inicial de cada palavra em maiúscula.
-    tema_titulo = " ".join(
-        palavra[:1].upper() + palavra[1:]
-        for palavra in tema.split()
-    )
-    
-    h1 = tema_titulo
-    title = tema_titulo
-
-
-
-    # ========================================================
-    # 03. SUBTÍTULO DE IMPACTO
-    #
-    # Criado exclusivamente pelo Python.
-    # O Ollama NÃO participa.
-    # ========================================================
-
-    subtitulo = (
-        f"Soluções técnicas para aplicações, "
-        f"desempenho e confiabilidade em {tema}"
-    )
-
-    # ========================================================
-    # 04. SUBTÍTULO DOS SEGMENTOS
-    #
-    # Segundo subtítulo.
-    # Também criado exclusivamente pelo Python.
-    # ========================================================
-
-    subtitulo_segmentos = gerar_subtitulo_segmentos(
-        tema
-    )
-
-    # ========================================================
-    # 05. TÍTULOS DOS 5 BLOCOS
-    # ========================================================
-
-    # Títulos são definidos pelo MEAD, não pelos assuntos que por acaso
-    # aparecem nos três fragmentos escolhidos. Isso evita que um fragmento
-    # de pressão/vazão transforme o B1 em um bloco técnico e que um B4
-    # de conhecimento técnico receba um título de "aplicações".
-    bloco_1 = (
-        f"Contexto, importância e funcionamento de {tema}"
-    )
-
-    bloco_2 = (
-        f"Características, funcionamento e aplicações de {tema}"
-    )
-
-    bloco_3 = (
-        f"Critérios técnicos e cuidados com {tema}"
-    )
-
-    bloco_4 = (
-        f"Conhecimento técnico e suporte para {tema}"
-    )
-
-    bloco_5 = (
-        f"Seleção, aplicação e solução para {tema}"
-    )
-
-    # ========================================================
-    # 06. RESULTADO
-    # ========================================================
-
-    resultado = {
-
-        "h1":
-            h1,
-
-        "title":
-            title,
-
-        "subtitulo":
-            subtitulo,
-
-        "subtitulo_segmentos":
-            subtitulo_segmentos,
-
-        "bloco_1":
-            bloco_1,
-
-        "bloco_2":
-            bloco_2,
-
-        "bloco_3":
-            bloco_3,
-
-        "bloco_4":
-            bloco_4,
-
-        "bloco_5":
-            bloco_5
+def _palavras_conteudo_para_titulo(texto, tema):
+    stop = {
+        "para","com","sem","sobre","entre","como","uma","um","dos","das",
+        "que","por","pelo","pela","de","da","do","em","no","na","ao","e","ou",
+        "se","ser","tem","ter","mais","tambem","também","cada","quando","onde",
+        "isso","esse","essa","este","esta","seu","sua","seus","suas","outro","outra",
+        "outros","outras","uma","uns","umas","os","as","a"
     }
+    tema_tokens = set(re.findall(r"[\wÀ-ÿ]{4,}", normalizar_assunto_texto(tema)))
+    tokens = re.findall(r"[\wÀ-ÿ]{4,}", normalizar_assunto_texto(texto))
+    return [t for t in tokens if t not in stop and t not in tema_tokens]
 
-    print()
-    print("==============================")
-    print("TÍTULOS GERADOS PELO PYTHON")
-    print("==============================")
 
-    print(
-        "H1:",
-        h1
-    )
-
-    print(
-        "TITLE:",
-        title
-    )
-
-    print(
-        "SUBTÍTULO IMPACTO:",
-        subtitulo
-    )
-
-    print(
-        "SUBTÍTULO SEGMENTOS:",
-        subtitulo_segmentos
-    )
-
+def construir_plano_editorial(tema, blocos_informacoes, setor="", publico=""):
+    """Cria o plano mínimo exigido pelo MEAD antes da redação."""
+    plano = {
+        "pagina": {
+            "keyword": str(tema or "").strip(),
+            "setor": str(setor or "").strip(),
+            "publico": str(publico or "").strip(),
+            "objetivo": "Desenvolver a página somente a partir do patrimônio autorizado.",
+            "fatos_autorizados": [],
+            "lacunas": [],
+            "riscos": [],
+            "blocos": []
+        }
+    }
     for numero in range(1, 6):
+        chave=f"bloco_{numero}"
+        dados=blocos_informacoes.get(chave,{}) if isinstance(blocos_informacoes,dict) else {}
+        if not isinstance(dados,dict): dados={}
+        fatos=[]
+        for frag in dados.get("informacoes_relevantes", [])[:3]:
+            if isinstance(frag,dict):
+                texto=str(frag.get("texto","") or "").strip()
+                if texto: fatos.append(texto)
+        if not fatos:
+            for frag in dados.get("fragmentos_autorizados", [])[:3]:
+                if isinstance(frag,dict):
+                    texto=str(frag.get("texto","") or "").strip()
+                    if texto: fatos.append(texto)
+        plano["pagina"]["fatos_autorizados"].extend(fatos)
+        plano["pagina"]["blocos"].append({
+            "numero": numero,
+            "funcao": "definida pelo patrimônio e pelo plano, sem roteiro fixo por bloco",
+            "ambiente": "escolher somente se sustentado pelos fatos autorizados",
+            "perspectiva": "escolher conforme as relações legítimas do bloco",
+            "relacoes_exclusivas": [],
+            "titulo": str(dados.get("titulo","") or "").strip(),
+            "paragrafos": [
+                {"indice": i, "fato_origem": fatos[i-1] if i <= len(fatos) else "",
+                 "caminho_vicinal": "definir antes da redação", "desenvolvimento": "natural e sustentado",
+                 "papel_da_keyword": "uma ocorrência literal e indivisível", "risco_redundancia": "avaliar contra os demais parágrafos"}
+                for i in range(1,4)
+            ]
+        })
+    return plano
 
-        print(
-            f"BLOCO {numero}:",
-            resultado.get(
-                f"bloco_{numero}",
-                ""
-            )
-        )
 
+def gerar_titulos(tema, blocos_informacoes, mapa_mead, plano_editorial=None):
+    """Gera candidatos a partir do patrimônio/plano; não usa fórmulas fixas por bloco."""
+    print("\n==============================")
+    print("GERANDO TÍTULOS A PARTIR DO PLANO MEAD")
+    print("==============================")
+    tema=str(tema or "").strip()
+    if not tema: return {}
+    tema_titulo=" ".join(p[:1].upper()+p[1:] for p in tema.split())
+    resultado={"h1":tema_titulo, "title":tema_titulo, "subtitulo":"", "subtitulo_segmentos":""}
+    usados=set()
+    for numero in range(1,6):
+        chave=f"bloco_{numero}"
+        dados=blocos_informacoes.get(chave,{}) if isinstance(blocos_informacoes,dict) else {}
+        if not isinstance(dados,dict): dados={}
+        textos=[]
+        for f in dados.get("informacoes_relevantes", [])[:3]:
+            if isinstance(f,dict) and str(f.get("texto","")).strip(): textos.append(str(f["texto"]))
+        if not textos:
+            for f in dados.get("fragmentos_autorizados", [])[:3]:
+                if isinstance(f,dict) and str(f.get("texto","")).strip(): textos.append(str(f["texto"]))
+        candidatos=[]
+        for texto in textos:
+            palavras=_palavras_conteudo_para_titulo(texto,tema)
+            if palavras:
+                # Mantém uma pequena unidade lexical derivada do próprio fato.
+                candidatos.append(" ".join(palavras[:5]).strip())
+        titulo=""
+        for cand in candidatos:
+            cand=" ".join(cand.split())
+            if not cand: continue
+            titulo=" ".join(x[:1].upper()+x[1:] for x in cand.split())
+            if normalizar_assunto_texto(titulo) not in usados: break
+            titulo=""
+        if not titulo:
+            # Último recurso: usa o título já presente no plano, se houver.
+            titulo=str(dados.get("titulo","") or "").strip()
+        if not titulo:
+            titulo=tema_titulo
+        # O MEAD exige títulos não repetidos. Se o patrimônio não oferecer
+        # matéria suficiente para diferenciá-los, não inventamos assunto:
+        # apenas marcamos a perspectiva ordinal como fallback estrutural.
+        if normalizar_assunto_texto(titulo) in usados:
+            titulo=f"{titulo} — perspectiva {numero}"
+        usados.add(normalizar_assunto_texto(titulo))
+        resultado[chave]=titulo
+        print(f"BLOCO {numero}: {titulo}")
     return resultado
 
-    
 # ============================================================
 # SALVAR BANCO
 # ============================================================
@@ -31546,24 +31331,13 @@ def salvar_banco(
         )
 
         print(
-            "12 segmentos:",
-            "🟢"
-            if len(
-                segmentos_finais
-            ) == 12
-            else f"⚠️ ({len(segmentos_finais)})"
+            "SEGMENTOS SUSTENTADOS:",
+            len(segmentos_finais)
         )
 
         print(
-            "30 tags:",
-            "🟢"
-            if len(
-                dados_tema_final.get(
-                    "tags",
-                    []
-                )
-            ) == 30
-            else f"⚠️ ({len(dados_tema_final.get('tags', []))})"
+            "TAGS SUSTENTADAS:",
+            len(dados_tema_final.get("tags", []))
         )
 
         print(
