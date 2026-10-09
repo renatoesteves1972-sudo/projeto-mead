@@ -1,4 +1,6 @@
-# gerador-conteudo-MEAD-v9.18-Lux-v71-ok.py - 09/10/2026
+# gerador-conteudo-MEAD-ok-3.py - 09/10/2026
+# v72 — direções editoriais preferenciais por bloco, somente para parágrafos
+# Checkboxes ativos autorizam assuntos na página; direção por bloco é preferência
 # Reservatório ampliado de candidatos limpos — seleção final continua em 15
 # Pré-barreira de URLs + seleção natural de trechos + bruto sem descartados
 
@@ -6891,18 +6893,22 @@ def gerar_mapa_mead(
         contexto_blocos[chave] = {}
         contexto_blocos[chave]["ativo"] = True
         contexto_blocos[chave]["assuntos_autorizados"] = assuntos_bloco
+        direcao_preferencial = direcao_editorial_preferencial(chave)
+        contexto_blocos[chave]["direcao_editorial_preferencial"] = direcao_preferencial["nome"]
         contexto_blocos[chave]["objetivo"] = (
-            f"Tratar somente: {', '.join(a.replace('_', ' ') for a in assuntos_bloco)}. "
-            "Não criar outros assuntos para preencher este bloco."
+            f"Direção preferencial dos parágrafos: {direcao_preferencial['nome']}. "
+            f"{direcao_preferencial['descricao']}. "
+            f"Assuntos autorizados pelos checkboxes ativos: {', '.join(a.replace('_', ' ') for a in assuntos_bloco)}. "
+            "A direção é flexível, não é função narrativa obrigatória nem motivo isolado para rejeitar um trecho relevante."
         )
         contexto_blocos[chave]["funcao"] = (
-            "Função editorial limitada aos assuntos autorizados: "
-            + ", ".join(a.replace('_', ' ') for a in assuntos_bloco)
-            + "."
+            "Preferência para orientar a seleção e a redação dos parágrafos, "
+            "subordinada aos fatos autorizados, à relevância e aos checkboxes ativos."
         )
         contexto_blocos[chave]["contexto"] = (
-            "Nenhum assunto fora dos checkboxes ativos pode ser exigido, "
-            "pesquisado ou usado para preencher este bloco."
+            "Esta preferência vale somente para os parágrafos gerados pelo Ollama. "
+            "Títulos, subtítulos, tags, segmentos e listas continuam sob responsabilidade do Python. "
+            "Não exigir nem inventar conteúdo ausente das fontes."
         )
 
     print("ASSUNTOS AUTORIZADOS NO MEAD:", ativos)
@@ -10694,6 +10700,49 @@ MAPEAMENTO_ASSUNTO_BLOCOS = {
     "beneficios": {"bloco_3", "bloco_5"},
 }
 
+# ============================================================
+# DIREÇÕES EDITORIAIS PREFERENCIAIS — SOMENTE PARÁGRAFOS
+# ============================================================
+# São preferências suaves, não funções narrativas obrigatórias.
+# Checkboxes ativos autorizam os assuntos da página inteira.
+# Títulos, subtítulos, tags, segmentos e listas continuam sob
+# responsabilidade do Python e não recebem estas regras.
+DIRECOES_EDITORIAIS_PREFERENCIAIS = {
+    "bloco_1": {
+        "nome": "Comercial e decisão de contratação",
+        "descricao": "necessidade atendida, escopo, fornecimento, critérios de escolha ou contratação, quando sustentados pelas fontes",
+        "termos": ["fornecedor", "fornecimento", "contratação", "contratar", "orçamento", "cotação", "compra", "escolha", "escopo", "atendimento", "disponibilidade", "custo"]
+    },
+    "bloco_2": {
+        "nome": "Produto ou serviço e características",
+        "descricao": "finalidade, características, componentes, materiais, tipos e funcionamento, conforme as fontes",
+        "termos": ["produto", "serviço", "características", "componente", "componentes", "material", "materiais", "tipo", "modelo", "finalidade", "estrutura", "funcionamento"]
+    },
+    "bloco_3": {
+        "nome": "Conteúdo técnico e critérios",
+        "descricao": "parâmetros, dimensionamento, especificações, critérios de seleção, cuidados, limites e manutenção documentados",
+        "termos": ["técnico", "especificação", "dimensionamento", "pressão", "vazão", "potência", "eficiência", "parâmetro", "parâmetros", "critério", "critérios", "manutenção", "instalação", "tolerância", "norma"]
+    },
+    "bloco_4": {
+        "nome": "Aplicações e contextos de uso",
+        "descricao": "ambientes, setores, sistemas, processos e situações de aplicação sustentados pelas fontes",
+        "termos": ["aplicação", "aplicações", "utilização", "utilizado", "uso", "ambiente", "setor", "indústria", "sistema", "processo", "operação", "instalação", "cenário"]
+    },
+    "bloco_5": {
+        "nome": "Orientação ao cliente e abordagem humanizada",
+        "descricao": "necessidades, dúvidas, dificuldades, cuidados práticos e critérios úteis ao leitor, sem inventar experiências ou emoções",
+        "termos": ["necessidade", "dúvida", "dúvidas", "problema", "escolha", "orientação", "cuidado", "cuidados", "erro", "suporte", "decisão", "adequação", "dificuldade", "equipe", "usuário"]
+    }
+}
+
+
+def direcao_editorial_preferencial(chave_bloco):
+    """Retorna uma preferência suave; não altera componentes gerados pelo Python."""
+    return DIRECOES_EDITORIAIS_PREFERENCIAIS.get(
+        str(chave_bloco or ""),
+        {"nome": "Direção flexível", "descricao": "seguir as evidências e os checkboxes ativos", "termos": []}
+    )
+
 MAPEAMENTO_ASSUNTO_FUNCOES = {
     "apresentacao": {"contexto"},
     "funcionamento": {"funcionamento"},
@@ -10751,23 +10800,18 @@ def assuntos_editoriais_ativos(estrutura_editorial=None):
 
 
 def blocos_autorizados_pelos_checkboxes(estrutura_editorial=None):
-    ativos = assuntos_editoriais_ativos(estrutura_editorial)
-    blocos = {f"bloco_{i}": set() for i in range(1, 6)}
-    for assunto in ativos:
-        for bloco in MAPEAMENTO_ASSUNTO_BLOCOS.get(assunto, set()):
-            blocos.setdefault(bloco, set()).add(assunto)
-    return blocos
+    """Checkboxes ativos autorizam assuntos na página inteira; bloco é preferência, não veto."""
+    ativos = set(assuntos_editoriais_ativos(estrutura_editorial))
+    return {f"bloco_{i}": set(ativos) for i in range(1, 6)}
 
 
 def funcoes_autorizadas_pelos_checkboxes(estrutura_editorial=None):
+    """Funções decorrentes dos checkboxes ativos ficam disponíveis a todos os blocos."""
     ativos = assuntos_editoriais_ativos(estrutura_editorial)
-    funcoes = {f"bloco_{i}": set() for i in range(1, 6)}
-    blocos = blocos_autorizados_pelos_checkboxes(estrutura_editorial)
-    for bloco, assuntos in blocos.items():
-        for assunto in assuntos:
-            funcoes[bloco].update(MAPEAMENTO_ASSUNTO_FUNCOES.get(assunto, set()))
-    return funcoes
-
+    funcoes_ativas = set()
+    for assunto in ativos:
+        funcoes_ativas.update(MAPEAMENTO_ASSUNTO_FUNCOES.get(assunto, set()))
+    return {f"bloco_{i}": set(funcoes_ativas) for i in range(1, 6)}
 
 MAPEAMENTO_EDITORIAL = {
 
@@ -13811,8 +13855,25 @@ def selecionar_informacoes_relevantes(
             if palavra in texto_normalizado:
 
                 pontuacao += 2
-                
-                
+
+        # ----------------------------------------------------
+        # D.1 DIREÇÃO EDITORIAL PREFERENCIAL — SINAL SUAVE
+        # Somente para seleção de trechos usados nos parágrafos.
+        # Não governa títulos, subtítulos, tags, segmentos ou listas.
+        # Bônus limitado para não superar relevância e evidência factual.
+        # ----------------------------------------------------
+        direcao = direcao_editorial_preferencial(chave_bloco)
+        correspondencias_preferenciais = 0
+        termos_preferenciais_vistos = set()
+        for termo_preferencial in direcao.get("termos", []):
+            termo_n = normalizar_assunto_texto(termo_preferencial)
+            if not termo_n or termo_n in termos_preferenciais_vistos:
+                continue
+            termos_preferenciais_vistos.add(termo_n)
+            if termo_n in texto_normalizado:
+                correspondencias_preferenciais += 1
+        pontuacao += min(correspondencias_preferenciais, 4)
+
         # ----------------------------------------------------
         # E. QUALIDADE EDITORIAL DO FRAGMENTO
         #
@@ -14771,48 +14832,32 @@ def selecionar_informacoes_relevantes(
         print(_bloco, "=>", sorted(_funcoes))
 
     def fragmento_compativel_com_funcao_do_bloco(candidato, chave_bloco):
-        if not blocos_autorizados_pelos_checkboxes(estrutura_editorial).get(chave_bloco):
+        """Filtra por tema/checkboxes, sem impor função narrativa fixa por bloco."""
+        assuntos_ativos_locais = set(assuntos_editoriais_ativos(estrutura_editorial))
+        if not assuntos_ativos_locais:
+            return False
+
+        texto_candidato = str(candidato.get("texto", "") or "")
+        texto_normalizado = normalizar_assunto_texto(texto_candidato)
+        if not texto_normalizado or not fragmento_pertence_ao_tema(texto_candidato, tema):
             return False
 
         classificacao = candidato.get("_funcao_editorial", {})
         funcoes = set(classificacao.get("funcoes", []))
-
-        if not funcoes:
+        permitidas = set(funcoes_permitidas_bloco.get(chave_bloco, set()))
+        pontuacao_assuntos = calcular_pontuacao_checkbox(texto_normalizado)
+        compatibilidade_funcional = bool(funcoes & permitidas)
+        if not (pontuacao_assuntos > 0 or compatibilidade_funcional):
             return False
 
-        permitidas = funcoes_permitidas_bloco.get(chave_bloco, set())
-        if not (funcoes & permitidas):
-            return False
-
-        # No bloco 1, funcionamento/conhecimento só entram como apoio
-        # contextual; evita transformar a abertura em um bloco técnico.
-        if chave_bloco == "bloco_1" and not (funcoes & {"contexto", "aplicacao"}):
-            texto_bloco1 = normalizar_texto(candidato.get("texto", ""))
-            sinais_contextuais = (
-                "necessidade", "demanda", "abastecimento", "saneamento",
-                "infraestrutura", "processo", "sistema", "uso", "utilizacao",
-                "aplicacao", "cenário", "cenario", "contexto", "vazao", "pressao"
-            )
-            if not any(s in texto_bloco1 for s in sinais_contextuais):
+        # Conteúdo predominantemente comercial continua condicionado ao checkbox comercial.
+        # Os gates independentes de CTA, propaganda e alegações sem suporte permanecem ativos.
+        if classificacao.get("comercial", 0) >= 2 and "comercial" not in assuntos_ativos_locais:
+            outras_funcoes = funcoes - {"institucional", "suporte", "solucao", "comercial"}
+            if not (outras_funcoes & permitidas):
                 return False
 
-        # Quando o checkbox comercial está ativo, "comercial" pode ser
-        # uma função editorial legítima. Isso NÃO libera propaganda, CTA,
-        # catálogo ou texto promocional: esses resíduos continuam barrados
-        # pelos gates de limpeza comercial e auditoria final.
-        if (
-            "comercial" in permitidas
-            and classificacao.get("comercial", 0) >= 2
-        ):
-            return True
-
-        # Quando comercial não foi autorizado, um trecho predominantemente
-        # comercial não pode entrar apenas por parecer técnico.
-        if classificacao.get("comercial", 0) >= 2:
-            return bool(funcoes & permitidas & {
-                "institucional", "suporte", "solucao"
-            })
-
+        # A preferência editorial influencia a pontuação, não a elegibilidade absoluta.
         return True
 
     # ========================================================
@@ -15043,9 +15088,10 @@ def selecionar_informacoes_relevantes(
     
     fontes_utilizadas = {}
 
-    # Reservas em memória: 5 fragmentos extras por bloco.
-    # Não entram no JSON enquanto não forem utilizadas.
-    # A lista funciona como fila: reserva 1 -> reserva 2.
+    # Reservas em memória: até 20 fragmentos extras por bloco/tema/função MEAD.
+    # O pool já é organizado por tema e compatibilidade editorial do bloco.
+    # Não entram no JSON nem no prompt enquanto não forem utilizadas.
+    # Cada hash será revalidada novamente no momento da promoção.
     fragmentos_reserva_por_bloco = {
         f"bloco_{numero_bloco}": []
         for numero_bloco in range(1, 6)
@@ -16463,7 +16509,7 @@ def selecionar_informacoes_relevantes(
                     })
                     adicionados += 1
 
-                    if adicionados >= 30:
+                    if adicionados >= 60:
                         break
                 if adicionados >= 30:
                     break
@@ -17439,7 +17485,8 @@ def selecionar_informacoes_relevantes(
     # uma re-seleção necessária após rejeição real.
     # --------------------------------------------------------
     # RESERVAS EM MEMÓRIA
-    # Seleciona 2 candidatos adicionais por bloco.
+    # Prepara até 20 candidatos extras por bloco, já filtrados pelo tema
+    # e pela função editorial MEAD daquele bloco.
     # --------------------------------------------------------
 
     for numero_bloco in range(1, 6):
@@ -17448,7 +17495,7 @@ def selecionar_informacoes_relevantes(
         reservas_bloco = []
         hashes_bloqueio_reserva = set(hashes_selecionados)
 
-        for _ in range(5):
+        for _ in range(20):
 
             escolhido_reserva = selecionar_melhor_candidato(
                 candidatos_por_bloco.get(
@@ -17501,8 +17548,186 @@ def selecionar_informacoes_relevantes(
     print(
         "RESERVAS EM MEMÓRIA:",
         total_reservas_memoria,
-        "/ 25"
+        "/ 100 (20 por bloco, quando houver candidatos válidos)"
     )
+
+    # ========================================================
+    # 07.8 — TRIAGEM SIMPLIFICADA OLLAMA ANTES DA GRAVAÇÃO
+    # ========================================================
+    # O Python continua responsável por selecionar os trechos.
+    # O Ollama apenas aprova/reprova; nunca reescreve o conteúdo.
+    # Trechos reprovados são substituídos por candidatos do mesmo bloco.
+    # Falha/indisponibilidade do Ollama bloqueia a etapa (fail closed).
+    # ========================================================
+
+    def _validar_trecho_com_ollama_simplificado(candidato):
+        texto_trecho = str((candidato or {}).get("texto", "") or "").strip()
+        if not texto_trecho:
+            return False, "TEXTO_VAZIO"
+
+        prompt_triagem = f'''Você é um validador editorial técnico. NÃO reescreva o texto.
+Analise somente o trecho fornecido e aplique os critérios de reprovação usados na edição dos parágrafos.
+
+REPROVE quando houver pelo menos um destes problemas:
+1. Nome identificável de empresa, fabricante, fornecedor ou marca inserido como identidade comercial.
+2. Código de produto/peça, modelo, SKU, MPN, part number, número de série ou referência comercial específica.
+3. Telefone, e-mail, URL, CNPJ, chamada comercial, propaganda ou texto de catálogo.
+4. Trecho factual pontual/isolado que seja essencialmente uma ficha, lista de especificações, identificação, dado avulso ou referência específica, sem explicação técnica autônoma e útil.
+5. Texto fragmentário, truncado, incoerente, repetitivo, sem sentido técnico claro ou que dependa de contexto ausente.
+6. Afirmações comerciais/promocionais ou afirmações absolutas sem sustentação no próprio trecho.
+
+APROVE quando for um trecho técnico explicativo, autônomo, coerente e útil para desenvolver um parágrafo, sem os problemas acima. Não reprove apenas por conter fatos técnicos gerais, números de medidas/unidades comuns ou termos técnicos necessários.
+Não invente problemas. Não corrija nem transforme o trecho.
+
+Responda em UMA ÚNICA LINHA, começando exatamente por:
+APROVADO | motivo: ...
+ou
+REPROVADO | motivo: ...
+
+TRECHO:
+{texto_trecho}
+'''
+        try:
+            resposta_triagem = requests.post(
+                "http://localhost:11434/api/generate",
+                json={
+                    "model": "qwen2.5:3b",
+                    "prompt": prompt_triagem,
+                    "stream": False,
+                    "think": False,
+                    "options": {
+                        "num_predict": 120,
+                        "num_ctx": 4096,
+                        "temperature": 0.0,
+                        "top_p": 0.9,
+                        "repeat_penalty": 1.05,
+                    },
+                },
+                timeout=(15, 180),
+            )
+            if resposta_triagem.status_code != 200:
+                return False, f"OLLAMA_HTTP_{resposta_triagem.status_code}"
+            dados_triagem = resposta_triagem.json()
+            saida_triagem = str(dados_triagem.get("response", "") or "").strip()
+            primeira_linha = next((linha.strip() for linha in saida_triagem.splitlines() if linha.strip()), "")
+            primeira_normalizada = normalizar_assunto_texto(primeira_linha)
+            if primeira_normalizada.startswith("aprovado"):
+                motivo = primeira_linha.split("motivo:", 1)[-1].strip() if "motivo:" in primeira_linha.lower() else "sem motivo informado"
+                return True, motivo or "APROVADO"
+            if primeira_normalizada.startswith("reprovado"):
+                motivo = primeira_linha.split("motivo:", 1)[-1].strip() if "motivo:" in primeira_linha.lower() else "motivo não informado"
+                return False, motivo or "REPROVADO"
+            return False, "RESPOSTA_OLLAMA_FORA_DO_FORMATO: " + primeira_linha[:180]
+        except Exception as erro_triagem:
+            return False, "FALHA_OLLAMA: " + repr(erro_triagem)[:220]
+
+    def _triagem_ollama_e_substituicao_por_bloco():
+        if len(fragmentos_selecionados) != 15:
+            print("❌ TRIAGEM OLLAMA: seleção Python não contém 15 trechos.")
+            return False
+
+        print()
+        print("============================================================")
+        print("TRIAGEM OLLAMA SIMPLIFICADA — ANTES DA GRAVAÇÃO DAS HASHES")
+        print("============================================================")
+        aprovados = []
+        hashes_aprovados = set()
+
+        for posicao, atual in enumerate(list(fragmentos_selecionados), start=1):
+            if not isinstance(atual, dict):
+                print("❌ TRIAGEM OLLAMA: fragmento inválido na posição", posicao)
+                return False
+
+            bloco_atual = str(atual.get("bloco_mead", "") or "")
+            hash_atual = str(atual.get("hash") or gerar_hash_trecho(atual.get("texto", "")) or "")
+            hashes_ocupados = {
+                str(x.get("hash") or gerar_hash_trecho(x.get("texto", "")) or "")
+                for x in fragmentos_selecionados
+                if isinstance(x, dict) and x is not atual
+            }
+            hashes_ocupados.update(hashes_aprovados)
+
+            ok_ollama, motivo_ollama = _validar_trecho_com_ollama_simplificado(atual)
+            print(
+                f"OLLAMA TRIAGEM {posicao:02d}/15 | {bloco_atual} | "
+                f"{'APROVADO' if ok_ollama else 'REPROVADO'} | {motivo_ollama}"
+            )
+            if ok_ollama and hash_atual not in hashes_aprovados:
+                atual["validacao_ollama_pre_hash"] = "APROVADO"
+                atual["motivo_validacao_ollama_pre_hash"] = motivo_ollama
+                aprovados.append(atual)
+                hashes_aprovados.add(hash_atual)
+                continue
+
+            if not ok_ollama and (motivo_ollama.startswith("FALHA_OLLAMA") or motivo_ollama.startswith("OLLAMA_HTTP_")):
+                print("❌ TRIAGEM OLLAMA BLOQUEADA: não é seguro aprovar sem resposta válida.")
+                return False
+
+            print("   PROCURANDO SUBSTITUTO NO MESMO BLOCO:", bloco_atual)
+            fila_substitutos = []
+            fila_substitutos.extend(fragmentos_reserva_por_bloco.get(bloco_atual, []))
+            fila_substitutos.extend(candidatos_por_bloco.get(bloco_atual, []))
+            substituto_aprovado = None
+            hashes_tentados = set()
+
+            for item_sub in fila_substitutos:
+                candidato_sub = item_sub.get("candidato", item_sub) if isinstance(item_sub, dict) else None
+                if not isinstance(candidato_sub, dict):
+                    continue
+                candidato_sub = dict(candidato_sub)
+                candidato_sub["bloco_mead"] = bloco_atual
+                hash_sub = str(candidato_sub.get("hash") or gerar_hash_trecho(candidato_sub.get("texto", "")) or "")
+                if not hash_sub or hash_sub in hashes_ocupados or hash_sub in hashes_tentados:
+                    continue
+                hashes_tentados.add(hash_sub)
+
+                ok_python, motivo_python = auditar_fragmento_final_python(
+                    candidato_sub.get("texto", ""), candidato_sub.get("identidade_fonte", {})
+                )
+                if not ok_python:
+                    print("   SUBSTITUTO REPROVADO PELO PYTHON:", motivo_python)
+                    continue
+
+                ok_sub, motivo_sub = _validar_trecho_com_ollama_simplificado(candidato_sub)
+                print(
+                    "   TESTE SUBSTITUTO |", candidato_sub.get("id", "SEM_ID"), "|",
+                    "APROVADO" if ok_sub else "REPROVADO", "|", motivo_sub
+                )
+                if ok_sub:
+                    candidato_sub["validacao_ollama_pre_hash"] = "APROVADO"
+                    candidato_sub["motivo_validacao_ollama_pre_hash"] = motivo_sub
+                    substituto_aprovado = candidato_sub
+                    break
+                if motivo_sub.startswith("FALHA_OLLAMA") or motivo_sub.startswith("OLLAMA_HTTP_"):
+                    print("❌ TRIAGEM OLLAMA BLOQUEADA durante validação de substituto.")
+                    return False
+
+            if substituto_aprovado is None:
+                print("❌ TRIAGEM OLLAMA: sem substituto aprovado para", bloco_atual)
+                print("   O processamento será interrompido sem gravar o conjunto reprovado.")
+                return False
+
+            aprovados.append(substituto_aprovado)
+            hashes_aprovados.add(str(substituto_aprovado.get("hash") or gerar_hash_trecho(substituto_aprovado.get("texto", ""))))
+            print(
+                "🔄 SUBSTITUIÇÃO APROVADA:", atual.get("id", "SEM_ID"),
+                "->", substituto_aprovado.get("id", "SEM_ID")
+            )
+
+        if len(aprovados) != 15 or len(hashes_aprovados) != 15:
+            print("❌ TRIAGEM OLLAMA: não foi possível formar 15 trechos únicos aprovados.")
+            return False
+
+        fragmentos_selecionados[:] = aprovados
+        hashes_selecionados.clear()
+        hashes_selecionados.update(hashes_aprovados)
+        print("✅ TRIAGEM OLLAMA CONCLUÍDA: 15/15 aprovados; conjunto liberado para a etapa seguinte.")
+        print("REGRA: o Ollama não reescreveu nenhum trecho.")
+        return True
+
+    if not _triagem_ollama_e_substituicao_por_bloco():
+        print("❌ OLLAMA BLOQUEADO: a triagem simplificada não aprovou 15 trechos únicos.")
+        return resultado_vazio
 
     print("ALLOCAÇÃO GLOBAL 5 x 3 — v60")
     print("CANDIDATOS TOTAIS:", len(candidatos))
@@ -18630,6 +18855,65 @@ def _auditoria_integridade_deterministica(texto, identidade_fonte=None):
     if not t:
         return False, 'VAZIO'
 
+    # ============================================================
+    # REVISÃO ESTRITA — CÓDIGOS / MODELOS / SKU
+    # Acrescentada à auditoria existente; não remove os gates legados.
+    # ============================================================
+    padroes_codigos_duros = (
+        r'\b[A-Za-z0-9]+/+[A-Za-z0-9_-]*\d+[A-Za-z0-9_-]*\b',
+        r'\b[A-Za-z]{1,5}-\d+[A-Za-z0-9-]*\b',
+        r'\b\d+-[A-Za-z]{1,5}[A-Za-z0-9-]*\b',
+        r'\b[A-Z]{2,5}\d{2,}\b',
+        r'\b(?:sku|mpn|pn|ref|part\s*number|codigo|código|modelo)\s*[:\.-]?\s*[A-Za-z0-9_-]+\b',
+    )
+    siglas_tecnicas_permitidas = {
+        'pvc', 'pead', 'cpvc', 'ppr', 'nbr', 'iso', 'ansi', 'astm',
+        'din', 'api', 'rpm', 'ip', 'dn', 'pn', 'mca', 'kw', 'cv', 'hp', 'hz'
+    }
+    for pat in padroes_codigos_duros:
+        encontrados = re.findall(pat, t, re.I)
+        for item in encontrados:
+            nucleo = re.sub(r'[^a-zA-Z]', '', str(item)).lower()
+            if nucleo not in siglas_tecnicas_permitidas and len(nucleo) > 1:
+                return False, f'CODIGO_MODELO_DETECTADO:({item})'
+
+    # ============================================================
+    # REVISÃO ESTRITA — ENTIDADE DE TERCEIRO + VERBO COMERCIAL
+    # ============================================================
+    verbos_empresa_terceira_revisao = (
+        r'(?:comecou|começou|fundou|fabricou|fabrica|produz|produziu|'
+        r'desenvolveu|desenvolve|atua|atuou|oferece|ofereceu|fornece|'
+        r'forneceu|iniciou|iniciava|comercializa|comercializou|vende|'
+        r'vendeu|lancou|lançou)'
+    )
+    padroes_empresas_terceiras_revisao = (
+        rf'\b([A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.\-]+(?:\s+[A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.\-]+){{0,3}})\s+{verbos_empresa_terceira_revisao}\b',
+        rf'\b(?:a|o|da|do|pela|pelo|empresa)\s+([A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.\-]+(?:\s+[A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.\-]+){{0,3}})\s+{verbos_empresa_terceira_revisao}\b',
+    )
+    nome_fonte_revisao = ''
+    if isinstance(identidade_fonte, dict):
+        nome_fonte_revisao = normalizar_assunto_texto(
+            identidade_fonte.get('nome', '')
+        ).strip()
+
+    palavras_tecnicas_comuns_revisao = {
+        'bomba', 'bombas', 'centrifuga', 'centrifugas', 'industria',
+        'industrias', 'empresa', 'fabricante', 'sistema', 'sistemas',
+        'valvula', 'válvula', 'válvulas', 'valvulas'
+    }
+    for pat in padroes_empresas_terceiras_revisao:
+        m = re.search(pat, t)
+        if m:
+            entidade_detectada = normalizar_assunto_texto(m.group(1)).strip()
+            palavras_entidade = set(entidade_detectada.split())
+            if (
+                entidade_detectada
+                and entidade_detectada != nome_fonte_revisao
+                and not palavras_entidade.issubset(palavras_tecnicas_comuns_revisao)
+            ):
+                return False, f'ENTIDADE_TERCEIRO_DETECTADA:({m.group(1)})'
+
+
     n = normalizar_assunto_texto(t)
 
     # 1. Corrupção textual evidente / mistura de idioma.
@@ -18699,7 +18983,10 @@ def _auditoria_integridade_deterministica(texto, identidade_fonte=None):
     # 5. Histórico institucional de terceiro / fabricante. Não depende
     # de uma lista externa de entidades: o próprio padrão sujeito + verbo
     # revela a entidade em contexto empresarial.
-    verbos_empresa = r'(?:começou|comecou|fundou|fabricou|fabrica|produz|produziu|desenvolveu|desenvolve|atua|atuou|oferece|ofereceu|fornece|forneceu|iniciou|iniciava|passou\s+a\s+fabricar)'
+    # Verbos de atuação operacional/comercial que também identificam uma
+    # empresa como sujeito. Sem estes verbos, frases como
+    # 'Pumps Brasil realiza manutenção...' passavam pelo gate.
+    verbos_empresa = r'(?:começou|comecou|fundou|fabricou|fabrica|produz|produziu|desenvolveu|desenvolve|atua|atuou|oferece|ofereceu|fornece|forneceu|iniciou|iniciava|passou\s+a\s+fabricar|realiza|realizam|realizou|realizaram|executa|executam|executou|prest[aã]o|presta|prestam|prestou|mant[eé]m|mantem|conta|possui|comercializa|comercializam|distribui|distribuem|repara|reparam|reparou|faz|fazem|é\s+respons[aá]vel|são\s+respons[aá]veis)'
     padroes_terceiro = (
         rf'\b([A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.\-]+(?:\s+[A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.\-]+){{0,3}})\s+{verbos_empresa}\b',
         rf'\b(?:a|o)\s+([A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.\-]+(?:\s+[A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.\-]+){{0,3}})\s+{verbos_empresa}\b',
@@ -18718,6 +19005,32 @@ def _auditoria_integridade_deterministica(texto, identidade_fonte=None):
             return False, 'EMPRESA_DA_FONTE'
         if entidade and not palavras_ent.issubset(tecnicas):
             return False, 'ENTIDADE_TERCEIRO_DETECTADA'
+
+    # 5.1. Entidade em posição de sujeito + verbo de serviço/atividade.
+    # Segunda cobertura para nomes de empresas mesmo quando a identidade da
+    # fonte está vazia (caso comum em páginas coletadas sem metadados).
+    verbos_atividade_empresa = (
+        r"(?:realiza|realizam|realizou|realizaram|executa|executam|executou|"
+        r"presta|prestam|prestou|mant[eé]m|mantem|conta|possui|"
+        r"comercializa|comercializam|distribui|distribuem|repara|reparam|"
+        r"fornece|fornecem|oferece|oferecem|fabrica|fabricam|produz|produzem)"
+    )
+    padrao_entidade_atividade = (
+        rf"\b([A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.'’\-]+"
+        rf"(?:\s+[A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.'’\-]+){{1,4}})"
+        rf"\s+{verbos_atividade_empresa}\b"
+    )
+    m_atividade = re.search(padrao_entidade_atividade, t)
+    if m_atividade:
+        entidade = normalizar_assunto_texto(m_atividade.group(1)).strip()
+        palavras_entidade = set(entidade.split())
+        tecnicas_nomeadas = {
+            "bomba", "bombas", "centrifuga", "centrifugas", "industria",
+            "industrias", "sistema", "sistemas", "agua", "aguas",
+            "motor", "motores", "rotor", "rotores"
+        }
+        if entidade and not palavras_entidade.issubset(tecnicas_nomeadas):
+            return False, "ENTIDADE_TERCEIRO_DETECTADA"
 
     # 6. Nome empresarial conhecido da fonte continua sendo proibido.
     if nome_fonte and len(nome_fonte) >= 4 and nome_fonte not in {'fonte','site','pagina','documento','arquivo','pdf','html'}:
@@ -18739,6 +19052,11 @@ def diagnosticar_contaminacao_editorial(texto, identidade_fonte=None):
     )
     if not ok_integridade:
         return False, motivo_integridade
+
+    # Revisão enviada: bloquear marcas em formato CamelCase mesmo sem verbo comercial.
+    if re.search(r'\b[A-Z][a-zÀ-ÿ]+[A-Z][A-Za-zÀ-ÿ0-9]+\b', t):
+        return False, "MARCA_CAMELCASE_DETECTADA"
+
 
     # Identidade conhecida da fonte: nunca permitir o nome da empresa/marca.
     if isinstance(identidade_fonte, dict):
@@ -21884,6 +22202,271 @@ def gerar_conteudo_completo(
             _falhas_pre_ollama.append((_idx_gate, "ERRO_AUDITORIA_FINAL_PYTHON"))
             continue
 
+    # ========================================================
+    # RECUPERAÇÃO INDIVIDUAL PRÉ-OLLAMA — SOMENTE HASH REPROVADO
+    # ========================================================
+    # Cada fragmento é auditado isoladamente. Se um falhar, somente
+    # aquele índice/hash é substituído por uma reserva/candidato do mesmo
+    # bloco que passe pelas VALIDAÇÕES EXISTENTES. Os demais hashes ficam
+    # intactos. Nenhum conteúdo reprovado é enviado ao Ollama.
+    # ========================================================
+    if _falhas_pre_ollama:
+        _falhas_originais = list(_falhas_pre_ollama)
+        _hashes_reprovados_pre_ollama = set()
+        print("\n============================================================")
+        print("VALIDAÇÃO INDIVIDUAL APÓS SELEÇÃO PYTHON — TROCA POR HASH")
+        print("============================================================")
+
+        def _validar_candidato_substituto_pre_ollama(_cand, _chave_bloco):
+            if not isinstance(_cand, dict):
+                return False, "CANDIDATO_NAO_ESTRUTURADO"
+            _texto = str(_cand.get("texto", "") or "").strip()
+            if not _texto:
+                return False, "TEXTO_VAZIO"
+            try:
+                if not fragmento_pertence_ao_tema(_texto, tema):
+                    return False, "TEMA_INCOMPATIVEL"
+            except Exception:
+                return False, "ERRO_VALIDACAO_TEMA"
+            try:
+                if not fragmento_compativel_com_funcao_do_bloco(_cand, _chave_bloco):
+                    return False, "FUNCAO_EDITORIAL_INCOMPATIVEL_COM_BLOCO"
+            except Exception:
+                return False, "ERRO_COMPATIBILIDADE_BLOCO"
+            try:
+                _ok, _motivo = diagnosticar_contaminacao_editorial(
+                    _texto, _cand.get("identidade_fonte", {})
+                )
+                if not _ok:
+                    return False, str(_motivo)
+            except Exception:
+                return False, "ERRO_AUDITORIA_EDITORIAL"
+            try:
+                if not fragmento_eh_aproveitavel_editorialmente(_texto):
+                    return False, "FILTRO_EDITORIAL_FINAL"
+            except Exception:
+                return False, "ERRO_FILTRO_EDITORIAL_FINAL"
+            try:
+                if not fragmento_eh_comercialmente_limpo(
+                    _texto, _cand.get("identidade_fonte", {})
+                ):
+                    return False, "IDENTIDADE_COMERCIAL_OU_CODIGO"
+            except Exception:
+                return False, "ERRO_IDENTIDADE_COMERCIAL"
+            try:
+                _ok, _motivo = auditar_fragmento_final_python(
+                    _texto, _cand.get("identidade_fonte", {})
+                )
+                if not _ok:
+                    return False, "AUDITORIA_FINAL:" + str(_motivo)
+            except Exception:
+                return False, "ERRO_AUDITORIA_FINAL_PYTHON"
+            try:
+                _ok, _nota, _motivo = portao_qualidade_fragmento(
+                    _texto, _cand.get("identidade_fonte", {}), tema
+                )
+                if not _ok:
+                    return False, "PORTAO_QUALIDADE:" + str(_motivo)
+            except Exception:
+                return False, "ERRO_PORTAO_QUALIDADE"
+            return True, "OK"
+
+        for _idx_reprovado, _motivo_reprovado in _falhas_originais:
+            _pos = _idx_reprovado - 1
+            if _pos < 0 or _pos >= len(fragmentos_selecionados):
+                continue
+            _antigo = fragmentos_selecionados[_pos]
+            if not isinstance(_antigo, dict):
+                continue
+            _hash_antigo = str(
+                _antigo.get("hash", "") or gerar_hash_trecho(_antigo.get("texto", ""))
+            ).strip()
+            _hashes_reprovados_pre_ollama.add(_hash_antigo)
+            _chave_bloco = str(_antigo.get("bloco_mead", "") or "").strip()
+            if _chave_bloco not in {f"bloco_{n}" for n in range(1, 6)}:
+                _chave_bloco = f"bloco_{min(5, max(1, (_pos // 3) + 1))}"
+
+            _hashes_em_uso = set()
+            for _j, _existente in enumerate(fragmentos_selecionados):
+                if _j == _pos or not isinstance(_existente, dict):
+                    continue
+                _h_existente = str(
+                    _existente.get("hash", "") or gerar_hash_trecho(_existente.get("texto", ""))
+                ).strip()
+                if _h_existente:
+                    _hashes_em_uso.add(_h_existente)
+
+            _substituto = None
+            _reservas = fragmentos_reserva_por_bloco.get(_chave_bloco, [])
+            while isinstance(_reservas, list) and _reservas:
+                _reserva = dict(_reservas.pop(0))
+                _h_reserva = str(
+                    _reserva.get("hash", "") or gerar_hash_trecho(_reserva.get("texto", ""))
+                ).strip()
+                if not _h_reserva or _h_reserva == _hash_antigo or _h_reserva in _hashes_em_uso or _h_reserva in _hashes_reprovados_pre_ollama:
+                    continue
+                _reserva["hash"] = _h_reserva
+                _reserva["bloco_mead"] = _chave_bloco
+                _ok_reserva, _motivo_reserva = _validar_candidato_substituto_pre_ollama(_reserva, _chave_bloco)
+                if _ok_reserva:
+                    _substituto = _reserva
+                    break
+                print("❌ RESERVA REPROVADA:", _chave_bloco, _h_reserva, _motivo_reserva)
+                _hashes_reprovados_pre_ollama.add(_h_reserva)
+
+            if _substituto is None:
+                _pool = candidatos_por_bloco.get(_chave_bloco, []) if isinstance(candidatos_por_bloco, dict) else []
+                for _item_pool in _pool:
+                    if not isinstance(_item_pool, dict):
+                        continue
+                    _cand_pool = _item_pool.get("candidato")
+                    if not isinstance(_cand_pool, dict):
+                        continue
+                    _cand_pool = dict(_cand_pool)
+                    _h_pool = str(
+                        _cand_pool.get("hash", "") or gerar_hash_trecho(_cand_pool.get("texto", ""))
+                    ).strip()
+                    if not _h_pool or _h_pool == _hash_antigo or _h_pool in _hashes_em_uso or _h_pool in _hashes_reprovados_pre_ollama:
+                        continue
+                    _cand_pool["hash"] = _h_pool
+                    _cand_pool["bloco_mead"] = _chave_bloco
+                    _ok_pool, _motivo_pool = _validar_candidato_substituto_pre_ollama(_cand_pool, _chave_bloco)
+                    if _ok_pool:
+                        _substituto = _cand_pool
+                        break
+                    _hashes_reprovados_pre_ollama.add(_h_pool)
+
+            if _substituto is None:
+                print(
+                    "🔴 HASH SEM SUBSTITUTO VÁLIDO:", _hash_antigo,
+                    "| BLOCO:", _chave_bloco,
+                    "| MOTIVO:", _motivo_reprovado
+                )
+                continue
+
+            _substituto = dict(_substituto)
+            _substituto["bloco_mead"] = _chave_bloco
+            _substituto["hash"] = str(
+                _substituto.get("hash", "") or gerar_hash_trecho(_substituto.get("texto", ""))
+            ).strip()
+            if not _substituto.get("id"):
+                _substituto["id"] = "IR_" + _substituto["hash"][:16]
+            _substituto["palavras"] = len(str(_substituto.get("texto", "") or "").split())
+            _substituto["auditoria_python_final"] = "OK"
+            fragmentos_selecionados[_pos] = _substituto
+            print(
+                "🔄 SUBSTITUIÇÃO INDIVIDUAL APROVADA:",
+                _chave_bloco,
+                "| ÍNDICE:", _idx_reprovado,
+                "| HASH ANTIGO:", _hash_antigo,
+                "| HASH NOVO:", _substituto["hash"],
+                "| OUTROS HASHES: PRESERVADOS"
+            )
+
+        # Recalcular o estado de hashes/fontes sem alterar os fragmentos aprovados.
+        hashes_selecionados.clear()
+        fontes_utilizadas.clear()
+        for _frag_estado in fragmentos_selecionados:
+            if not isinstance(_frag_estado, dict):
+                continue
+            _h_estado = str(
+                _frag_estado.get("hash", "") or gerar_hash_trecho(_frag_estado.get("texto", ""))
+            ).strip()
+            _frag_estado["hash"] = _h_estado
+            if _h_estado:
+                hashes_selecionados.add(_h_estado)
+            _fonte_estado = _frag_estado.get("fonte")
+            if _fonte_estado is not None:
+                fontes_utilizadas[_fonte_estado] = fontes_utilizadas.get(_fonte_estado, 0) + 1
+
+        # Sincronizar TODAS as estruturas que alimentam o prompt; evitar que
+        # informacoes_relevantes/fragmentos_autorizados mantenham evidência antiga.
+        _info_todos = []
+        _por_bloco = {f"bloco_{n}": [] for n in range(1, 6)}
+        for _pos_sync, _frag_sync in enumerate(fragmentos_selecionados):
+            if not isinstance(_frag_sync, dict):
+                continue
+            _key_sync = str(_frag_sync.get("bloco_mead", "") or "").strip()
+            if _key_sync not in _por_bloco:
+                _key_sync = f"bloco_{min(5, max(1, (_pos_sync // 3) + 1))}"
+                _frag_sync["bloco_mead"] = _key_sync
+            _registro_sync = {
+                "id": _frag_sync.get("id", ""),
+                "hash": _frag_sync.get("hash", ""),
+                "texto": _frag_sync.get("texto", ""),
+                "fonte": _frag_sync.get("fonte", ""),
+                "url": _frag_sync.get("url", ""),
+                "tipo": _frag_sync.get("tipo", ""),
+                "pdf": _frag_sync.get("pdf", False),
+                "palavras": _frag_sync.get("palavras", len(str(_frag_sync.get("texto", "")).split())),
+                "identidade_fonte": _frag_sync.get("identidade_fonte", {})
+            }
+            _info_todos.append(_registro_sync)
+            _por_bloco[_key_sync].append(_registro_sync)
+
+        textos_relevantes["fragmentos"] = fragmentos_selecionados
+        textos_relevantes["informacoes_relevantes"] = _info_todos
+        _partes_sync = []
+        for _n_sync, _frag_sync in enumerate(fragmentos_selecionados, start=1):
+            if not isinstance(_frag_sync, dict):
+                continue
+            _partes_sync.append(
+                f"[FRAGMENTO {_n_sync}]\n[ID {_frag_sync.get('id', '')}]\n"
+                f"[HASH {_frag_sync.get('hash', '')}]\n[FONTE {_frag_sync.get('fonte', '')}]\n"
+                f"{_frag_sync.get('texto', '')}"
+            )
+        textos_relevantes["texto"] = "\n\n".join(_partes_sync).strip()
+
+        for _key_sync, _registros_sync in _por_bloco.items():
+            _textos_sync = [str(x.get("texto", "") or "").strip() for x in _registros_sync]
+            _texto_bloco_sync = "\n\n".join(x for x in _textos_sync if x)
+            for _mapa_sync in (textos_relevantes.get("blocos", {}), textos_relevantes.get("blocos_informacoes", {})):
+                if not isinstance(_mapa_sync, dict):
+                    continue
+                _bloco_sync = _mapa_sync.get(_key_sync)
+                if not isinstance(_bloco_sync, dict):
+                    continue
+                _bloco_sync["informacoes_relevantes"] = [dict(x) for x in _registros_sync]
+                _bloco_sync["fragmentos_autorizados"] = list(_textos_sync)
+                _bloco_sync["hash"] = gerar_hash_trecho(_texto_bloco_sync) if _texto_bloco_sync else ""
+
+        # Reexecutar a auditoria completa sobre o conjunto atualizado.
+        _falhas_pre_ollama = []
+        for _idx_recheck, _frag_recheck in enumerate(fragmentos_selecionados, start=1):
+            if not isinstance(_frag_recheck, dict):
+                _falhas_pre_ollama.append((_idx_recheck, "FRAGMENTO_NAO_ESTRUTURADO"))
+                continue
+            _txt_recheck = str(_frag_recheck.get("texto", "") or "").strip()
+            if not _txt_recheck:
+                _falhas_pre_ollama.append((_idx_recheck, "TEXTO_VAZIO"))
+                continue
+            try:
+                _ok_recheck, _motivo_recheck = diagnosticar_contaminacao_editorial(
+                    _txt_recheck, _frag_recheck.get("identidade_fonte")
+                )
+                if not _ok_recheck:
+                    _falhas_pre_ollama.append((_idx_recheck, str(_motivo_recheck)))
+                    continue
+                if not fragmento_eh_aproveitavel_editorialmente(_txt_recheck):
+                    _falhas_pre_ollama.append((_idx_recheck, "FILTRO_EDITORIAL_FINAL"))
+                    continue
+                if not fragmento_eh_comercialmente_limpo(_txt_recheck, _frag_recheck.get("identidade_fonte", {})):
+                    _falhas_pre_ollama.append((_idx_recheck, "IDENTIDADE_COMERCIAL_OU_PRODUTO_FINAL"))
+                    continue
+                _ok_recheck, _motivo_recheck = auditar_fragmento_final_python(
+                    _txt_recheck, _frag_recheck.get("identidade_fonte", {})
+                )
+                if not _ok_recheck:
+                    _falhas_pre_ollama.append((_idx_recheck, "AUDITORIA_FINAL:" + str(_motivo_recheck)))
+                    continue
+                _ok_recheck, _nota_recheck, _motivo_recheck = portao_qualidade_fragmento(
+                    _txt_recheck, _frag_recheck.get("identidade_fonte", {}), tema
+                )
+                if not _ok_recheck:
+                    _falhas_pre_ollama.append((_idx_recheck, "PORTAO_QUALIDADE:" + str(_motivo_recheck)))
+            except Exception as _erro_recheck:
+                _falhas_pre_ollama.append((_idx_recheck, "ERRO_AUDITORIA:" + str(_erro_recheck)))
+
     if _falhas_pre_ollama:
         print("STATUS FINAL: BLOQUEADO")
         print("FRAGMENTOS REJEITADOS:", len(_falhas_pre_ollama))
@@ -23081,7 +23664,8 @@ def gerar_conteudo_completo(
         candidatos_por_bloco,
         blocos,
         blocos_informacoes,
-        fragmentos_reserva_por_bloco
+        fragmentos_reserva_por_bloco,
+        remover_atual=True
     ):
         """Substitui SOMENTE o fragmento rejeitado, preservando os aprovados."""
         bloqueados = quarentena_ollama_por_bloco.setdefault(chave_bloco, set())
@@ -23091,18 +23675,21 @@ def gerar_conteudo_completo(
         antigo["hash"] = h_antigo
         bloqueados.add(h_antigo)
 
-        # Remove somente o fragmento rejeitado do conjunto global.
-        fragmentos_selecionados[:] = [
-            x for x in fragmentos_selecionados
-            if (x.get("hash") or gerar_hash_trecho(x.get("texto", ""))) != h_antigo
-        ]
-        hashes_selecionados.discard(h_antigo)
+        # A primeira passagem remove o hash rejeitado do estado global.
+        # Uma segunda passagem, após pesquisar novas evidências, não pode
+        # decrementar fontes nem remover hashes uma segunda vez.
+        if remover_atual:
+            fragmentos_selecionados[:] = [
+                x for x in fragmentos_selecionados
+                if (x.get("hash") or gerar_hash_trecho(x.get("texto", ""))) != h_antigo
+            ]
+            hashes_selecionados.discard(h_antigo)
 
-        fonte_antiga = antigo.get("fonte")
-        if fonte_antiga in fontes_utilizadas:
-            fontes_utilizadas[fonte_antiga] -= 1
-            if fontes_utilizadas[fonte_antiga] <= 0:
-                fontes_utilizadas.pop(fonte_antiga, None)
+            fonte_antiga = antigo.get("fonte")
+            if fonte_antiga in fontes_utilizadas:
+                fontes_utilizadas[fonte_antiga] -= 1
+                if fontes_utilizadas[fonte_antiga] <= 0:
+                    fontes_utilizadas.pop(fonte_antiga, None)
 
         novo = None
         reservas = fragmentos_reserva_por_bloco.get(chave_bloco, [])
@@ -23111,11 +23698,50 @@ def gerar_conteudo_completo(
             reserva = dict(reservas.pop(0))
             h = reserva.get("hash") or gerar_hash_trecho(reserva.get("texto", ""))
             reserva["hash"] = h
-            if h and h not in hashes_selecionados and h not in bloqueados:
-                reserva.pop("_reserva_memoria", None)
-                reserva["bloco_mead"] = chave_bloco
-                novo = reserva
-                break
+            if not h or h in hashes_selecionados or h in bloqueados:
+                continue
+
+            # Revalidar a reserva no instante da promoção. A autorização
+            # anterior não dispensa os gates comerciais/editoriais atuais.
+            texto_reserva = str(reserva.get("texto", "") or "").strip()
+            try:
+                limpa_comercial = fragmento_eh_comercialmente_limpo(
+                    texto_reserva, reserva.get("identidade_fonte", {})
+                )
+                limpa_editorial = fragmento_eh_editorialmente_valido(
+                    texto_reserva, reserva.get("identidade_fonte", {})
+                )
+                utilizavel = candidato_eh_utilizavel(reserva)
+                compativel = fragmento_compativel_com_funcao_do_bloco(
+                    reserva, chave_bloco
+                )
+                ok_final, motivo_final = auditar_fragmento_final_python(
+                    texto_reserva, reserva.get("identidade_fonte", {})
+                )
+                ok_contaminacao, motivo_contaminacao = diagnosticar_contaminacao_editorial(
+                    texto_reserva, reserva.get("identidade_fonte", {})
+                )
+            except Exception as erro_validacao_reserva:
+                print(
+                    "⚠️ RESERVA DESCARTADA POR FALHA DE VALIDAÇÃO:",
+                    chave_bloco, h, repr(erro_validacao_reserva)
+                )
+                continue
+
+            if not all((limpa_comercial, limpa_editorial, utilizavel, compativel, ok_final, ok_contaminacao)):
+                print(
+                    "🧹 RESERVA DESCARTADA NA PROMOÇÃO:", chave_bloco, h,
+                    "| COMERCIAL:", limpa_comercial,
+                    "| EDITORIAL:", limpa_editorial,
+                    "| FINAL:", ok_final, motivo_final,
+                    "| CONTAMINAÇÃO:", ok_contaminacao, motivo_contaminacao
+                )
+                continue
+
+            reserva.pop("_reserva_memoria", None)
+            reserva["bloco_mead"] = chave_bloco
+            novo = reserva
+            break
 
         # Se a fila de reservas acabou, ainda podemos buscar outro
         # candidato que já foi aprovado pelo mesmo pool Python. A barreira
@@ -23206,18 +23832,18 @@ def gerar_conteudo_completo(
         def _pesquisar_novas_evidencias_para_bloco(chave_bloco):
             """Busca nova matéria-prima .br quando a reserva/candidatos locais acabaram."""
             termos_blocos = {
-                "bloco_1": ["definição", "funcionamento", "contexto"],
-                "bloco_2": ["características", "funcionamento", "aplicações"],
-                "bloco_3": ["critérios técnicos", "instalação", "manutenção", "segurança"],
-                "bloco_4": ["conhecimento técnico", "suporte", "atendimento"],
-                "bloco_5": ["seleção", "aplicação", "dimensionamento", "solução"],
+                "bloco_1": ["definição", "funcionamento", "contexto", "princípios", "fundamentos"],
+                "bloco_2": ["características", "funcionamento", "aplicações", "tipos", "componentes técnicos"],
+                "bloco_3": ["critérios técnicos", "instalação", "manutenção", "segurança", "dimensionamento", "diagnóstico"],
+                "bloco_4": ["conhecimento técnico", "suporte", "atendimento", "orientação técnica", "boas práticas"],
+                "bloco_5": ["seleção", "aplicação", "dimensionamento", "solução", "critérios de escolha", "operação"],
             }
             termos = termos_blocos.get(chave_bloco, ["informação técnica"])
             urls = []
             vistas = set()
             for termo in termos:
                 try:
-                    resultados = pesquisar(f"{tema} {termo}", limite=5)
+                    resultados = pesquisar(f"{tema} {termo}", limite=8)
                 except Exception as erro:
                     print("⚠️ PESQUISA DE RECUPERAÇÃO FALHOU:", repr(erro))
                     continue
@@ -23227,7 +23853,7 @@ def gerar_conteudo_completo(
                         continue
                     vistas.add(u)
                     urls.append(u)
-                    if len(urls) >= 12:
+                    if len(urls) >= 20:
                         break
                 if len(urls) >= 12:
                     break
@@ -23261,6 +23887,10 @@ def gerar_conteudo_completo(
                         try:
                             if not fragmento_eh_editorialmente_valido(trecho):
                                 continue
+                            # O trecho pesquisado precisa passar pela limpeza
+                            # comercial antes de ser transformado em candidato.
+                            if not fragmento_eh_comercialmente_limpo(trecho, pagina.get("identidade_fonte", {})):
+                                continue
                         except Exception:
                             continue
                         candidato = {
@@ -23288,14 +23918,19 @@ def gerar_conteudo_completo(
                         candidatos.append({"candidato": candidato, "pontuacao": 0})
                         hashes_existentes.add(h)
                         adicionados += 1
-                        if adicionados >= 30:
+                        if adicionados >= 60:
                             break
                     if adicionados >= 30:
                         break
                 if adicionados >= 30:
                     break
 
-            print("🔎 RECUPERAÇÃO DE PESQUISA:", chave_bloco, "URLs:", len(urls), "NOVOS CANDIDATOS:", adicionados)
+            print(
+                "🔎 RECUPERAÇÃO DE PESQUISA:", chave_bloco,
+                "URLs:", len(urls), "NOVOS CANDIDATOS LIMPOS:", adicionados,
+                "| META DE RESERVAS:", 20,
+                "| NOMES DE EMPRESAS/CÓDIGOS: BLOQUEADOS PELOS GATES EXISTENTES"
+            )
             return adicionados > 0
 
         def _adaptar_evidencia_apos_rejeicao(motivo):
@@ -23314,6 +23949,9 @@ def gerar_conteudo_completo(
             indice = None
 
             padroes = [
+                # Formato exato emitido por validar_bloco_editorial_unico:
+                # EDITORIAL_P1:..., EDITORIAL_P2:..., EDITORIAL_P3:...
+                r"EDITORIAL_P(\d+)",
                 r"parágrafo\s+(\d+)",
                 r"PARAGRAFO[_ ](\d+)",
                 r"P(\d+)",
@@ -23339,6 +23977,14 @@ def gerar_conteudo_completo(
             except Exception:
                 return False
 
+            hash_atual = str(
+                (atual or {}).get("hash", "")
+                or gerar_hash_trecho((atual or {}).get("texto", ""))
+            ).strip()
+            hash_ja_quarentenada = hash_atual in quarentena_ollama_por_bloco.get(
+                chave_bloco_atual, set()
+            )
+
             novo = _reselecionar_fragmento_apos_rejeicao(
                 chave_bloco_atual,
                 atual,
@@ -23350,16 +23996,48 @@ def gerar_conteudo_completo(
                 candidatos_por_bloco,
                 blocos,
                 blocos_informacoes,
-                fragmentos_reserva_por_bloco
+                fragmentos_reserva_por_bloco,
+                remover_atual=not hash_ja_quarentenada
             )
 
-            # Não pesquisar novamente durante a fase Ollama.
-            # A pesquisa adicional poderia introduzir uma evidência que não
-            # participou da alocação global dos 15 fragmentos.
+            # Se as reservas e o pool local não tiverem substituto válido,
+            # buscar novas evidências para ESTE bloco. Cada candidato novo
+            # passa pelas mesmas validações Python antes de poder ser usado.
+            # A segunda chamada não remove o hash antigo nem altera a
+            # contabilidade global novamente; apenas tenta promover um novo.
+            if not isinstance(novo, dict):
+                print(
+                    "🔎 RECUPERAÇÃO LOCAL ESGOTADA:", chave_bloco_atual,
+                    "— buscando evidências adicionais para substituir somente o hash rejeitado."
+                )
+                try:
+                    houve_novas_evidencias = _pesquisar_novas_evidencias_para_bloco(
+                        chave_bloco_atual
+                    )
+                except Exception as erro_pesquisa:
+                    houve_novas_evidencias = False
+                    print("⚠️ ERRO NA PESQUISA DE RECUPERAÇÃO:", repr(erro_pesquisa))
+
+                if houve_novas_evidencias:
+                    novo = _reselecionar_fragmento_apos_rejeicao(
+                        chave_bloco_atual,
+                        atual,
+                        indice,
+                        motivo,
+                        fragmentos_selecionados,
+                        hashes_selecionados,
+                        fontes_utilizadas,
+                        candidatos_por_bloco,
+                        blocos,
+                        blocos_informacoes,
+                        fragmentos_reserva_por_bloco,
+                        remover_atual=False
+                    )
+
             if not isinstance(novo, dict):
                 print(
                     "🔴 RECUPERAÇÃO DE EVIDÊNCIA BLOQUEADA:",
-                    "nenhuma reserva Python previamente autorizada disponível."
+                    "nenhuma evidência Python limpa disponível após reservas, pool local e pesquisa de recuperação."
                 )
                 return False
 
@@ -23407,15 +24085,21 @@ def gerar_conteudo_completo(
             print("PARÁGRAFO SUBSTITUÍDO:", indice + 1)
             print("MOTIVO:", motivo)
             print("NOVO ID:", novo.get("id", "SEM_ID"))
+            print("HASH REJEITADO:", str(atual.get("hash", "") or gerar_hash_trecho(atual.get("texto", ""))))
+            print("HASH NOVO:", novo.get("hash", "SEM_HASH"))
+            print("FONTE NOVA:", novo.get("fonte", "SEM_FONTE"))
             print("NOVO TAMANHO:", novo.get("palavras", 0), "palavras")
             print("RESERVAS RESTANTES:", len(fragmentos_reserva_por_bloco.get(chave_bloco_atual, [])))
+            print("OUTROS HASHES: PRESERVADOS")
             print("JSON EM MEMÓRIA: ATUALIZADO")
 
             return True
 
 
         # SEM LIMITE DE TENTATIVAS:
-        # o bloco continua sendo gerado até passar pelas validações.
+        # o bloco continua até passar pelas validações. Se faltar uma hash
+        # limpa, a recuperação persiste, pesquisa novamente e nunca autoriza
+        # a hash rejeitada como atalho.
         tentativa_bloco = 0
 
         while True:
@@ -23437,23 +24121,51 @@ def gerar_conteudo_completo(
                     or "TITULO_OU_PERGUNTA_HERDADA" in erro_upper
                     or "RESIDUO_DE_CATEGORIA" in erro_upper
                     or "LINGUAGEM_COMERCIAL_OU_INSTITUCIONAL" in erro_upper
+                    # Falhas editoriais ligadas à contaminação do trecho-fonte
+                    # exigem trocar a hash do parágrafo indicado, não pedir ao
+                    # Ollama para tentar de novo usando a mesma evidência suja.
+                    or "ENTIDADE_TERCEIRO_DETECTADA" in erro_upper
+                    or "EMPRESA_DA_FONTE" in erro_upper
+                    or "MARCA" in erro_upper
+                    or "CODIGO_DE_PRODUTO" in erro_upper
+                    or "CÓDIGO_DE_PRODUTO" in erro_upper
+                    or "CODIGO_DE_PECA" in erro_upper
+                    or "CÓDIGO_DE_PEÇA" in erro_upper
                     or "CABECALHO_EMBUTIDO" in erro_upper
                     or "ESTRUTURAL_NAVEGACAO_LISTA" in erro_upper
                     or "FINAL_TRUNCADO" in erro_upper
                     or "PROGRESSAO" in erro_upper
+                    # Se o Ollama não entrega a estrutura de um parágrafo,
+                    # também trocamos a evidência correspondente antes de
+                    # tentar novamente. Isso evita que a tentativa seguinte
+                    # fique presa ao mesmo conjunto de hashes após uma falha
+                    # de parser, como abertura ausente de PARAGRAFO_3.
+                    or "ESTRUTURA INVÁLIDA" in erro_upper
+                    or "ESTRUTURA INVALIDA" in erro_upper
+                    or "ABERTURA AUSENTE" in erro_upper
+                    or "PARÁGRAFO 3 VAZIO" in erro_upper
+                    or "PARAGRAFO 3 VAZIO" in erro_upper
                 )
                 if precisa_novo_texto:
+                    print(
+                        "🔁 REJEIÇÃO DE CONTEÚDO/FONTE: será colocada em quarentena "
+                        "a hash do trecho responsável e selecionada outra hash."
+                    )
                     recuperou = _adaptar_evidencia_apos_rejeicao(ultimo_erro)
                     if not recuperou:
                         print(
-                            "🔴 BLOCO INTERROMPIDO: não existe evidência "
-                            "autorizada disponível para substituir o trecho rejeitado."
+                            "🟠 RECUPERAÇÃO PERSISTENTE: nenhuma hash limpa disponível nesta rodada. "
+                            "O bloco não será enviado com evidência contaminada; novas pesquisas serão tentadas."
                         )
                         ultimo_erro = (
                             str(ultimo_erro)
                             + " | SEM_EVIDENCIA_AUTORIZADA_PARA_RESELECAO"
                         )
-                        break
+                        # Não interromper o processo nem liberar o trecho rejeitado.
+                        # Espera curta evita martelar a pesquisa quando a rede falha;
+                        # a próxima rodada repete a coleta e os gates de limpeza.
+                        time.sleep(min(30, max(5, tentativa_bloco * 2)))
+                        continue
 
             print()
             print("=" * 60)
@@ -23551,6 +24263,11 @@ Retorne novamente somente:
                 for x in fragmentos_autorizados
             ]
             total_tentativa_atual = sum(tamanhos_tentativa_atual)
+            hashes_tentativa_atual = [
+                str(x.get("hash") or gerar_hash_trecho(x.get("texto", "")))
+                for x in fragmentos_autorizados
+            ]
+            print("HASHES EFETIVAMENTE ENVIADAS:", hashes_tentativa_atual)
             instrucao_retentativa += f"""
 
 ==================================================
@@ -24942,7 +25659,26 @@ TRECHO {fragmento["numero"]}
 
         total_entrada_ollama = sum(tamanhos_entrada)
 
+        direcao_prompt = direcao_editorial_preferencial(chave_bloco)
+        assuntos_prompt = [
+            NOMES_BLOCOS_EDITORIAIS.get(a, a.replace("_", " "))
+            for a in assuntos_editoriais_ativos(estrutura_editorial)
+        ]
+        assuntos_prompt_txt = ", ".join(assuntos_prompt) if assuntos_prompt else "nenhum checkbox ativo"
+
         prompt_bloco = f"""Você é um editor técnico de preservação factual.
+
+ESCOPO: redija APENAS os três parágrafos deste bloco. Estas direções e validações não definem nem alteram títulos, subtítulos, tags, segmentos ou listas; esses componentes são gerados e controlados pelo Python.
+
+DIREÇÃO EDITORIAL PREFERENCIAL: {direcao_prompt['nome']}.
+Orientação: {direcao_prompt['descricao']}.
+A direção é uma preferência, NÃO uma obrigação rígida. Siga-a quando houver evidência adequada; se as fontes autorizadas sustentarem melhor outra abordagem marcada pelo usuário, preserve o conteúdo útil e factual em vez de forçar a direção ou inventar material.
+
+ASSUNTOS AUTORIZADOS PELOS CHECKBOXES ATIVOS: {assuntos_prompt_txt}.
+Use os checkboxes para orientar e completar a abordagem dos parágrafos. Não trate assuntos desmarcados como exigências. Não invente fatos para cobrir um assunto marcado quando as evidências não o sustentarem; priorize o que as fontes realmente demonstram.
+
+PALAVRA-CHAVE SEO LITERAL: {tema}
+Em cada um dos três parágrafos, use essa palavra-chave exatamente uma vez, preservando a grafia e a ordem literal. Não precisa abrir o parágrafo. Não a repita uma segunda vez no mesmo parágrafo.
 
 O Python já entregou três trechos limpos e autorizados. Sua tarefa NÃO é resumir. Sua tarefa é reescrever com linguagem natural, preservando o conteúdo factual recebido.
 
@@ -24994,14 +25730,7 @@ texto
 
 EVIDÊNCIAS AUTORIZADAS PELO PYTHON — USE AS TRÊS EM CONJUNTO:
 
-EVIDÊNCIA 1:
-{fragmentos_ollama[0]["texto"] if len(fragmentos_bloco)>0 else ""}
-
-EVIDÊNCIA 2:
-{fragmentos_ollama[1]["texto"] if len(fragmentos_bloco)>1 else ""}
-
-EVIDÊNCIA 3:
-{fragmentos_ollama[2]["texto"] if len(fragmentos_bloco)>2 else ""}
+{MARCADOR_TRECHOS_OLLAMA}
 """
         # ========================================================
         # CONTROLE DO PROMPT DO BLOCO
@@ -26883,7 +27612,7 @@ def identificar_empresa_fonte(
             r"\s+(?:pela|pelo|por)\s+"
             r"([A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.'’\- ]{2,100}?)"
             r"(?=\s+(?:e|é|são|possui|atua|oferece|"
-            r"fabrica|produz|fornece|distribui)|[.,;:])",
+            r"fabrica|produz|fornece|distribui|realiza|executa|presta)|[.,;:])",
 
             "fabricante"
         ),
@@ -26897,7 +27626,7 @@ def identificar_empresa_fonte(
             r"\s+(?:pela|pelo|por)\s+"
             r"([A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.'’\- ]{2,100}?)"
             r"(?=\s+(?:e|é|são|possui|atua|oferece|"
-            r"fabrica|produz|fornece|distribui)|[.,;:])",
+            r"fabrica|produz|fornece|distribui|realiza|executa|presta)|[.,;:])",
 
             "fabricante"
         ),
@@ -26911,7 +27640,7 @@ def identificar_empresa_fonte(
             r"\s+(?:pela|pelo|por)\s+"
             r"([A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.'’\- ]{2,100}?)"
             r"(?=\s+(?:e|é|são|possui|atua|oferece|"
-            r"fabrica|produz|fornece|distribui)|[.,;:])",
+            r"fabrica|produz|fornece|distribui|realiza|executa|presta)|[.,;:])",
 
             "distribuidor"
         ),
@@ -26925,7 +27654,7 @@ def identificar_empresa_fonte(
             r"\s+(?:pela|pelo|por)\s+"
             r"([A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.'’\- ]{2,100}?)"
             r"(?=\s+(?:e|é|são|possui|atua|oferece|"
-            r"fabrica|produz|fornece|distribui)|[.,;:])",
+            r"fabrica|produz|fornece|distribui|realiza|executa|presta)|[.,;:])",
 
             "fornecedor"
         ),
@@ -27040,7 +27769,9 @@ def identificar_empresa_fonte(
             r"(?:\s+[A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.'’\-]+){0,5})"
             r"\s*,?\s+"
             r"(?:é|são|atua|oferece|fornece|fabrica|produz|"
-            r"distribui|comercializa|especializada|especializado)"
+            r"distribui|comercializa|realiza|realizam|realizou|executa|"
+            r"executam|presta|prestam|mantém|mantem|possui|conta|"
+            r"especializada|especializado)"
             r"\b"
         ),
 
@@ -27054,7 +27785,9 @@ def identificar_empresa_fonte(
             r"(?:\s+[A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][A-Za-zÀ-ÿ0-9&.'’\-]+){0,5})"
             r"\s+"
             r"(?:é|são|atua|oferece|fornece|fabrica|produz|"
-            r"distribui|comercializa|especializada|especializado)"
+            r"distribui|comercializa|realiza|realizam|realizou|executa|"
+            r"executam|presta|prestam|mantém|mantem|possui|conta|"
+            r"especializada|especializado)"
             r"\b"
         )
 
