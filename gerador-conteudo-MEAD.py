@@ -1,4 +1,4 @@
-# gerador-conteudo-MEAD-v9.18-Lux-v87-ok - 09/10/2026
+# gerador-conteudo-MEAD-v9.18-Lux-v87-ok-CORRIGIDO - 09/10/2026
 # Reservatório ampliado de candidatos limpos — seleção final continua em 15
 # Pré-barreira de URLs + seleção natural de trechos + bruto sem descartados
 
@@ -334,6 +334,75 @@ def gerar_segmentos_validos(
 
     
     
+# ============================================================
+# COMPATIBILIDADE MEAD EDITORES 2.0 (ESQUEMA OFICIAL)
+# ============================================================
+MEAD_EDITORES_2_PATH = Path(__file__).resolve().with_name("MEAD_EDITORES_v2_AUDITADO.json")
+
+
+def carregar_mead_editores_2(caminho=None):
+    """Carrega apenas a especificação MEAD EDITORES 2.0 pelo seu esquema real.
+
+    A configuração editorial legada continua sendo carregada separadamente.
+    Ausência/JSON inválido/estrutura inesperada gera diagnóstico e fallback
+    controlado, sem interromper a geração existente.
+    """
+    caminho = Path(caminho) if caminho else MEAD_EDITORES_2_PATH
+    try:
+        with caminho.open("r", encoding="utf-8") as arquivo:
+            dados = json.load(arquivo)
+        if not isinstance(dados, dict):
+            raise ValueError("raiz deve ser objeto JSON")
+        identificacao = dados.get("identificacao")
+        fronteiras = dados.get("fronteiras")
+        politica = dados.get("politica_editorial")
+        pipeline = dados.get("pipeline")
+        schema = dados.get("plano_editorial_schema")
+        if not all(isinstance(x, dict) for x in (identificacao, fronteiras, politica, schema)) or not isinstance(pipeline, list):
+            raise ValueError("estrutura não corresponde ao esquema MEAD EDITORES 2.0")
+        if identificacao.get("nome") != "MEAD EDITORES" or not str(identificacao.get("versao", "")).startswith("2.0"):
+            raise ValueError("identificação/versão incompatível")
+        print("MEAD EDITORES 2.0: especificação carregada e estrutura reconhecida.")
+        return dados
+    except FileNotFoundError:
+        print("MEAD EDITORES 2.0: especificação ausente; mantendo fluxo legado.")
+    except (json.JSONDecodeError, OSError, ValueError, TypeError) as erro:
+        print("MEAD EDITORES 2.0: configuração inválida; mantendo fluxo legado:", erro)
+    return {}
+
+
+def preparar_mead_editores_2(especificacao):
+    """Transforma os campos reais da especificação em instruções editoriais compactas."""
+    if not isinstance(especificacao, dict) or not especificacao:
+        return ""
+    try:
+        politica = especificacao.get("politica_editorial", {})
+        estrutura = especificacao.get("estrutura_configuravel", {})
+        padrao = estrutura.get("padrao_atual", {}) if isinstance(estrutura, dict) else {}
+        pipeline = especificacao.get("pipeline", [])
+        # Preservar a especificação oficial completa relevante; em particular,
+        # as fronteiras e as regras de estrutura não podem ser descartadas.
+        dados = {
+            "identificacao": especificacao.get("identificacao", {}),
+            "fronteiras": especificacao.get("fronteiras", {}),
+            "principio_central": especificacao.get("principio_central", ""),
+            "politica_editorial": politica,
+            "estrutura_configuravel": estrutura,
+            "pipeline": pipeline,
+            "plano_editorial_schema": especificacao.get("plano_editorial_schema", {}),
+            "validacao": especificacao.get("validacao", {}),
+            "prompt_mestre": especificacao.get("prompt_mestre", ""),
+        }
+        return "MEAD EDITORES 2.0 — especificação editorial principal:\n" + json.dumps(dados, ensure_ascii=False, indent=2)
+    except Exception as erro:
+        print("MEAD EDITORES 2.0: falha ao preparar instruções; fluxo legado preservado:", erro)
+        return ""
+
+
+MEAD_EDITORES_2 = carregar_mead_editores_2()
+MEAD_EDITORES_2_TEXTO = preparar_mead_editores_2(MEAD_EDITORES_2)
+
+
 # ============================================================
 # CARREGAR MEAD
 # ============================================================
@@ -2385,7 +2454,11 @@ def montar_pagina_json(
 
 MEAD = carregar_mead()
 
-MEAD_TEXTO = preparar_mead(MEAD)
+MEAD_LEGADO_TEXTO = preparar_mead(MEAD)
+# MEAD EDITORES 2.0 é independente do legado: quando disponível, é a fonte
+# editorial principal. O legado permanece carregado como fallback compatível,
+# mas não é concatenado às regras 2.0 para evitar instruções contraditórias.
+MEAD_TEXTO = MEAD_EDITORES_2_TEXTO or MEAD_LEGADO_TEXTO
 
 print("\nMEAD preparado para IA:")
 print(MEAD_TEXTO)
@@ -20646,13 +20719,37 @@ def validar_progressao_editorial_bloco(paragrafos):
     return True, "OK"
 
 
-def validar_bloco_editorial_unico(paragrafos):
-    """Autoridade para estrutura e integridade editorial do bloco, sem limite de palavras."""
+def validar_bloco_seo_mead(paragrafos, palavra_chave=""):
+    """Validação determinística central de extensão e keyword por parágrafo."""
+    if not isinstance(paragrafos, list) or len(paragrafos) != 3:
+        return False, "BLOCO_DEVE_TER_3_PARAGRAFOS"
+    chave = str(palavra_chave or "")
+    if not chave.strip():
+        return False, "KEYWORD_AUSENTE_OU_VAZIA"
+    contagens = [len(str(p or "").split()) for p in paragrafos]
+    for indice, (paragrafo, palavras) in enumerate(zip(paragrafos, contagens), start=1):
+        if palavras < 45:
+            return False, f"PARAGRAFO_{indice}_ABAIXO_DE_45_PALAVRAS:{palavras}"
+        if chave:
+            ocorrencias = len(re.findall(rf"(?<!\w){re.escape(chave)}(?!\w)", str(paragrafo or "")))
+            if ocorrencias != 1:
+                return False, f"PARAGRAFO_{indice}_KEYWORD_OCORRENCIAS:{ocorrencias}"
+    total = sum(contagens)
+    if total < 170 or total > 220:
+        return False, f"TOTAL_BLOCO_FORA_DE_170_220:{total}"
+    return True, "OK"
+
+
+def validar_bloco_editorial_unico(paragrafos, palavra_chave=""):
+    """Autoridade central para estrutura, extensão, keyword e integridade editorial."""
     if not isinstance(paragrafos, list) or len(paragrafos) != 3:
         return False, "BLOCO_DEVE_TER_3_PARAGRAFOS", None
 
-    contagens = [len(str(p or "").split()) for p in paragrafos]
-    total = sum(contagens)
+    ok_seo, motivo_seo = validar_bloco_seo_mead(paragrafos, palavra_chave)
+    if not ok_seo:
+        indice_match = re.search(r"PARAGRAFO_(\d+)_", motivo_seo)
+        indice_falha = int(indice_match.group(1)) if indice_match else None
+        return False, motivo_seo, indice_falha
 
     for idx, paragrafo in enumerate(paragrafos, start=1):
         ok, motivo = auditar_saida_ollama_editorial(str(paragrafo or ""), None)
@@ -20744,7 +20841,7 @@ def validar_pagina_editorial_final(pagina, tema=""):
         if not isinstance(bloco, dict):
             return False, f"{chave}_INVALIDO"
         paras = bloco.get("paragrafos_ollama", [])
-        ok, motivo, _ = validar_bloco_editorial_unico(paras)
+        ok, motivo, _ = validar_bloco_editorial_unico(paras, tema)
         if not ok:
             return False, f"{chave}:{motivo}"
         blocos[chave] = bloco
@@ -23154,7 +23251,8 @@ NAO
     
     try:
     
-        contexto_mead = preparar_mead(MEAD)
+        contexto_mead_legado = preparar_mead(MEAD)
+        contexto_mead = MEAD_EDITORES_2_TEXTO or contexto_mead_legado
     
     except Exception as erro:
     
@@ -24550,7 +24648,8 @@ Preserve proporcionalmente o conteúdo deles, sem meta ou limite de palavras.
             # VALIDAÇÃO ÚNICA DE BLOCO — SEM LIMITE DE PALAVRAS
             # ----------------------------------------------------
             ok_bloco, motivo_bloco, indice_ajuste = validar_bloco_editorial_unico(
-                paragrafos_extraidos
+                paragrafos_extraidos,
+                tema
             )
 
             quantidades_palavras = [len(str(p or "").split()) for p in paragrafos_extraidos]
@@ -31813,6 +31912,12 @@ def salvar_banco(
                 tema_original
             ),
 
+        "titulo":
+            pagina.get(
+                "titulo",
+                ""
+            ),
+
         "subtitulo":
             pagina.get(
                 "subtitulo",
@@ -32203,6 +32308,9 @@ def salvar_banco(
                 snapshot_memoria,
                 pagina_temporaria
             )
+            titulo_esperado = str(pagina_final.get("titulo", "") or "")
+            if str(pagina_temporaria.get("titulo", "") or "") != titulo_esperado:
+                erros_temporario.append("pagina.titulo: título diverge/desapareceu no JSON temporário")
 
             if erros_temporario:
                 print("\n❌ GRAVAÇÃO ABORTADA — TEMPORÁRIO DIFERE DA MEMÓRIA")
@@ -32239,6 +32347,8 @@ def salvar_banco(
             snapshot_memoria,
             pagina_gravada
         )
+        if str(pagina_gravada.get("titulo", "") or "") != str(pagina_final.get("titulo", "") or ""):
+            erros_pos_gravacao.append("pagina.titulo: título diverge/desapareceu após reabrir JSON oficial")
 
         if erros_pos_gravacao:
             print("\n❌ GRAVAÇÃO REJEITADA — CONTEÚDO NO DISCO DIFERE DA MEMÓRIA")
