@@ -17,11 +17,12 @@ import requests
 import fitz
 import tkinter as tk
 import random
+import urlparse
+
 from datetime import datetime
 from tkinter import filedialog
 from tkinter import messagebox
 from tkinter import ttk
-
 from docx import Document
 from docx.shared import Pt, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -29,6 +30,7 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from bs4 import BeautifulSoup
 from ddgs import DDGS
+from urllib.parse
 
 
 
@@ -2500,24 +2502,82 @@ GRUPOS_TEMATICOS = {
 # IDENTIFICAR TIPO DO TEMA
 # ============================================================
 
+
+def dominio_fonte_tecnica_externa(dominio):
+    """
+    Permite fontes externas técnicas apenas como alternativa.
+    A prioridade continua sendo dada aos domínios brasileiros .br.
+    """
+    dominio = (
+        str(dominio or "")
+        .lower()
+        .strip()
+        .split(":", 1)[0]
+        .strip(".")
+    )
+
+    if not dominio or dominio.endswith(".br"):
+        return False
+
+    # Domínios acadêmicos e governamentais reconhecíveis.
+    sufixos_academicos = (
+        ".edu",
+        ".ac.uk",
+        ".edu.au",
+        ".edu.ca",
+    )
+
+    sufixos_governamentais = (
+        ".gov",
+        ".gov.uk",
+        ".gov.au",
+        ".gov.ca",
+        ".gc.ca",
+    )
+
+    if any(dominio.endswith(s) for s in sufixos_academicos):
+        return True
+
+    if any(dominio.endswith(s) for s in sufixos_governamentais):
+        return True
+
+    # Entidades técnicas específicas, autorizadas explicitamente.
+    entidades_tecnicas = (
+        "nist.gov",
+        "energy.gov",
+        "usgs.gov",
+        "epa.gov",
+        "nationalacademies.org",
+        "ieee.org",
+        "asme.org",
+        "pumps.org",
+        "iso.org",
+        "iec.ch",
+    )
+
+    return any(
+        dominio == autorizado
+        or dominio.endswith("." + autorizado)
+        for autorizado in entidades_tecnicas
+    )
+
+
 def pesquisar(termo, limite=10):
+    """
+    Pesquisa multifonte:
+    1. Prioriza fontes brasileiras (.br).
+    2. Experimenta diferentes mecanismos do DDGS.
+    3. Só aceita fontes técnicas externas quando faltam
+       resultados brasileiros.
 
-    resultados = []
+    Os filtros editoriais e comerciais continuam sendo
+    aplicados nas etapas posteriores.
+    """
 
-    # ========================================================
-    # v9.18-v9 — PESQUISA EXCLUSIVA EM FONTES BRASILEIRAS
-    # ========================================================
-    # As consultas são conduzidas em português e com sinal de Brasil.
-    # A barreira .br é aplicada sobre as URLs retornadas, evitando
-    # depender de `site:.br` no mecanismo do DDGS.
-    #
-    # A consulta também recebe termos em português quando
-    # necessário, mas a garantia principal é a URL final:
-    # somente domínios .br podem entrar no patrimônio.
-    # ========================================================
+    resultados_br = []
+    resultados_externos = []
 
-    dominios_bloqueados = [
-
+    dominios_bloqueados = (
         "pinterest.",
         "facebook.",
         "instagram.",
@@ -2530,1472 +2590,220 @@ def pesquisar(termo, limite=10):
         "reddit.com",
         "threads.net",
         "telegram.me",
-        "t.me"
+        "t.me",
+        "mercadolivre.",
+        "amazon.",
+        "shopee.",
+        "aliexpress.",
+        "alibaba.",
+        "ebay.",
+        "made-in-china.",
+    )
 
-    ]
-
-    consulta_original = str(
-        termo or ""
-    ).strip()
+    consulta_original = str(termo or "").strip()
 
     if not consulta_original:
-        return resultados
-
-    # --------------------------------------------------------
-    # IMPORTANTE — v9.18-v9
-    # --------------------------------------------------------
-    # NÃO usar `site:.br` dentro da consulta do DDGS.
-    # Alguns mecanismos/fontes do DDGS retornam "No results
-    # found" quando recebem esse operador, fazendo a pesquisa
-    # inteira parecer vazia.
-    #
-    # A restrição brasileira é aplicada DEPOIS do retorno, na
-    # URL. Assim mantemos a origem exclusivamente brasileira sem
-    # depender da sintaxe do mecanismo de busca.
-    # --------------------------------------------------------
-
-    consultas_tentativa = []
-
-    consulta_base = consulta_original
-
-    # Aumenta o sinal de Brasil/português sem usar operador de
-    # domínio. Isso ajuda o buscador a priorizar conteúdo nacional.
-    if "brasil" not in consulta_base.casefold():
-        consultas_tentativa.append(
-            f"{consulta_base} Brasil"
-        )
-
-    consultas_tentativa.append(
-        consulta_base
-    )
-
-    # Remove duplicatas preservando a ordem.
-    consultas_tentativa = list(dict.fromkeys(
-        consultas_tentativa
-    ))
-
-    try:
-
-        with DDGS() as ddgs:
-
-            for consulta in consultas_tentativa:
-
-                try:
-
-                    busca = ddgs.text(
-                        consulta,
-                        safesearch="off",
-                        max_results=max(limite, 10)
-                    )
-
-                    encontrados_nesta_tentativa = 0
-
-                    for item in busca:
-
-                        if not isinstance(item, dict):
-                            continue
-
-                        url = item.get("href")
-
-                        if not url:
-                            continue
-
-                        try:
-                            parsed = urlparse(str(url))
-                            dominio = (
-                                parsed.netloc or ""
-                            ).lower().strip().split(":", 1)[0]
-                        except Exception:
-                            continue
-
-                        # ------------------------------------------------
-                        # BARREIRA ABSOLUTA DE ORIGEM
-                        # ------------------------------------------------
-                        # Só entra domínio brasileiro .br.
-                        # Ex.: www.gov.br, abnt.org.br, empresa.com.br
-                        # ------------------------------------------------
-                        if not dominio.endswith(".br"):
-                            continue
-
-                        if any(
-                            dominio == bloqueado.rstrip(".")
-                            or dominio.endswith(bloqueado.rstrip("."))
-                            or bloqueado in dominio
-                            for bloqueado in dominios_bloqueados
-                        ):
-                            continue
-
-                        url_limpa = str(url).strip()
-
-                        if url_limpa not in resultados:
-                            resultados.append(url_limpa)
-                            encontrados_nesta_tentativa += 1
-
-                        if len(resultados) >= limite:
-                            return resultados[:limite]
-
-                    # Se já encontramos fontes brasileiras, não há
-                    # necessidade de ampliar a consulta.
-                    if encontrados_nesta_tentativa > 0:
-                        break
-
-                except Exception as erro_tentativa:
-
-                    # "No results found" não deve abortar a pesquisa.
-                    # Tenta a próxima formulação.
-                    print()
-                    print("FALHA NA CONSULTA:")
-                    print(consulta)
-                    print("MOTIVO:", erro_tentativa)
-                    if len(consultas_tentativa) > 1:
-                        continue
-
-    except Exception as e:
-
-        print()
-        print("ERRO NA PESQUISA:")
-        print(e)
-
-    return resultados[:limite]
-
-
-# ============================================================
-
-# ============================================================
-# PRÉ-BARREIRA DE URLS — v9.15
-# ============================================================
-#
-# A URL passa por esta barreira ANTES de qualquer
-# coletar_pagina(url).
-#
-# A ausência do tema na URL NÃO reprova a fonte.
-# A relevância temática continua sendo validada depois,
-# sobre o conteúdo real coletado.
-# ============================================================
-
-def avaliar_url_pre_download(url, tema=None):
-
-    try:
-
-        url_original = str(
-            url or ""
-        ).strip()
-
-        if not url_original:
-            return False
-
-        from urllib.parse import urlparse
-
-        parsed = urlparse(
-            url_original
-        )
-
-        esquema = (
-            parsed.scheme or ""
-        ).lower().strip()
-
-        if esquema not in (
-            "http",
-            "https"
-        ):
-            return False
-
-        dominio = (
-            parsed.netloc or ""
-        ).lower().strip()
-
-        caminho = (
-            parsed.path or ""
-        ).lower().strip()
-
-        consulta = (
-            parsed.query or ""
-        ).lower().strip()
-
-        # ----------------------------------------------------
-        # DOMÍNIOS JÁ BLOQUEADOS PELA v9.14
-        # ----------------------------------------------------
-
-        dominios_bloqueados = [
-
-            "mercadolivre.",
-            "amazon.",
-            "shopee.",
-            "aliexpress.",
-            "alibaba.",
-            "ebay.",
-            "made-in-china.",
-
-            "pinterest.",
-            "facebook.",
-            "instagram.",
-            "youtube.",
-            "youtu.be",
-            "tiktok.",
-
-            "oceanofpdf.com",
-            "pdfcoffee.com",
-            "scribd.com"
-
-        ]
-
-        if any(
-            item in dominio
-            for item in dominios_bloqueados
-        ):
-            return False
-
-        # ----------------------------------------------------
-        # REDES SOCIAIS
-        # ----------------------------------------------------
-
-        dominios_sociais = [
-
-            "linkedin.com",
-            "twitter.com",
-            "x.com",
-            "reddit.com",
-            "threads.net",
-            "telegram.me",
-            "t.me"
-
-        ]
-
-        if any(
-            item in dominio
-            for item in dominios_sociais
-        ):
-            return False
-
-        # ----------------------------------------------------
-        # LOGIN / CADASTRO / AUTENTICAÇÃO
-        # ----------------------------------------------------
-
-        caminhos_autenticacao = [
-
-            "login",
-            "log-in",
-            "signin",
-            "sign-in",
-            "sign_up",
-            "signup",
-            "sign-up",
-            "cadastro",
-            "cadastrar",
-            "registrar",
-            "registro",
-            "register",
-            "account",
-            "conta",
-            "minha-conta",
-            "my-account",
-            "auth",
-            "autenticacao",
-            "autenticação",
-            "password",
-            "senha"
-
-        ]
-
-        if any(
-            termo in caminho
-            for termo in caminhos_autenticacao
-        ):
-            return False
-
-        # ----------------------------------------------------
-        # CHECKOUT / CARRINHO / TRANSAÇÃO
-        # ----------------------------------------------------
-
-        caminhos_transacionais = [
-
-            "checkout",
-            "carrinho",
-            "cart",
-            "basket",
-            "pedido",
-            "orders",
-            "order",
-            "pagamento",
-            "payment",
-            "finalizar-compra",
-            "finalizar_compra",
-            "comprar-agora",
-            "buy-now"
-
-        ]
-
-        if any(
-            termo in caminho
-            for termo in caminhos_transacionais
-        ):
-            return False
-
-        # ----------------------------------------------------
-        # CONTATO / ATENDIMENTO
-        # ----------------------------------------------------
-
-        caminhos_contato = [
-
-            "contato",
-            "contact",
-            "fale-conosco",
-            "fale_conosco",
-            "sac",
-            "atendimento"
-
-        ]
-
-        if any(
-            termo in caminho
-            for termo in caminhos_contato
-        ):
-            return False
-
-        # ----------------------------------------------------
-        # POLÍTICAS / PRIVACIDADE / COOKIES / TERMOS
-        # ----------------------------------------------------
-
-        caminhos_politicas = [
-
-            "politica-de-privacidade",
-            "politica_privacidade",
-            "politica-de-cookies",
-            "politica_cookies",
-            "privacy-policy",
-            "privacy_policy",
-            "privacidade",
-            "cookies",
-            "termos-de-uso",
-            "termos_de_uso",
-            "terms-of-use",
-            "terms_of_use",
-            "termos-e-condicoes",
-            "terms-and-conditions",
-            "lgpd"
-
-        ]
-
-        if any(
-            termo in caminho
-            for termo in caminhos_politicas
-        ):
-            return False
-
-        # ----------------------------------------------------
-        # BUSCA INTERNA
-        # ----------------------------------------------------
-
-        caminhos_busca = [
-
-            "/busca",
-            "/buscar",
-            "/search",
-            "/resultado-busca",
-            "/resultados-busca",
-            "/search-results"
-
-        ]
-
-        if any(
-            termo in caminho
-            for termo in caminhos_busca
-        ):
-            return False
-
-        parametros_busca = [
-
-            "search=",
-            "query=",
-            "q=",
-            "s=",
-            "keyword=",
-            "keywords=",
-            "busca=",
-            "buscar="
-
-        ]
-
-        if any(
-            parametro in consulta
-            for parametro in parametros_busca
-        ):
-            return False
-
-        # ----------------------------------------------------
-        # AUTOR / TAG / FEED / ARQUIVOS AUTOMÁTICOS
-        # ----------------------------------------------------
-
-        caminhos_arquivos_editoriais = [
-
-            "/author/",
-            "/autor/",
-            "/tag/",
-            "/tags/",
-            "/feed",
-            "/rss",
-            "/category/",
-            "/categoria/",
-            "/arquivo/",
-            "/archives/",
-            "/wp-json/",
-            "/xmlrpc.php"
-
-        ]
-
-        if any(
-            termo in caminho
-            for termo in caminhos_arquivos_editoriais
-        ):
-            return False
-
-        # ----------------------------------------------------
-        # ENDPOINTS SEM INTERESSE EDITORIAL
-        # ----------------------------------------------------
-
-        endpoints_tecnicos = [
-
-            "/api/",
-            "/ajax/",
-            "/graphql",
-            "/wp-admin/",
-            "/wp-login.php"
-
-        ]
-
-        if any(
-            termo in caminho
-            for termo in endpoints_tecnicos
-        ):
-            return False
-
-        # ----------------------------------------------------
-        # IMAGENS / VÍDEOS / ÁUDIO / BINÁRIOS
-        #
-        # PDF permanece permitido porque a v9.14 pesquisa
-        # e coleta PDF como fonte editorial.
-        # ----------------------------------------------------
-
-        extensao = ""
-
-        ultimo_ponto = caminho.rfind(".")
-
-        if ultimo_ponto >= 0:
-            extensao = caminho[
-                ultimo_ponto:
-            ].lower()
-
-        extensoes_nao_editoriais = [
-
-            ".jpg",
-            ".jpeg",
-            ".png",
-            ".gif",
-            ".webp",
-            ".svg",
-            ".bmp",
-            ".ico",
-            ".tif",
-            ".tiff",
-            ".avif",
-
-            ".mp4",
-            ".webm",
-            ".mov",
-            ".avi",
-            ".mkv",
-            ".mpeg",
-            ".mpg",
-            ".m4v",
-
-            ".mp3",
-            ".wav",
-            ".ogg",
-            ".oga",
-            ".m4a",
-            ".flac",
-
-            ".zip",
-            ".rar",
-            ".7z",
-            ".tar",
-            ".gz",
-            ".exe",
-            ".msi",
-            ".apk",
-            ".dmg",
-            ".iso",
-
-            ".doc",
-            ".docx",
-            ".xls",
-            ".xlsx",
-            ".ppt",
-            ".pptx"
-
-        ]
-
-        if extensao in extensoes_nao_editoriais:
-            return False
-
-        # ----------------------------------------------------
-        # DOMÍNIO OBRIGATÓRIO
-        # ----------------------------------------------------
-
-        if not dominio:
-            return False
-
-        # ----------------------------------------------------
-        # IMPORTANTE:
-        # NÃO verificar se o tema aparece na URL.
-        # A validação temática ocorre no conteúdo.
-        # ----------------------------------------------------
-
-        return True
-
-    except Exception:
-        # Se a própria avaliação falhar, não permitir download.
-        return False
-
-
-def filtrar_urls_pre_download(
-    urls,
-    tema=None
-):
-
-    """
-    Aplica a pré-barreira depois de filtrar_urls()
-    e antes de qualquer download.
-    """
-
-    if not isinstance(
-        urls,
-        list
-    ):
+        print("PESQUISA IGNORADA: consulta vazia.")
         return []
 
-    resultado = []
+    try:
+        limite = max(1, int(limite))
+    except (TypeError, ValueError):
+        limite = 10
 
-    vistas = set()
+    consultas_br = []
 
-    bloqueadas = 0
-
-    for url in urls:
-
-        url_limpa = str(
-            url or ""
-        ).strip()
-
-        if not url_limpa:
-            continue
-
-        chave = url_limpa.casefold()
-
-        if chave in vistas:
-            continue
-
-        vistas.add(chave)
-
-        if not avaliar_url_pre_download(
-            url_limpa,
-            tema
-        ):
-
-            bloqueadas += 1
-
-            print(
-                "PRÉ-BARREIRA BLOQUEOU:",
-                url_limpa
-            )
-
-            continue
-
-        resultado.append(
-            url_limpa
+    if "brasil" not in consulta_original.casefold():
+        consultas_br.append(
+            f"{consulta_original} Brasil"
         )
 
-    print()
-    print("==============================")
-    print("PRÉ-BARREIRA DE URLS — v9.15")
-    print("==============================")
-    print(
-        "RECEBIDAS:",
-        len(urls)
+    consultas_br.append(consulta_original)
+    consultas_br = list(dict.fromkeys(consultas_br))
+
+    # Mecanismos alternativos oferecidos pelo pacote DDGS.
+    backends = (
+        "auto",
+        "bing",
+        "brave",
+        "google",
+        "yahoo",
     )
-    print(
-        "APROVADAS:",
-        len(resultado)
-    )
-    print(
-        "BLOQUEADAS:",
-        bloqueadas
-    )
-    print("==============================")
 
-    return resultado
-
-
-# FILTRAR URLS RUINS
-# ============================================================
-
-def filtrar_urls(urls):
-
-
-    bloqueados = [
-
-        "mercadolivre",
-        "amazon",
-        "shopee",
-        "aliexpress",
-        "alibaba",
-        "ebay",
-        "made-in-china",
-
-        "facebook",
-        "instagram",
-        "youtube",
-        "pinterest",
-        "tiktok"
-
-    ]
-
-
-    resultado = []
-
-
-    for url in urls:
-
-
-        if not url:
-
-            continue
-
-
-        url_lower = url.lower()
-
-
-        if any(
-            item in url_lower
-            for item in bloqueados
-        ):
-
-            continue
-
-
-        resultado.append(url)
-
-
-
-    return resultado
-
-
-
-
-# ============================================================
-# FILTRAR URL
-# ============================================================
-
-def url_valida(url):
-
-
-    if not url:
-
-        return False
-
-
-    url_lower = url.lower()
-
-
-
-    dominios_bloqueados = [
-
-        "oceanofpdf.com",
-        "pdfcoffee.com",
-        "scribd.com",
-
-        "pinterest.com",
-        "facebook.com",
-        "instagram.com",
-
-        "tiktok.com",
-        "youtube.com",
-        "youtu.be"
-
-    ]
-
-
-
-    palavras_bloqueadas = [
-
-        "ebook",
-        "torrent",
-        "download",
-        "pdf-epub",
-        "curso",
-        "apostila",
-        "manual-download"
-
-    ]
-
-
-
-    if any(
-        dominio in url_lower
-        for dominio in dominios_bloqueados
-    ):
-
-        return False
-
-
-
-    if any(
-        palavra in url_lower
-        for palavra in palavras_bloqueadas
-    ):
-
-        return False
-
-
-
-    return True
-    
-    
-# ============================================================
-# IDENTIFICAR EMPRESA DENTRO DO PRÓPRIO SITE
-# ============================================================
-#
-# A pesquisa principal encontra fontes técnicas.
-#
-# Esta etapa é complementar:
-# - pega os domínios das fontes aprovadas;
-# - procura páginas institucionais dentro do mesmo domínio;
-# - tenta identificar a empresa oficialmente;
-# - grava a identidade na própria fonte.
-#
-# Não utiliza outro domínio.
-# Não utiliza pesquisa externa para descobrir a empresa.
-# ============================================================
-
-def identificar_empresa_no_site(paginas):
-
-    if not isinstance(paginas, list):
-        return paginas
-
-    # --------------------------------------------------------
-    # Palavras que indicam páginas institucionais
-    # --------------------------------------------------------
-
-    termos_institucionais = [
-        "empresa",
-        "quem somos",
-        "sobre",
-        "institucional",
-        "a empresa",
-        "sobre nós",
-        "sobre-nos",
-        "quem-somos"
-    ]
-
-    # --------------------------------------------------------
-    # Domínios já processados
-    # --------------------------------------------------------
-
-    identidades_por_dominio = {}
-
-    # --------------------------------------------------------
-    # Normalizar domínio
-    # --------------------------------------------------------
+    vistos_br = set()
+    vistos_externos = set()
+    falhas = []
 
     def obter_dominio(url):
-
         try:
-
-            from urllib.parse import urlparse
-
-            resultado = urlparse(
-                str(url or "").strip()
-            )
-
-            dominio = resultado.netloc.lower()
-
-            dominio = re.sub(
-                r"^www\.",
-                "",
-                dominio
-            )
-
-            return dominio.strip()
-
-        except Exception:
-
-            return ""
-
-    # --------------------------------------------------------
-    # Procurar links institucionais dentro da página
-    # --------------------------------------------------------
-
-    def localizar_links_institucionais(
-        url,
-        html
-    ):
-
-        links_encontrados = []
-
-        try:
-
-            soup = BeautifulSoup(
-                html,
-                "html.parser"
-            )
-
-            dominio_origem = obter_dominio(
-                url
-            )
-
-            for a in soup.find_all(
-                "a",
-                href=True
-            ):
-
-                href = str(
-                    a.get(
-                        "href",
-                        ""
-                    )
-                ).strip()
-
-                texto_link = a.get_text(
-                    " ",
-                    strip=True
-                ).casefold()
-
-                if not href:
-                    continue
-
-                # --------------------------------------------
-                # O link precisa indicar uma página institucional
-                # --------------------------------------------
-
-                eh_institucional = False
-
-                for termo in termos_institucionais:
-
-                    if termo in texto_link:
-
-                        eh_institucional = True
-                        break
-
-                # Também verifica o próprio endereço
-                href_lower = href.casefold()
-
-                if not eh_institucional:
-
-                    for termo in termos_institucionais:
-
-                        termo_url = (
-                            termo
-                            .replace(" ", "-")
-                        )
-
-                        if termo_url in href_lower:
-
-                            eh_institucional = True
-                            break
-
-                if not eh_institucional:
-                    continue
-
-                # --------------------------------------------
-                # Transformar URL relativa em absoluta
-                # --------------------------------------------
-
-                from urllib.parse import urljoin
-
-                url_final = urljoin(
-                    url,
-                    href
-                )
-
-                dominio_link = obter_dominio(
-                    url_final
-                )
-
-                # --------------------------------------------
-                # Segurança:
-                # permanecer no mesmo domínio
-                # --------------------------------------------
-
-                if not dominio_link:
-                    continue
-
-                if dominio_link != dominio_origem:
-                    continue
-
-                if url_final not in links_encontrados:
-
-                    links_encontrados.append(
-                        url_final
-                    )
-
-                # Limite para não fazer buscas excessivas
-                if len(links_encontrados) >= 5:
-                    break
-
-        except Exception as erro:
-
-            print(
-                "⚠️ Erro ao localizar página institucional:",
-                erro
-            )
-
-        return links_encontrados
-
-    # --------------------------------------------------------
-    # Processar cada fonte
-    # --------------------------------------------------------
-
-    for pagina in paginas:
-
-        if not isinstance(
-            pagina,
-            dict
-        ):
-            continue
-
-        url_fonte = str(
-            pagina.get(
-                "url",
-                ""
-            )
-        ).strip()
-
-        if not url_fonte:
-            continue
-
-        dominio = obter_dominio(
-            url_fonte
-        )
-
-        if not dominio:
-            continue
-
-        # ----------------------------------------------------
-        # Se este domínio já foi processado,
-        # reutilizar a identidade.
-        # ----------------------------------------------------
-
-        if dominio in identidades_por_dominio:
-
-            pagina[
-                "identidade_fonte"
-            ] = identidades_por_dominio[
-                dominio
-            ]
-
-            continue
-
-        print()
-        print(
-            "========================================"
-        )
-        print(
-            "PESQUISA INSTITUCIONAL DO SITE"
-        )
-        print(
-            "========================================"
-        )
-
-        print(
-            "DOMÍNIO:",
-            dominio
-        )
-
-        identidade = {
-            "nome": "",
-            "dominio": dominio,
-            "papel": "",
-            "origem_identificacao": "",
-            "confianca": "baixa"
-        }
-
-        urls_institucionais = []
-
-        # ----------------------------------------------------
-        # Primeiro tenta a própria página da fonte.
-        # Ela pode conter o link "Empresa".
-        # ----------------------------------------------------
-
-        try:
-
-            resposta = requests.get(
-                url_fonte,
-                timeout=20,
-                headers={
-                    "User-Agent":
-                        "Mozilla/5.0"
-                }
-            )
-
-            if resposta.ok:
-
-                urls_institucionais = (
-                    localizar_links_institucionais(
-                        url_fonte,
-                        resposta.text
-                    )
-                )
-
-        except Exception as erro:
-
-            print(
-                "⚠️ Não foi possível analisar a fonte:",
-                erro
-            )
-
-        # ----------------------------------------------------
-        # Se não encontrou link, tenta caminhos conhecidos
-        # dentro do MESMO domínio.
-        # ----------------------------------------------------
-
-        if not urls_institucionais:
-
-            base_url = (
-                f"https://{dominio}"
-            )
-
-            caminhos = [
-                "/empresa",
-                "/quem-somos",
-                "/quem_somos",
-                "/sobre",
-                "/sobre-nos",
-                "/sobre_nos",
-                "/institucional",
-                "/a-empresa",
-                "/a_empresa"
-            ]
-
-            for caminho in caminhos:
-
-                url_teste = (
-                    base_url
-                    +
-                    caminho
-                )
-
-                try:
-
-                    resposta = requests.get(
-                        url_teste,
-                        timeout=15,
-                        headers={
-                            "User-Agent":
-                                "Mozilla/5.0"
-                        },
-                        allow_redirects=True
-                    )
-
-                    if not resposta.ok:
-                        continue
-
-                    url_real = str(
-                        resposta.url or ""
-                    ).strip()
-
-                    dominio_real = obter_dominio(
-                        url_real
-                    )
-
-                    if dominio_real != dominio:
-                        continue
-
-                    if len(
-                        resposta.text
-                    ) < 500:
-
-                        continue
-
-                    urls_institucionais.append(
-                        url_real
-                    )
-
-                    if len(
-                        urls_institucionais
-                    ) >= 3:
-
-                        break
-
-                except Exception:
-
-                    continue
-
-        # ----------------------------------------------------
-        # Analisar páginas institucionais encontradas
-        # ----------------------------------------------------
-
-        for url_institucional in (
-            urls_institucionais
-        ):
-
-            print(
-                "PÁGINA INSTITUCIONAL:",
-                url_institucional
-            )
-
-            try:
-
-                resposta = requests.get(
-                    url_institucional,
-                    timeout=20,
-                    headers={
-                        "User-Agent":
-                            "Mozilla/5.0"
-                    },
-                    allow_redirects=True
-                )
-
-                if not resposta.ok:
-                    continue
-
-                texto_institucional = ""
-
-                try:
-
-                    soup = BeautifulSoup(
-                        resposta.text,
-                        "html.parser"
-                    )
-
-                    for elemento in soup(
-                        [
-                            "script",
-                            "style",
-                            "noscript"
-                        ]
-                    ):
-
-                        elemento.decompose()
-
-                    texto_institucional = soup.get_text(
-                        " ",
-                        strip=True
-                    )
-
-                except Exception:
-
-                    texto_institucional = ""
-
-                texto_institucional = re.sub(
-                    r"\s+",
-                    " ",
-                    texto_institucional
-                ).strip()
-
-                if len(
-                    texto_institucional
-                ) < 100:
-
-                    continue
-
-                # ------------------------------------------------
-                # Usa a função de identificação já existente.
-                # ------------------------------------------------
-
-                resultado = identificar_empresa_fonte(
-                    texto_institucional,
-                    url_institucional
-                )
-
-                if isinstance(
-                    resultado,
-                    dict
-                ):
-
-                    nome = str(
-                        resultado.get(
-                            "nome",
-                            ""
-                        )
-                    ).strip()
-
-                    dominio_resultado = str(
-                        resultado.get(
-                            "dominio",
-                            ""
-                        )
-                    ).strip()
-
-                    if nome:
-
-                        identidade = {
-                            "nome": nome,
-                            "dominio":
-                                dominio_resultado
-                                or dominio,
-                            "papel":
-                                str(
-                                    resultado.get(
-                                        "papel",
-                                        ""
-                                    )
-                                ).strip(),
-                            "origem_identificacao":
-                                "pagina_institucional",
-                            "confianca":
-                                "alta"
-                        }
-
-                        break
-
-            except Exception as erro:
-
-                print(
-                    "⚠️ Erro na página institucional:",
-                    erro
-                )
-
-
-        # ----------------------------------------------------
-        # SEGUNDA TENTATIVA:
-        # identificar a empresa diretamente no texto
-        # da própria fonte.
-        #
-        # Isso cobre casos em que o site não possui uma
-        # página institucional acessível ou identificável.
-        # ----------------------------------------------------
-
-        if not identidade.get(
-            "nome",
-            ""
-        ):
-
-            texto_fonte = str(
-                pagina.get(
-                    "texto",
-                    ""
-                )
-            ).strip()
-
-            if len(
-                texto_fonte
-            ) >= 100:
-
-                resultado = identificar_empresa_fonte(
-                    texto_fonte,
-                    url_fonte
-                )
-
-                if isinstance(
-                    resultado,
-                    dict
-                ):
-
-                    nome = str(
-                        resultado.get(
-                            "nome",
-                            ""
-                        )
-                    ).strip()
-
-                    dominio_resultado = str(
-                        resultado.get(
-                            "dominio",
-                            ""
-                        )
-                    ).strip()
-
-                    if nome:
-
-                        identidade = {
-                            "nome": nome,
-                            "dominio":
-                                dominio_resultado
-                                or dominio,
-                            "papel":
-                                str(
-                                    resultado.get(
-                                        "papel",
-                                        ""
-                                    )
-                                ).strip(),
-                            "origem_identificacao":
-                                "texto_da_fonte",
-                            "confianca":
-                                "alta"
-                        }
-
-                        print(
-                            "IDENTIDADE ENCONTRADA "
-                            "NO TEXTO DA FONTE:",
-                            identidade
-                        )
-
-
-        # ----------------------------------------------------
-        # Se não encontrou nome, pelo menos preserva domínio.
-        # ----------------------------------------------------
-
-        if not identidade.get(
-            "dominio"
-        ):
-
-            identidade[
-                "dominio"
-            ] = dominio
-
-        # ----------------------------------------------------
-        # Guardar identidade por domínio
-        # ----------------------------------------------------
-
-        identidades_por_dominio[
-            dominio
-        ] = identidade
-
-        # ----------------------------------------------------
-        # Anexar à fonte atual
-        # ----------------------------------------------------
-
-        pagina[
-            "identidade_fonte"
-        ] = identidade
-
-        print(
-            "IDENTIDADE ENCONTRADA:",
-            identidade
-        )
-
-    return paginas
-
-    
-
-# ============================================================
-# PESQUISA COMPLETA
-# ============================================================
-
-def pesquisar_completo(tema, estrutura_editorial=None):
-
-    urls = []
-    estrutura = normalizar_checkboxes_editoriais(estrutura_editorial)
-    ativos = assuntos_editoriais_ativos(estrutura)
-
-    print()
-    print("==================================================")
-    print("PESQUISA PADRÃO — FONTES BRASILEIRAS / PORTUGUÊS")
-    print("==================================================")
-    print("ASSUNTOS AUTORIZADOS:", ativos)
-    print("ASSUNTOS DESAUTORIZADOS NÃO SERÃO PESQUISADOS")
-    print("==================================================")
-
-    # ========================================================
-    # 01. CONSULTAS TÉCNICAS / DOCUMENTAIS — SOMENTE ATIVOS
-    # ========================================================
-
-    consultas_documentais = []
-    for assunto in ativos:
-        for termo in TERMOS_PESQUISA_CHECKBOX.get(assunto, []):
-            consultas_documentais.append(f"{tema} {termo} pdf")
-            consultas_documentais.append(f"{tema} {termo} ficha técnica")
-
-    # Tema puro somente quando pelo menos um assunto foi autorizado.
-    if ativos:
-        consultas_documentais.extend([
-            f"{tema} manual técnico",
-            f"{tema} documentação técnica",
-        ])
-
-    # Remove duplicatas preservando ordem.
-    consultas_documentais = list(dict.fromkeys(consultas_documentais))
-
-    total_documentais = 0
-
-    for consulta in consultas_documentais:
-
-        resultado = pesquisar(
-            consulta,
-            limite=5
-        )
-
-        urls.extend(resultado)
-        total_documentais += len(resultado)
-
-    print(
-        "FONTES DOCUMENTAIS BRASILEIRAS:",
-        total_documentais
-    )
-
-    # ========================================================
-    # 02. PESQUISA POR CHECKBOX — SEM CATEGORIAS INVENTADAS
-    # ========================================================
-
-    total_categorias = 0
-
-    for assunto in ativos:
-
-        termos = TERMOS_PESQUISA_CHECKBOX.get(assunto, [])
-
-        for termo in termos:
-
-            consulta = f"{tema} {termo}"
-
-            print()
-            print("CONSULTA AUTORIZADA:", consulta)
-
-            resultado = pesquisar(
-                consulta,
-                limite=5
-            )
-
-            urls.extend(resultado)
-            total_categorias += len(resultado)
-
-    print()
-    print("FONTES POR CHECKBOX AUTORIZADO:", total_categorias)
-
-    # ========================================================
-    # 03. CONSULTA GERAL BRASIL
-    # ========================================================
-
-    brasil = []
-    if ativos:
-        brasil = pesquisar(
-            f"{tema} Brasil",
-            limite=10
-        )
-        urls.extend(brasil)
-
-    print(
-        "FONTES BRASILEIRAS GERAIS:",
-        len(brasil)
-    )
-
-    # ========================================================
-    # 04. REMOVER DUPLICADOS GERAIS
-    # ========================================================
-
-    urls_unicas = []
-    vistos = set()
-
-    for url in urls:
-
-        if not url_valida(url):
-            print("URL BLOQUEADA:")
-            print(url)
-            continue
-
-        try:
-            dominio = (
+            return (
                 urlparse(str(url)).netloc
                 .lower()
                 .strip()
                 .split(":", 1)[0]
             )
         except Exception:
-            continue
+            return ""
 
-        # Segunda barreira: mesmo que uma URL antiga tenha sido
-        # acumulada por algum caminho legado, ela não entra.
-        if not dominio.endswith(".br"):
-            print("URL ESTRANGEIRA BLOQUEADA:")
+    def url_bloqueada(url):
+        dominio = obter_dominio(url)
+
+        if not dominio:
+            return True
+
+        return any(
+            bloqueado in dominio
+            for bloqueado in dominios_bloqueados
+        )
+
+    def consultar(consultas, permitir_externas=False):
+        try:
+            contexto = DDGS()
+        except Exception as erro:
+            print("ERRO AO INICIAR DDGS:", repr(erro))
+            return
+
+        try:
+            for backend in backends:
+                for consulta in consultas:
+
+                    try:
+                        try:
+                            busca = contexto.text(
+                                consulta,
+                                safesearch="off",
+                                max_results=max(limite * 3, 12),
+                                backend=backend,
+                            )
+
+                        except TypeError:
+                            # Compatibilidade com versões antigas
+                            # do DDGS que não aceitam backend.
+                            if backend != "auto":
+                                continue
+
+                            busca = contexto.text(
+                                consulta,
+                                safesearch="off",
+                                max_results=max(limite * 3, 12),
+                            )
+
+                        for item in busca or []:
+
+                            if not isinstance(item, dict):
+                                continue
+
+                            url = str(
+                                item.get("href") or ""
+                            ).strip()
+
+                            if not url or url_bloqueada(url):
+                                continue
+
+                            dominio = obter_dominio(url)
+
+                            if dominio.endswith(".br"):
+
+                                if url not in vistos_br:
+                                    vistos_br.add(url)
+                                    resultados_br.append(url)
+
+                            elif (
+                                permitir_externas
+                                and dominio_fonte_tecnica_externa(
+                                    dominio
+                                )
+                            ):
+
+                                if url not in vistos_externos:
+                                    vistos_externos.add(url)
+                                    resultados_externos.append(url)
+
+                            if len(resultados_br) >= limite:
+                                return
+
+                            if (
+                                permitir_externas
+                                and len(resultados_br)
+                                + len(resultados_externos) >= limite
+                            ):
+                                return
+
+                    except Exception as erro:
+                        falhas.append(
+                            f"{backend} | {consulta} | {erro}"
+                        )
+                        continue
+
+        finally:
+            try:
+                contexto.close()
+            except Exception:
+                pass
+
+    # ETAPA 1 — Prioridade absoluta para a descoberta brasileira.
+    print("PESQUISA: iniciando busca de fontes brasileiras.")
+
+    consultar(
+        consultas_br,
+        permitir_externas=False,
+    )
+
+    # ETAPA 2 — Fallback externo somente se faltarem resultados.
+    if len(resultados_br) < limite:
+
+        print(
+            "PESQUISA: resultados brasileiros insuficientes; "
+            "tentando fontes técnicas externas autorizadas."
+        )
+
+        consultas_externas = list(dict.fromkeys([
+            consulta_original,
+            f"{consulta_original} documentação técnica",
+            f"{consulta_original} university engineering",
+            f"{consulta_original} technical manual",
+        ]))
+
+        consultar(
+            consultas_externas,
+            permitir_externas=True,
+        )
+
+    # Brasileiras primeiro; externas somente como complemento.
+    resultados = (
+        resultados_br + resultados_externos
+    )[:limite]
+
+    print("=" * 55)
+    print("DIAGNÓSTICO DA PESQUISA MULTIFONTE")
+    print("Consulta:", consulta_original)
+    print("Fontes brasileiras:", len(resultados_br))
+    print("Fontes técnicas externas:", len(resultados_externos))
+    print("Total retornado:", len(resultados))
+    print("Falhas de consulta:", len(falhas))
+    print("=" * 55)
+
+    for falha in falhas[:3]:
+        print("FALHA DE MECANISMO:", falha)
+
+    return resultados
+
+
+        # Segunda barreira: fontes brasileiras têm prioridade.
+        # Fontes externas só passam se forem técnicas e autorizadas.
+        if (
+            not dominio.endswith(".br")
+            and not dominio_fonte_tecnica_externa(dominio)
+        ):
+            print("URL EXTERNA NÃO TÉCNICA BLOQUEADA:")
+            print(url)
+            continue# Segunda barreira: fontes brasileiras têm prioridade.
+        # Fontes externas só passam se forem técnicas e autorizadas.
+        if (
+            not dominio.endswith(".br")
+            and not dominio_fonte_tecnica_externa(dominio)
+        ):
+            print("URL EXTERNA NÃO TÉCNICA BLOQUEADA:")
             print(url)
             continue
 
@@ -4005,15 +2813,16 @@ def pesquisar_completo(tema, estrutura_editorial=None):
             vistos.add(chave)
             urls_unicas.append(chave)
 
-    print()
-    print("==================================================")
-    print("RESULTADO DA PESQUISA BRASILEIRA")
-    print("==================================================")
-    print("URLs ÚNICAS:", len(urls_unicas))
-    print("ORIGEM PERMITIDA: somente .br")
-    print("IDIOMA/CONSULTAS: português")
-    print("PESQUISA EXTERIOR: REMOVIDA")
-    print("==================================================")
+    print(
+        "ORIGEM: prioridade brasileira (.br)"
+    )
+    print(
+        "FALLBACK: fontes técnicas externas autorizadas"
+    )
+    print(
+        "FONTES COMERCIAIS E CONCORRENTES: "
+        "continuam sujeitas aos filtros existentes"
+    )
 
     return urls_unicas
 
