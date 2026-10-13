@@ -417,15 +417,60 @@ def preparar_mead(mead):
 
     try:
 
-        identidade = mead.get("identidade", {})
-        principio = mead.get("principio_operacional", {})
-        preparacao = mead.get("preparacao", {})
+        # Adaptador de compatibilidade: o MEAD EDITORES 2.0 usa um
+        # esquema novo (identificacao/fronteiras/politica_editorial),
+        # enquanto o preparador legado lia identidade/preparacao. Sem
+        # esta ponte, a IA recebia campos vazios apesar do MEAD estar carregado.
+        identificacao = mead.get("identificacao", {})
+        fronteiras = mead.get("fronteiras", {})
+        politica = mead.get("politica_editorial", {})
+        seo_novo = politica.get("seo", {}) if isinstance(politica, dict) else {}
+        estrutura_nova = mead.get("estrutura_configuravel", {})
+        padrao_novo = estrutura_nova.get("padrao_atual", {}) if isinstance(estrutura_nova, dict) else {}
+        principio_central = str(mead.get("principio_central", "") or "").strip()
+
+        identidade = mead.get("identidade") or {
+            "metodo": identificacao.get("nome", "MEAD EDITORES"),
+            "objetivo": identificacao.get("natureza", "")
+        }
+
+        principio = mead.get("principio_operacional") or {
+            "regra_principal": principio_central,
+            "regra_de_fidelidade": str(fronteiras.get("fonte_de_verdade", "") or ""),
+            "regra_de_protagonismo": str(politica.get("voz", "") or ""),
+            "regra_de_diversidade": " ".join(str(politica.get(k, "") or "") for k in ("aberturas", "horizontal")),
+            "regra_de_separacao": " ".join(str(politica.get(k, "") or "") for k in ("desver", "freio"))
+        }
+
+        preparacao = mead.get("preparacao") or {
+            "palavra_chave": mead.get("palavra_chave", {}),
+            "tags": {
+                "quantidade": 30,
+                "regra": str(seo_novo.get("tags", "") or ""),
+                "restricoes": list(seo_novo.get("alegacoes", []) if isinstance(seo_novo.get("alegacoes", []), list) else [seo_novo.get("alegacoes")])
+            }
+        }
         tags = preparacao.get("tags", {})
-        construcao = mead.get("construcao_conteudo", {})
-        estrutura = mead.get("estrutura_pagina_editorial", {})
-        seo = mead.get("regras_seo", {})
-        fidelidade = mead.get("fidelidade", {})
-        contexto_blocos = mead.get("contexto_blocos", {})
+        construcao = mead.get("construcao_conteudo") or {
+            "total_blocos": padrao_novo.get("blocos", 5),
+            "paragrafos_por_bloco": padrao_novo.get("paragrafos_por_bloco", 3),
+            "total_paragrafos": int(padrao_novo.get("blocos", 5) or 5) * int(padrao_novo.get("paragrafos_por_bloco", 3) or 3),
+            "regra_narrativa": politica.get("paragrafo", "")
+        }
+        estrutura = mead.get("estrutura_pagina_editorial") or {
+            "blocos_texto": padrao_novo.get("blocos", 5),
+            "paragrafos_por_bloco": padrao_novo.get("paragrafos_por_bloco", 3),
+            "total_paragrafos": int(padrao_novo.get("blocos", 5) or 5) * int(padrao_novo.get("paragrafos_por_bloco", 3) or 3)
+        }
+        seo = mead.get("regras_seo") or {
+            "evitar": [str(seo_novo.get("alegacoes", "") or ""), str(politica.get("saude", "") or "")],
+            "priorizar": [principio_central, str(seo_novo.get("tags", "") or "")]
+        }
+        fidelidade = mead.get("fidelidade") or {
+            "permitido": fronteiras.get("aproveitar_do_programa", []),
+            "proibido": fronteiras.get("nao_herdar", []) + [str(fronteiras.get("fonte_de_verdade", "") or "")]
+        }
+        contexto_blocos = mead.get("contexto_blocos") or mead.get("plano_editorial_schema", {})
         lista_segmentos = mead.get("lista_segmentos", {})
 
         mead_ia = {
@@ -23897,6 +23942,15 @@ def gerar_conteudo_completo(
                     break
 
             adicionados = 0
+            rejeicoes_recuperacao = {
+                "SEM_FRASE_FINAL": 0,
+                "GATE_EDITORIAL": 0,
+                "GATE_COMERCIAL": 0,
+                "GATE_UTILIZAVEL": 0,
+                "GATE_FUNCAO_BLOCO": 0,
+                "EXCECAO_VALIDACAO": 0,
+                "HASH_DUPLICADA_OU_QUARENTENA": 0,
+            }
             candidatos = candidatos_por_bloco.setdefault(chave_bloco, [])
             hashes_existentes = set()
             for item in candidatos:
@@ -23921,15 +23975,19 @@ def gerar_conteudo_completo(
                         # Sem piso artificial de palavras: a evidência
                         # será julgada pelos mesmos gates 100/100 da seleção.
                         if not re.search(r"[.!?][\"'”’»\)\]}]*$", trecho):
+                            rejeicoes_recuperacao["SEM_FRASE_FINAL"] += 1
                             continue
                         try:
                             if not fragmento_eh_editorialmente_valido(trecho):
+                                rejeicoes_recuperacao["GATE_EDITORIAL"] += 1
                                 continue
                             # O trecho pesquisado precisa passar pela limpeza
                             # comercial antes de ser transformado em candidato.
                             if not fragmento_eh_comercialmente_limpo(trecho, pagina.get("identidade_fonte", {})):
+                                rejeicoes_recuperacao["GATE_COMERCIAL"] += 1
                                 continue
                         except Exception:
+                            rejeicoes_recuperacao["EXCECAO_VALIDACAO"] += 1
                             continue
                         candidato = {
                             "id": gerar_id_trecho(trecho),
@@ -23948,10 +24006,13 @@ def gerar_conteudo_completo(
                             continue
                         try:
                             if not candidato_eh_utilizavel(candidato):
+                                rejeicoes_recuperacao["GATE_UTILIZAVEL"] += 1
                                 continue
                             if not fragmento_compativel_com_funcao_do_bloco(candidato, chave_bloco):
+                                rejeicoes_recuperacao["GATE_FUNCAO_BLOCO"] += 1
                                 continue
                         except Exception:
+                            rejeicoes_recuperacao["EXCECAO_VALIDACAO"] += 1
                             continue
                         candidatos.append({"candidato": candidato, "pontuacao": 0})
                         hashes_existentes.add(h)
@@ -23968,6 +24029,13 @@ def gerar_conteudo_completo(
                 "URLs:", len(urls), "NOVOS CANDIDATOS LIMPOS:", adicionados,
                 "| META DE RESERVAS:", 20,
                 "| NOMES DE EMPRESAS/CÓDIGOS: BLOQUEADOS PELOS GATES EXISTENTES"
+            )
+            print(
+                "📊 DIAGNÓSTICO DE REJEIÇÕES NA RECUPERAÇÃO:",
+                " | ".join(
+                    f"{motivo}={quantidade}"
+                    for motivo, quantidade in rejeicoes_recuperacao.items()
+                )
             )
             return adicionados > 0
 
@@ -24134,13 +24202,14 @@ def gerar_conteudo_completo(
             return True
 
 
-        # SEM LIMITE DE TENTATIVAS:
-        # o bloco continua até passar pelas validações. Se faltar uma hash
-        # limpa, a recuperação persiste, pesquisa novamente e nunca autoriza
-        # a hash rejeitada como atalho.
+        # RETENTATIVA LIMITADA:
+        # a versão anterior usava while True e, quando não havia evidência
+        # limpa, repetia a pesquisa das mesmas URLs indefinidamente.
+        # Mantemos a integridade dos gates, mas encerramos com diagnóstico
+        # quando a recuperação não encontra um substituto autorizado.
         tentativa_bloco = 0
 
-        while True:
+        while tentativa_bloco < MAX_TENTATIVAS_CONJUNTO_OLLAMA:
             tentativa_bloco += 1
 
             # Se a tentativa anterior falhou por evidência, editorial ou
@@ -24192,24 +24261,24 @@ def gerar_conteudo_completo(
                     recuperou = _adaptar_evidencia_apos_rejeicao(ultimo_erro)
                     if not recuperou:
                         print(
-                            "🟠 RECUPERAÇÃO PERSISTENTE: nenhuma hash limpa disponível nesta rodada. "
-                            "O bloco não será enviado com evidência contaminada; novas pesquisas serão tentadas."
+                            "🟠 RECUPERAÇÃO ENCERRADA: nenhuma hash limpa disponível. "
+                            "O bloco será interrompido com segurança; não haverá nova "
+                            "pesquisa repetida das mesmas URLs nesta execução."
                         )
                         ultimo_erro = (
                             str(ultimo_erro)
                             + " | SEM_EVIDENCIA_AUTORIZADA_PARA_RESELECAO"
                         )
-                        # Não interromper o processo nem liberar o trecho rejeitado.
-                        # Espera curta evita martelar a pesquisa quando a rede falha;
-                        # a próxima rodada repete a coleta e os gates de limpeza.
-                        time.sleep(min(30, max(5, tentativa_bloco * 2)))
-                        continue
+                        return None, (
+                            f"{chave_bloco_atual}: sem evidência Python limpa para "
+                            f"substituir o fragmento rejeitado. Último erro: {ultimo_erro}"
+                        )
 
             print()
             print("=" * 60)
             print(
                 f"OLLAMA — {chave_bloco_atual.upper()} — "
-                f"TENTATIVA {tentativa_bloco} (SEM LIMITE)"
+                f"TENTATIVA {tentativa_bloco}/{MAX_TENTATIVAS_CONJUNTO_OLLAMA}"
             )
             print("=" * 60)
 
@@ -25163,7 +25232,7 @@ Preserve proporcionalmente o conteúdo deles, sem meta ou limite de palavras.
                 f"{chave_bloco_atual.upper()}"
             )
             print(
-                f"TENTATIVA: {tentativa_bloco} (SEM LIMITE)"
+                f"TENTATIVA: {tentativa_bloco}/{MAX_TENTATIVAS_CONJUNTO_OLLAMA}"
             )
             print(
                 "=" * 60
