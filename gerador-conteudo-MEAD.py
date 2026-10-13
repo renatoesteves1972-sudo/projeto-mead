@@ -1,4 +1,4 @@
-# gerador-conteudo-MEAD-ok-3.py - 09/10/2026
+# gerador-conteudo-MEAD.py - 13/10/2026
 # v72 — direções editoriais preferenciais por bloco, somente para parágrafos
 # Checkboxes ativos autorizam assuntos na página; direção por bloco é preferência
 # Reservatório ampliado de candidatos limpos — seleção final continua em 15
@@ -18854,6 +18854,44 @@ def _auditoria_integridade_deterministica(texto, identidade_fonte=None):
     t = str(texto or '').strip()
     if not t:
         return False, 'VAZIO'
+
+    # BARREIRA DE ENTIDADES COMERCIAIS — antes de pontuação e seleção.
+    # A identidade_fonte pode vir vazia nos registros legados; por isso,
+    # estes casos explícitos e os padrões de contexto não dependem dela.
+    n_entidade = normalizar_assunto_texto(t)
+    entidades_comerciais_conhecidas = (
+        r'\bpumps\s+brasil\b',
+        r'\bdiman\s+servicos\s+mecanicos\b',
+        r'\bkomeco\b',
+        r'\bnetbombas\b',
+        r'\bengepumps\b',
+        r'\bbrasilbombas\b',
+        r'\bmabily\b',
+        r'\bmerito\s+comercial\b',
+        r'\bpres\s+montagem\b',
+        r'\bthebe\b',
+        r'\bschneider\b',
+        r'\bgrundfos\b',
+        r'\bweg\b',
+        r'\bksb\b',
+        r'\bbombinox\b',
+    )
+    for padrao_entidade in entidades_comerciais_conhecidas:
+        if re.search(padrao_entidade, n_entidade, re.I):
+            return False, 'MARCA_OU_EMPRESA_TERCEIRA_DETECTADA'
+
+    # Resíduos de páginas comerciais e SEO local não são conteúdo técnico.
+    padroes_residuo_comercial = (
+        r'\b(?:solicitar|solicite|solicitar agora)\s+(?:um\s+)?(?:orcamento|cotacao)\b',
+        r'\bclique nas imagens para ampliar\b',
+        r'\bcotar agora\b',
+        r'\bquem procura uma? (?:bomba|bombas) centrifugas? em\b',
+        r'\bchamada de (?:uma? )?bomba centrifuga em [a-z][a-z -]{2,35}\b',
+        r'\bmanutencao de bombas centrifugas?\b.{0,120}\bempresa especializada\b.{0,120}\bclientes\b',
+    )
+    for padrao_residuo in padroes_residuo_comercial:
+        if re.search(padrao_residuo, n_entidade, re.I):
+            return False, 'RESIDUO_COMERCIAL_OU_SEO_LOCAL'
 
     # ============================================================
     # REVISÃO ESTRITA — CÓDIGOS / MODELOS / SKU
