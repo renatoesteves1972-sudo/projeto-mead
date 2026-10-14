@@ -1,5 +1,5 @@
 # gerador-conteudo-MEAD.py - 14/10/2026
-# v72 — direções editoriais preferenciais por bloco, somente para parágrafos
+# v78 — direções editoriais preferenciais por bloco, somente para parágrafos
 # Checkboxes ativos autorizam assuntos na página; direção por bloco é preferência
 # Reservatório ampliado de candidatos limpos — seleção final continua em 15
 # Pré-barreira de URLs + seleção diversificada/randomizada de trechos aprovados + bruto sem descartados
@@ -23483,33 +23483,14 @@ def gerar_conteudo_completo(
             return True
 
 
-        # Recuperação progressiva: não há teto artificial de três tentativas.
-        # A cada rejeição, corrige a redação ou procura novas evidências limpas.
+        # Recuperação contínua: não há teto artificial de tentativas.
+        # O bloco só retorna quando os três parágrafos passam na validação.
+        # Falhas transitórias do Ollama e erros de redação não encerram a geração.
         tentativa_bloco = 0
-        MAX_TENTATIVAS_BLOCO = 5
 
         while True:
             tentativa_bloco += 1
-
-            if tentativa_bloco > MAX_TENTATIVAS_BLOCO:
-                print(
-                    f"🛑 LIMITE DE {MAX_TENTATIVAS_BLOCO} TENTATIVAS ATINGIDO "
-                    f"EM {chave_bloco_atual}; colocando a evidência em quarentena."
-                )
-                recuperou = _adaptar_evidencia_apos_rejeicao(ultimo_erro)
-                if recuperou:
-                    print(
-                        "⚠️ Uma nova evidência foi selecionada, mas o limite de "
-                        "tentativas deste bloco foi atingido. Encerrando o bloco "
-                        "com falha explícita para evitar loop infinito."
-                    )
-                return (
-                    None,
-                    ultimo_erro or (
-                        f"Limite de {MAX_TENTATIVAS_BLOCO} tentativas atingido "
-                        f"em {chave_bloco_atual}."
-                    ),
-                )
+            print(f"🔁 CICLO DE RECUPERAÇÃO CONTÍNUA: {chave_bloco_atual} — tentativa {tentativa_bloco}")
 
             # Se a tentativa anterior falhou por evidência, editorial ou
             # progressão, substitui somente o trecho responsável antes de
@@ -23557,6 +23538,11 @@ def gerar_conteudo_completo(
                     or "ABERTURA AUSENTE" in erro_upper
                     or "PARÁGRAFO 3 VAZIO" in erro_upper
                     or "PARAGRAFO 3 VAZIO" in erro_upper
+                    # Palavra-chave ausente é problema de redação do Ollama;
+                    # mantenha as evidências e reescreva o parágrafo solicitado.
+                    or "PALAVRA_CHAVE_P" in erro_upper
+                    or "PALAVRA-CHAVE" in erro_upper
+                    or "PALAVRA CHAVE" in erro_upper
                 )
                 if precisa_novo_texto:
                     print(
@@ -23576,16 +23562,14 @@ def gerar_conteudo_completo(
                         # permite ao chamador registrar o bloco como não aprovado,
                         # sem travar o processo nem aprovar conteúdo incompleto.
                         print(
-                            "🛑 RECUPERAÇÃO SEM PROGRESSO:", chave_bloco_atual,
-                            "— nenhuma hash nova aprovada; encerrando este bloco para evitar loop infinito."
+                            "🔄 RECUPERAÇÃO SEM NOVA EVIDÊNCIA:", chave_bloco_atual,
+                            "— mantendo as evidências atuais e solicitando nova redação; "
+                            "o bloco não será encerrado nem aprovado incompleto."
                         )
-                        return (
-                            None,
-                            ultimo_erro or (
-                                f"Recuperação sem progresso em {chave_bloco_atual}: "
-                                "nenhuma evidência nova aprovada após as ondas de busca."
-                            ),
-                        )
+                        # Não retornar None: a próxima iteração volta a chamar o
+                        # Ollama com as evidências atuais e a instrução de correção.
+                        # Isso é especialmente importante para falhas de formato,
+                        # palavra-chave ausente ou problemas de formulação.
 
             print()
             print("=" * 60)
@@ -23624,6 +23608,10 @@ Gere novamente os três parágrafos.
 ATENÇÃO:
 
 - Corrija somente o problema informado.
+- Se o motivo contiver PALAVRA_CHAVE_P1_OCORRENCIAS:0 (ou outro PALAVRA_CHAVE_Pn),
+  reescreva o parágrafo indicado para incluir literalmente a palavra-chave principal
+  definida no prompt-base, de forma gramatical e natural. Não altere as evidências por
+  esse motivo e não substitua a palavra-chave por sinônimo.
 - Não invente informações.
 - NÃO RESUMA. Os três trechos autorizados continuam sendo a fonte integral desta tentativa.
 - Preserve o conteúdo e a proporção natural dos trechos de origem, sem meta de quantidade de palavras.
@@ -25096,8 +25084,13 @@ REGRA CENTRAL — TRÊS EVIDÊNCIAS FORMAM UMA ÚNICA NARRATIVA:
 
 REGRAS DE REDAÇÃO:
 - Escreva como conteúdo técnico de site industrial, natural e desenvolvido, semelhante aos modelos de referência fornecidos.
+- Escreva para o leitor final: explique o que a informação significa na prática, dentro dos limites das evidências, em vez de apenas enumerar características.
+- Dê a cada parágrafo uma função clara e diferente, mantendo uma progressão lógica entre as ideias e evitando repetir a mesma informação com outras palavras.
 - Use conectivos e anáforas naturais para evitar repetir o protagonista no início de todos os parágrafos.
-- O protagonista pode reaparecer quando necessário para clareza, mas não use uma fórmula mecânica.
+- O protagonista pode reaparecer quando necessário para clareza, mas não use uma fórmula mecânica nem force a palavra-chave no início das frases.
+- Prefira frases diretas, específicas e fluidas. Varie naturalmente a estrutura e o comprimento das frases, sem deixar o texto telegráfico ou excessivamente formal.
+- Não use comentários sobre o processo de redação ou validação. Evite expressões como “o fragmento menciona”, “as fontes afirmam”, “conforme a evidência selecionada” ou “essa informação precisa ser revisada”; redija diretamente apenas o que estiver sustentado pelas evidências.
+- Se uma evidência estiver confusa, contraditória ou tecnicamente duvidosa, não transforme a dúvida em afirmação nem invente uma ressalva editorial no texto final; use somente as partes claras e sustentadas.
 - Corrija clareza, fluidez, naturalidade, ordem das ideias e repetições evidentes.
 - Não pesquise.
 - Não invente fatos, números, normas, materiais, aplicações, marcas, empresas, modelos ou características.
