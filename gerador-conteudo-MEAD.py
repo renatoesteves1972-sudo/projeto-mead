@@ -1,5 +1,5 @@
-# gerador-conteudo-MEAD.py - 14/10/2026
-# v78 — direções editoriais preferenciais por bloco, somente para parágrafos
+# gerador-conteudo-MEAD.py - 13/10/2026
+# v72 — direções editoriais preferenciais por bloco, somente para parágrafos
 # Checkboxes ativos autorizam assuntos na página; direção por bloco é preferência
 # Reservatório ampliado de candidatos limpos — seleção final continua em 15
 # Pré-barreira de URLs + seleção diversificada/randomizada de trechos aprovados + bruto sem descartados
@@ -9034,6 +9034,54 @@ Entregue somente o conteúdo final.
     
 
 # ============================================================
+# HIGIENIZAÇÃO CONSERVADORA DE FRAGMENTOS — V5
+# ============================================================
+
+def higienizar_e_fechar_fragmento(texto, tema=None, min_palavras=8):
+    """Limpa ruídos mecânicos sem cortar frases pelo último ponto.
+
+    Retorna texto higienizado ou string vazia para ruído/fragmento claramente
+    suspeito. Não garante integridade semântica; essa continua a ser avaliada
+    pelas validações editoriais e factuais existentes.
+    """
+    if not isinstance(texto, str) or not texto.strip():
+        return ""
+
+    texto_limpo = re.sub(r"[\r\n\t]+", " ", texto)
+    texto_limpo = re.sub(r"\s+", " ", texto_limpo).strip()
+
+    # Caracteres de extração corrompida: não tentar adivinhar o texto original.
+    if "\ufffd" in texto_limpo or "\x00" in texto_limpo:
+        return ""
+
+    # Rejeitar separadores tabulares apenas quando dominam claramente o texto.
+    if len(texto_limpo) >= 20:
+        separadores = texto_limpo.count("|")
+        if separadores >= 5 and (separadores / len(texto_limpo)) > 0.08:
+            return ""
+
+    # Sinais fortes de término truncado. Não removemos automaticamente a cauda:
+    # o chamador pode registrar a rejeição e buscar outro fragmento.
+    termina_em_conector = bool(re.search(
+        r"\b(?:e|ou|que|de|da|do|das|dos|para|por|com|como|quando|onde|"
+        r"sendo|incluindo|conforme|em|no|na|nos|nas)\s*[,;:]?$",
+        texto_limpo,
+        re.IGNORECASE,
+    ))
+    if termina_em_conector:
+        return ""
+
+    # Não exigir ponto final: títulos técnicos, listas e fragmentos com unidades
+    # podem ser úteis; a completude é verificada nas etapas posteriores.
+    if min_palavras and len(texto_limpo.split()) < int(min_palavras):
+        # Preserva frases curtas que terminam com pontuação final.
+        if not re.search(r"[.!?][\"')\]]?$", texto_limpo):
+            return ""
+
+    return texto_limpo
+
+
+# ============================================================
 # EXTRAIR TRECHOS RELEVANTES — PRÉ-FILTRO ANTES DAS VALIDAÇÕES
 # ============================================================
 
@@ -9117,7 +9165,9 @@ def extrair_trechos_relevantes(
 
     candidatos = []
     for indice, paragrafo in enumerate(paragrafos):
-        original = re.sub(r"\s+", " ", paragrafo).strip()
+        original = higienizar_e_fechar_fragmento(paragrafo, tema=tema, min_palavras=8)
+        if not original:
+            continue
         texto_norm = normalizar(original)
         tamanho = len(original)
 
@@ -20933,7 +20983,7 @@ def avaliar_qualidade_final_python(
     for i, p in enumerate(paragrafos, 1):
         if not re.search(r"[.!?]$", p):
             falhas_criticas.append(f"PARAGRAFO_{i}_SEM_PONTUACAO")
-        if re.search(r"<[^>]+>|https?://|www\\.", p, re.I):
+        if re.search(r"<[^>]+>|https?://|www\.", p, re.I):
             falhas_criticas.append(f"PARAGRAFO_{i}_RESIDUO_ESTRUTURAL")
         if re.match(r"^[,.;:!?)]", p) or (p and p[0].islower()):
             falhas_criticas.append(f"PARAGRAFO_{i}_INICIO_TRUNCADO")
@@ -23153,9 +23203,12 @@ def gerar_conteudo_completo(
         # repetidamente as mesmas URLs e chame isso de busca por novas evidências.
         urls_recuperacao_tentadas = set()
         hashes_recuperacao_tentados = set()
+        ciclo_pesquisa_recuperacao = 0
 
         def _pesquisar_novas_evidencias_para_bloco(chave_bloco):
-            """Busca novas fontes sem revisitar URLs já processadas nesta execução."""
+            """Busca continuamente novas fontes/consultas sem revisitar URLs já processadas."""
+            nonlocal ciclo_pesquisa_recuperacao
+            ciclo_pesquisa_recuperacao += 1
             termos_blocos = {
                 "bloco_1": ["definição", "funcionamento", "contexto", "princípios", "fundamentos"],
                 "bloco_2": ["características", "funcionamento", "aplicações", "tipos", "componentes técnicos"],
@@ -23166,13 +23219,43 @@ def gerar_conteudo_completo(
             termos_base = termos_blocos.get(chave_bloco, ["informação técnica"])
             # Consulta por ondas semânticas: cada onda muda a intenção de busca
             # para não depender apenas dos primeiros resultados repetidos.
-            ondas = [
+            ondas_base = [
                 termos_base,
                 ["manual técnico", "princípio de funcionamento", "guia de engenharia", "fundamentos físicos", "dimensionamento hidráulico"],
                 ["universidade pesquisa", "instituto técnico", "documentação técnica", "artigo técnico", "material didático engenharia"],
                 ["normas aplicáveis", "falhas operacionais", "curva de desempenho", "perda de carga", "seleção de equipamento"],
                 ["site:gov.br", "site:edu.br", "site:org.br", "PDF manual técnico", "estudo técnico"]
             ]
+            # A cada rodada sem progresso, muda também o vocabulário da busca.
+            # Isso evita repetir eternamente as mesmas cinco ondas quando os
+            # primeiros resultados já foram visitados ou não passaram nos gates.
+            termos_expandidos = [
+                "catálogo técnico", "ficha técnica", "manual de operação",
+                "manual de instalação", "guia de manutenção", "aplicação industrial",
+                "princípio físico", "parâmetros de operação", "critérios de seleção",
+                "dimensionamento técnico", "problemas e diagnóstico", "falhas comuns",
+                "eficiência operacional", "limitações técnicas", "procedimento de inspeção",
+                "documentação do fabricante", "artigo científico", "tese dissertação",
+                "apostila engenharia", "livro técnico", "especificação técnica",
+                "site:edu.br filetype:pdf", "site:gov.br filetype:pdf",
+                "site:org.br filetype:pdf", "repositório universitário",
+                "documentação técnica PDF", "norma e aplicação prática"
+            ]
+            tamanho_lote = 5
+            inicio_lote = ((ciclo_pesquisa_recuperacao - 1) * tamanho_lote) % len(termos_expandidos)
+            modificadores_busca = [
+                "manual técnico", "aplicação prática", "documentação PDF",
+                "estudo de caso", "artigo científico", "especificação do fabricante",
+                "guia de engenharia", "diagnóstico e solução", "parâmetros de operação",
+                "fundamentos e exemplos", "relatório técnico", "material universitário"
+            ]
+            indice_modificador = (ciclo_pesquisa_recuperacao - 1) % len(modificadores_busca)
+            modificador_busca = modificadores_busca[indice_modificador]
+            termos_lote = [
+                f"{termos_expandidos[(inicio_lote + i) % len(termos_expandidos)]} {modificador_busca}"
+                for i in range(tamanho_lote)
+            ]
+            ondas = ondas_base + [termos_lote]
             urls = []
             vistas = set()
             for onda_num, termos_onda in enumerate(ondas, start=1):
@@ -23198,7 +23281,7 @@ def gerar_conteudo_completo(
                             break
                     if len(urls) >= 150:
                         break
-                print(f"🔎 ONDA DE PESQUISA {onda_num}/5: {len(urls)} URLs novas acumuladas")
+                print(f"🔎 ONDA DE PESQUISA {onda_num}/{len(ondas)} (ciclo {ciclo_pesquisa_recuperacao}): {len(urls)} URLs novas acumuladas")
                 if len(urls) >= 150:
                     break
 
@@ -23394,9 +23477,8 @@ def gerar_conteudo_completo(
                     "🔎 RECUPERAÇÃO LOCAL ESGOTADA:", chave_bloco_atual,
                     "— buscando evidências adicionais para substituir somente o hash rejeitado."
                 )
-                # A pesquisa já percorre cinco ondas de consultas distintas.
-                # Depois disso, ainda tentamos promover qualquer candidato novo
-                # do pool antes de declarar que as alternativas se esgotaram.
+                # A pesquisa varia as consultas a cada ciclo e mantém a
+                # recuperação ativa enquanto o bloco não passar no gate.
                 try:
                     houve_novas_evidencias = _pesquisar_novas_evidencias_para_bloco(
                         chave_bloco_atual
@@ -23723,6 +23805,7 @@ Preserve proporcionalmente o conteúdo deles, sem meta ou limite de palavras.
 
                     json={
 
+                        # Configuração anterior do Qwen 2.5 3B para redação dos parágrafos.
                         "model":
                             "qwen2.5:3b",
 
@@ -23740,8 +23823,7 @@ Preserve proporcionalmente o conteúdo deles, sem meta ou limite de palavras.
 
                         "options": {
 
-                            # Margem suficiente para 3 parágrafos + marcadores.
-                            # 420 podia truncar a resposta antes dos fechamentos.
+                            # Configuração anterior preservada.
                             "num_predict":
                                 720,
 
@@ -25069,7 +25151,15 @@ Use esses sinais para orientar a abordagem, mas não é obrigatório incluir tod
 PALAVRA-CHAVE SEO LITERAL: {tema}
 Em cada um dos três parágrafos, use essa palavra-chave exatamente uma vez, preservando a grafia e a ordem literal. Não precisa abrir o parágrafo. Não a repita uma segunda vez no mesmo parágrafo.
 
-O Python já entregou três trechos limpos e autorizados. Sua tarefa NÃO é resumir. Sua tarefa é reescrever com linguagem natural, preservando o conteúdo factual recebido.
+O Python já entregou três trechos autorizados. Sua tarefa é produzir uma redação editorial original, natural e tecnicamente fiel ao conteúdo factual recebido.
+
+ORIGINALIDADE OBRIGATÓRIA:
+- Não copie frases inteiras nem preserve a sequência sintática distintiva dos trechos de origem.
+- Não faça uma paráfrase superficial trocando apenas algumas palavras por sinônimos.
+- Extraia os fatos relevantes e reconstrua a explicação com organização, frases e transições próprias.
+- Preserve nomes técnicos, relações de causa e efeito, condições e limitações que estejam claramente sustentados.
+- Não invente fatos para tornar a redação mais interessante. Se um trecho estiver confuso ou tecnicamente duvidoso, não reproduza a parte duvidosa como se fosse certa.
+- Não use frases genéricas de marketing para preencher espaço; cada frase deve acrescentar uma informação factual ou explicar uma consequência diretamente sustentada.
 
 REGRA CENTRAL — TRÊS EVIDÊNCIAS FORMAM UMA ÚNICA NARRATIVA:
 - Não existe mínimo ou máximo de palavras.
@@ -25086,6 +25176,9 @@ REGRAS DE REDAÇÃO:
 - Escreva como conteúdo técnico de site industrial, natural e desenvolvido, semelhante aos modelos de referência fornecidos.
 - Escreva para o leitor final: explique o que a informação significa na prática, dentro dos limites das evidências, em vez de apenas enumerar características.
 - Dê a cada parágrafo uma função clara e diferente, mantendo uma progressão lógica entre as ideias e evitando repetir a mesma informação com outras palavras.
+- Antes de redigir, distribua mentalmente as informações: o primeiro parágrafo estabelece o ponto principal sustentado pelas evidências; o segundo desenvolve outro aspecto relevante; o terceiro acrescenta uma condição, consequência, aplicação ou critério distinto, somente quando houver suporte nas evidências.
+- Não use o terceiro parágrafo para resumir os dois anteriores. Não repita definições, benefícios ou explicações já apresentadas apenas para alongar o texto ou aumentar a densidade da palavra-chave.
+- Se as três evidências repetirem o mesmo fato, explique-o uma única vez e use o espaço restante para outros fatos distintos que estejam claramente sustentados. Não invente uma informação para preencher um parágrafo.
 - Use conectivos e anáforas naturais para evitar repetir o protagonista no início de todos os parágrafos.
 - O protagonista pode reaparecer quando necessário para clareza, mas não use uma fórmula mecânica nem force a palavra-chave no início das frases.
 - Prefira frases diretas, específicas e fluidas. Varie naturalmente a estrutura e o comprimento das frases, sem deixar o texto telegráfico ou excessivamente formal.
@@ -25654,8 +25747,10 @@ EVIDÊNCIAS AUTORIZADAS PELO PYTHON — USE AS TRÊS EM CONJUNTO:
 
     # Blocos aprovados ficam intactos. Para bloco reprovado, testar novas hashes
     # de evidência: primeiro reservas, depois candidatos locais e, se necessário,
-    # nova pesquisa Python por lacuna editorial. Não existe limite fixo de 3
-    # tentativas; o ciclo só termina quando o bloco passa ou não há candidato novo.
+    # nova pesquisa Python por lacuna editorial. A recuperação é persistente e
+    # não tem teto de tentativas: o ciclo só sai quando o bloco passa no gate.
+    # Se uma rodada não trouxer candidatos novos, a pesquisa deve continuar
+    # com novas consultas/fontes; nunca aprovar ou salvar um bloco reprovado.
     for numero_bloco in range(1, total_blocos + 1):
         chave_q = f"bloco_{numero_bloco}"
         bloco_q = informacoes_blocos.get(chave_q, {})
@@ -25693,16 +25788,10 @@ EVIDÊNCIAS AUTORIZADAS PELO PYTHON — USE AS TRÊS EM CONJUNTO:
         pesquisas_sem_novos = 0
 
         while not aprovado_q:
-            # Proteção contra recuperação infinita: cada rodada deve produzir
-            # uma evidência nova; se a pesquisa ficar sem progresso, encerra
-            # este reparo com diagnóstico em vez de repetir para sempre.
-            if indice_substituicao >= 30 or pesquisas_sem_novos >= 5:
-                print(
-                    f"🛑 {chave_q}: recuperação interrompida sem progresso "
-                                       f"(rodadas={indice_substituicao}, pesquisas sem hash nova={pesquisas_sem_novos}). "
-                    "O bloco permanece reprovado; preserve o estado e retome após ampliar/atualizar as fontes."
-                )
-                break
+            # RECUPERAÇÃO PERSISTENTE: não existe teto artificial de tentativas
+            # nem de pesquisas sem hash nova. Se uma rodada não trouxer material
+            # elegível, a próxima deve ampliar/variar a pesquisa e tentar de novo.
+            # O bloco nunca é considerado concluído nem salvo enquanto reprovado.
             motivo_reparo = ", ".join(falhas_q) if falhas_q else f"nota abaixo do mínimo ({nota_q}/10)"
             print("\n🔁 RECUPERAÇÃO DO GATE FINAL:", chave_q)
             print("MOTIVOS:", motivo_reparo)
@@ -25757,12 +25846,111 @@ Retorne exatamente três parágrafos.
                     else:
                         print(f"⚠️ {chave_q}: reescrita MEAD não retornou três parágrafos válidos; mantendo recuperação pontual.", str(_erro_mead)[:250])
 
-            if len(evidencias_atuais) != 3:
-                print(f"⚠️ {chave_q}: cache não contém exatamente 3 evidências; tentando recuperar do bloco.")
+            if not isinstance(evidencias_atuais, list) or len(evidencias_atuais) != 3:
+                print(f"⚠️ {chave_q}: cache não contém exatamente 3 evidências; recuperando do bloco antes de pesquisar novas fontes.")
                 evidencias_atuais = bloco_q.get("informacoes_relevantes", [])
                 if not isinstance(evidencias_atuais, list) or len(evidencias_atuais) != 3:
-                    print(f"🔴 {chave_q}: não há 3 evidências para continuar a recuperação.")
-                    break
+                    # Compatibilidade com blocos que preservaram os três textos
+                    # autorizados, mas não o dicionário completo das evidências.
+                    autorizadas_salvas = bloco_q.get("fragmentos_autorizados", [])
+                    if isinstance(autorizadas_salvas, list) and len(autorizadas_salvas) == 3:
+                        evidencias_atuais = []
+                        for _i_ev, _ev in enumerate(autorizadas_salvas):
+                            if isinstance(_ev, dict):
+                                _item_ev = dict(_ev)
+                            else:
+                                _texto_ev = str(_ev or "").strip()
+                                _item_ev = {
+                                    "texto": _texto_ev,
+                                    "hash": gerar_hash_trecho(_texto_ev),
+                                    "fonte": "EVIDENCIA_RECUPERADA_DO_BLOCO",
+                                    "bloco_mead": chave_q,
+                                }
+                            evidencias_atuais.append(_item_ev)
+                if not isinstance(evidencias_atuais, list) or len(evidencias_atuais) != 3:
+                    try:
+                        _pesquisar_recuperacao = _pesquisadores_recuperacao_por_bloco.get(chave_q)
+                        if callable(_pesquisar_recuperacao):
+                            _pesquisar_recuperacao(chave_q)
+                    except Exception as _erro_pesquisa_sem_evidencia:
+                        print("⚠️ PESQUISA DE RECUPERAÇÃO SEM EVIDÊNCIA:", repr(_erro_pesquisa_sem_evidencia))
+                    # A pesquisa adiciona candidatos ao pool; ela não preenche
+                    # automaticamente informacoes_relevantes. Se não houver
+                    # nenhuma evidência preservada, montar um conjunto novo
+                    # usando o seletor já existente e seus mesmos gates Python.
+                    _pool_recuperacao = candidatos_por_bloco.get(chave_q, [])
+                    _atuais_validas = (
+                        [dict(_x) if isinstance(_x, dict) else {
+                            "texto": str(_x or "").strip(),
+                            "hash": gerar_hash_trecho(str(_x or "").strip()),
+                            "fonte": "EVIDENCIA_PRESERVADA_DO_BLOCO",
+                            "bloco_mead": chave_q,
+                        } for _x in evidencias_atuais]
+                        if isinstance(evidencias_atuais, list)
+                        else []
+                    )
+                    # Preserva as evidências ainda utilizáveis e completa apenas
+                    # as posições ausentes com candidatos do pool já filtrado.
+                    _hashes_ev = {
+                        str(_x.get("hash") or gerar_hash_trecho(_x.get("texto", "")))
+                        for _x in _atuais_validas if str(_x.get("texto", "") or "").strip()
+                    }
+                    for _item_pool in _pool_recuperacao:
+                        if len(_atuais_validas) >= 3:
+                            break
+                        _cand_pool = _item_pool.get("candidato") if isinstance(_item_pool, dict) else None
+                        if not isinstance(_cand_pool, dict):
+                            continue
+                        _cand_pool = dict(_cand_pool)
+                        _h_pool = str(_cand_pool.get("hash") or gerar_hash_trecho(_cand_pool.get("texto", "")))
+                        if not _h_pool or _h_pool in _hashes_ev or _h_pool in hashes_selecionados or _h_pool in quarentena_ollama_por_bloco.get(chave_q, set()):
+                            continue
+                        try:
+                            _pool_ok = (
+                                _candidato_utilizavel_recuperacao(_cand_pool)
+                                and _fragmento_compativel_recuperacao(_cand_pool, chave_q)
+                            )
+                        except Exception:
+                            _pool_ok = False
+                        if not _pool_ok:
+                            continue
+                        _cand_pool["hash"] = _h_pool
+                        _cand_pool["bloco_mead"] = chave_q
+                        _atuais_validas.append(_cand_pool)
+                        _hashes_ev.add(_h_pool)
+                        hashes_selecionados.add(_h_pool)
+                        fragmentos_selecionados.append(_cand_pool)
+                        _fonte_pool = _cand_pool.get("fonte")
+                        fontes_utilizadas[_fonte_pool] = fontes_utilizadas.get(_fonte_pool, 0) + 1
+                    if len(_atuais_validas) == 3:
+                        evidencias_atuais = _atuais_validas
+                        bloco_q["informacoes_relevantes"] = [dict(_x) for _x in evidencias_atuais]
+                        bloco_q["fragmentos_autorizados"] = [
+                            str(_x.get("texto", "") or "") for _x in evidencias_atuais
+                        ]
+                        evidencias_ollama_por_bloco[chave_q] = [dict(_x) for _x in evidencias_atuais]
+                        informacoes_blocos[chave_q] = bloco_q
+                    elif not _atuais_validas and _pool_recuperacao:
+                        try:
+                            _novo_conjunto_ev = _reselecionar_conjunto_apos_rejeicao(
+                                chave_q, [], "RECUPERAR_CONJUNTO_DE_EVIDENCIAS_AUSENTE",
+                                fragmentos_selecionados, hashes_selecionados, fontes_utilizadas,
+                                candidatos_por_bloco, blocos, blocos_informacoes,
+                                fragmentos_reserva_por_bloco
+                            )
+                            if isinstance(_novo_conjunto_ev, list) and len(_novo_conjunto_ev) == 3:
+                                evidencias_atuais = [dict(_x) for _x in _novo_conjunto_ev]
+                                bloco_q["informacoes_relevantes"] = [dict(_x) for _x in evidencias_atuais]
+                                bloco_q["fragmentos_autorizados"] = [
+                                    str(_x.get("texto", "") or "") for _x in evidencias_atuais
+                                ]
+                                evidencias_ollama_por_bloco[chave_q] = [dict(_x) for _x in evidencias_atuais]
+                                informacoes_blocos[chave_q] = bloco_q
+                        except Exception as _erro_reselecionar_conjunto:
+                            print("⚠️ NÃO FOI POSSÍVEL RECONSTRUIR O CONJUNTO DE EVIDÊNCIAS:", repr(_erro_reselecionar_conjunto))
+                    if not isinstance(evidencias_atuais, list) or len(evidencias_atuais) != 3:
+                        print(f"🔄 {chave_q}: evidências insuficientes nesta rodada; reiniciando a recuperação sem aprovar nem salvar.")
+                        continue
 
             # Escolhe ciclicamente qual das três evidências será trocada. Cada
             # hash já usada nesta recuperação é posta em quarentena e não volta.
@@ -25843,14 +26031,44 @@ Retorne exatamente três parágrafos.
 
             prompt_reparo = prompts_ollama_por_bloco.get(chave_q)
             if not prompt_reparo:
-                print(f"🔴 {chave_q}: prompt original indisponível; não é possível continuar a geração.")
-                break
+                # Recuperação de contingência: não abandonar o bloco só porque
+                # o cache do prompt sumiu. Prioriza prompts preservados no bloco;
+                # se não existirem, monta um prompt mínimo sem alterar o caminho
+                # normal nem relaxar os gates de qualidade.
+                prompt_reparo = (
+                    bloco_q.get("prompt_ollama")
+                    or bloco_q.get("prompt_base")
+                    or bloco_q.get("prompt")
+                    or ""
+                )
+                if not prompt_reparo:
+                    _funcao_editorial_fallback = (
+                        mapa_mead.get(chave_q, "")
+                        if isinstance(mapa_mead, dict)
+                        else ""
+                    )
+                    prompt_reparo = f"""
+Você é um redator técnico. Escreva exatamente três parágrafos completos em português do Brasil sobre o tema/palavra-chave: {tema}.
+Função editorial deste segmento: { _funcao_editorial_fallback or chave_q }.
+Use exclusivamente os fatos sustentados pelas três evidências fornecidas. Não invente dados, números, marcas, normas, empresas ou especificações. Não mencione fontes, evidências, prompts ou o processo de escrita. Evite repetir a mesma ideia entre os três parágrafos. Inclua a palavra-chave de forma gramatical e natural. Retorne somente os três parágrafos, sem títulos, rótulos ou listas.
+"""
+                prompts_ollama_por_bloco[chave_q] = prompt_reparo
             instrucao_reparo = f"""
 
 RECUPERAÇÃO DO GATE FINAL — {chave_q}
 A versão anterior foi reprovada por: {motivo_reparo}.
 Foi selecionada uma nova evidência/hash para substituir apenas a evidência de índice {indice + 1}.
-Redija novamente os três parágrafos usando as evidências atuais. Preserve fatos autorizados, não invente números, marcas, empresas ou códigos e cumpra a função editorial de {chave_q}.
+
+CORREÇÃO DIRECIONADA:
+- Se houver FIDELIDADE_LEXICAL_INSUFICIENTE: mantenha os conceitos e termos técnicos efetivamente presentes nas evidências atuais; não acrescente conteúdo externo.
+- Se houver NUMEROS_OU_UNIDADES_NOVOS: remova números, percentuais, medidas e unidades que não estejam explicitamente nas evidências atuais.
+- Se houver METATEXTO_DETECTADO: elimine comentários sobre fontes, trechos, evidências, revisão ou processo de escrita; redija diretamente para o leitor.
+- Se houver CONTEUDO_COMERCIAL_OU_CTA: retire chamadas comerciais, promessas e linguagem promocional.
+- Se houver INCOMPATIBILIDADE_MEAD: alinhe o conteúdo à função editorial de {chave_q}, usando somente fatos sustentados pelas evidências.
+- Se houver sinais de repetição ou progressão fraca: faça cada parágrafo acrescentar uma informação diferente; não repita uma explicação apenas trocando palavras.
+- Se houver problema de estrutura: entregue exatamente três parágrafos completos, com pontuação final e sem etiquetas no texto dos parágrafos.
+
+Redija novamente os três parágrafos usando as evidências atuais. Preserve os fatos autorizados, não invente números, marcas, empresas, normas ou códigos e cumpra a função editorial de {chave_q}. Mantenha a palavra-chave literal conforme as regras do prompt original, mas não a use para iniciar mecanicamente todos os parágrafos.
 """
             try:
                 resultado_reparo, erro_reparo = _processar_bloco_ollama_com_retentativas(
