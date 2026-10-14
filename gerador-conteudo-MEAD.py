@@ -1,4 +1,4 @@
-# gerador-conteudo-MEAD.py - 13/10/2026
+# gerador-conteudo-MEAD.py - 14/10/2026
 # v72 — direções editoriais preferenciais por bloco, somente para parágrafos
 # Checkboxes ativos autorizam assuntos na página; direção por bloco é preferência
 # Reservatório ampliado de candidatos limpos — seleção final continua em 15
@@ -78,7 +78,22 @@ TAGS_FIXAS_PRODUTOS = [
     "[tema] com preço justo",
     "[tema] com qualidade",
     "[tema] resistente",
-    "[tema] durável"
+    "[tema] durável",
+    "fabricante de [tema]",
+    "distribuidor de [tema]",
+    "[tema] industrial",
+    "[tema] para aplicações industriais",
+    "[tema] para empresas",
+    "[tema] para projetos industriais",
+    "[tema] sob medida",
+    "[tema] de alto desempenho",
+    "[tema] de alta eficiência",
+    "[tema] com suporte técnico",
+    "especificações técnicas de [tema]",
+    "modelos de [tema]",
+    "tipos de [tema]",
+    "instalação de [tema]",
+    "manutenção de [tema]",
 ]
 
 TAGS_FIXAS_SERVICOS = [
@@ -96,7 +111,22 @@ TAGS_FIXAS_SERVICOS = [
     "[tema] com suporte técnico",
     "[tema] preço",
     "manutenção de [tema]",
-    "assistência técnica em [tema]"
+    "assistência técnica em [tema]",
+    "serviços profissionais de [tema]",
+    "equipe técnica para [tema]",
+    "contrato de [tema]",
+    "planejamento de [tema]",
+    "execução técnica de [tema]",
+    "avaliação de [tema]",
+    "inspeção de [tema]",
+    "diagnóstico de [tema]",
+    "reparo de [tema]",
+    "atendimento para [tema]",
+    "soluções técnicas em [tema]",
+    "[tema] para empresas",
+    "[tema] para indústrias",
+    "[tema] com qualidade e segurança",
+    "[tema] com acompanhamento técnico",
 ]
 
 
@@ -144,6 +174,7 @@ SUBTITULOS_SEGMENTOS_DISPONIVEIS = []
 # ============================================================
 
 SEGMENTOS_PRODUTOS = [
+    # Biblioteca geral já cadastrada
     "Fábrica de [TEMA] para Saneamento",
     "Fábrica de [TEMA] para Infraestrutura",
     "[TEMA] para Indústrias",
@@ -164,6 +195,17 @@ SEGMENTOS_PRODUTOS = [
     "[TEMA] em Condomínios",
     "[TEMA] em Obras de Saneamento",
     "[TEMA] para Diferentes Aplicações",
+    # Opções fixas adicionais para equipamentos de bombeamento e fluidos
+    "[TEMA] para Sistemas Hidráulicos",
+    "[TEMA] para Transferência de Fluidos",
+    "[TEMA] para Tratamento de Água",
+    "[TEMA] para Processos Industriais",
+    "[TEMA] para Indústrias Químicas",
+    "[TEMA] para Indústrias Alimentícias",
+    "[TEMA] para Mineração",
+    "[TEMA] para Agricultura e Irrigação",
+    "[TEMA] para Abastecimento de Água",
+    "[TEMA] para Sistemas de Refrigeração",
 ]
 
 
@@ -20367,13 +20409,51 @@ def gerar_segmentos_pagina(
         return []
 
     # ========================================================
-    # SORTEAR EXATAMENTE 12
+    # SELEÇÃO RELEVANTE A PARTIR DA BIBLIOTECA FIXA
+    # Não criar rótulos: somente selecionar itens cadastrados.
+    # Para temas de bombas, priorizar usos compatíveis com
+    # fluidos, hidráulica, água, saneamento e processos.
     # ========================================================
 
-    segmentos_finais = random.sample(
-        segmentos_com_tema,
-        12
+    tema_chave = re.sub(r"[^a-z0-9 ]", " ", tema.casefold())
+    tema_chave = re.sub(r"\s+", " ", tema_chave).strip()
+
+    termos_bomba = (
+        "bomba", "bombas", "centrifuga", "centrífuga",
+        "bombeamento", "hidraul", "hidrául", "fluido", "água"
     )
+    tema_e_bomba = any(termo in tema_chave for termo in termos_bomba)
+
+    if tema_e_bomba:
+        termos_prioritarios = (
+            "sistemas hidráulicos", "transferência de fluidos",
+            "tratamento de água", "saneamento", "processos industriais",
+            "indústrias químicas", "indústrias alimentícias", "mineração",
+            "agricultura e irrigação", "abastecimento de água",
+            "drenagem", "geração de energia", "instalações industriais",
+            "manutenção industrial", "refrigeração", "operação contínua",
+            "processos de produção", "ambientes industriais"
+        )
+        pesos_prioridade = {
+            termo: len(termos_prioritarios) - indice
+            for indice, termo in enumerate(termos_prioritarios)
+        }
+
+        segmentos_com_tema.sort(
+            key=lambda item: max(
+                (
+                    peso
+                    for termo, peso in pesos_prioridade.items()
+                    if termo in item.casefold()
+                ),
+                default=0
+            ),
+            reverse=True
+        )
+
+    # Preferir opções cadastradas; manter ordem de relevância para evitar
+    # incluir segmentos claramente deslocados apenas por sorteio.
+    segmentos_finais = segmentos_com_tema[:12]
 
     # ========================================================
     # AUDITORIA
@@ -21002,6 +21082,10 @@ def gerar_conteudo_completo(
     tema_base = str(
         tema or ""
     ).strip()
+
+    # Corrige NameError: define o tipo antes de gerar segmentos e tags.
+    # Usa a classificação existente baseada no tema, sem depender do Ollama.
+    tipo = identificar_tipo_tema(tema_base)
 
     # Validadores locais à geração. As versões originais de
     # candidato_eh_utilizavel e fragmento_compativel_com_funcao_do_bloco
@@ -26042,8 +26126,8 @@ Redija novamente os três parágrafos usando as evidências atuais. Preserve fat
     #
     # As tags NÃO são mais geradas pelo Ollama.
     #
-    # O Python monta exatamente 30 tags a partir do tema,
-    # mantendo o padrão PRODUTO/SERVIÇO.
+    # O Python seleciona os 30 modelos cadastrados para o tipo
+    # e substitui apenas o marcador [tema].
     #
     # REGRA OBRIGATÓRIA:
     # A palavra-chave NUNCA pode aparecer sozinha como tag.
@@ -26059,9 +26143,8 @@ Redija novamente os três parágrafos usando as evidências atuais. Preserve fat
     # ========================================================
 
     # --------------------------------------------------------
-    # BASE FIXA DE 10/09/2026
-    # A base padronizada pertence ao Python.
-    # Os placeholders [tema] são substituídos pelo tema real.
+    # LISTA FIXA: 30 modelos cadastrados por tipo.
+    # O Python apenas substitui [tema]; não cria variações.
     # --------------------------------------------------------
 
     tags_fixas = (
@@ -26070,61 +26153,10 @@ Redija novamente os três parágrafos usando as evidências atuais. Preserve fat
         else TAGS_FIXAS_PRODUTOS
     )
 
-    tags_base_fixas = [
-        str(tag).replace(
-            "[tema]",
-            tema_base
-        )
+    tags_base = [
+        str(tag).replace("[tema]", tema_base)
         for tag in tags_fixas
     ]
-
-    # --------------------------------------------------------
-    # Variações adicionais do Python
-    # Servem apenas para completar as 30 tags quando necessário.
-    # --------------------------------------------------------
-
-    if tipo == "servico":
-
-        tags_base_adicionais = [
-            f"{tema_base} industrial",
-            f"{tema_base} técnica",
-            f"{tema_base} especializada",
-            f"{tema_base} preventiva",
-            f"{tema_base} corretiva",
-            f"{tema_base} profissional",
-            f"{tema_base} em equipamentos",
-            f"{tema_base} em sistemas",
-            f"{tema_base} em processos",
-            f"serviços de {tema_base}",
-            f"assistência em {tema_base}",
-            f"diagnóstico de {tema_base}",
-            f"inspeção de {tema_base}",
-            f"suporte técnico {tema_base}",
-            f"consultoria em {tema_base}"
-        ]
-
-    else:
-
-        tags_base_adicionais = [
-            f"{tema_base} industrial",
-            f"{tema_base} profissional",
-            f"{tema_base} técnica",
-            f"{tema_base} especializada",
-            f"{tema_base} para indústria",
-            f"{tema_base} para sistemas",
-            f"{tema_base} para processos",
-            f"{tema_base} hidráulica",
-            f"{tema_base} industrial hidráulica",
-            f"aplicações de {tema_base}",
-            f"uso de {tema_base}",
-            f"soluções com {tema_base}",
-            f"equipamento {tema_base}",
-            f"sistema com {tema_base}",
-            f"assistência técnica {tema_base}"
-        ]
-
-    # As tags fixas vêm primeiro e não são substituídas por outras.
-    tags_base = tags_base_fixas + tags_base_adicionais
 
     # ========================================================
     # LIMPAR E VALIDAR TAGS
@@ -26200,67 +26232,10 @@ Redija novamente os três parágrafos usando as evidências atuais. Preserve fat
     ]
 
     # --------------------------------------------------------
-    # COMPLEMENTO CONTROLADO — SOMENTE PYTHON
-    #
-    # A palavra-chave pura é proibida, mas isso não pode fazer
-    # a página terminar com 29 tags. Quando a base fixa não
-    # atingir 30, acrescentamos variações semânticas controladas
-    # do próprio tema, sem Ollama e sem tags aleatórias.
+    # Não completar a lista com novas tags dinâmicas.
+    # Se a lista fixa não produzir 30 tags únicas, falhar
+    # explicitamente para que a biblioteca seja corrigida.
     # --------------------------------------------------------
-
-    if len(lista_tags) < 30:
-
-        if tipo == "servico":
-            tags_complementares = [
-                f"aplicação de {tema_base}",
-                f"execução de {tema_base}",
-                f"planejamento de {tema_base}",
-                f"avaliação de {tema_base}",
-                f"controle de {tema_base}",
-                f"qualidade em {tema_base}",
-                f"soluções técnicas em {tema_base}",
-                f"atendimento técnico de {tema_base}",
-            ]
-        else:
-            tags_complementares = [
-                f"aplicação de {tema_base}",
-                f"seleção de {tema_base}",
-                f"dimensionamento de {tema_base}",
-                f"instalação de {tema_base}",
-                f"operação de {tema_base}",
-                f"manutenção de {tema_base}",
-                f"desempenho de {tema_base}",
-                f"eficiência de {tema_base}",
-                f"especificação de {tema_base}",
-                f"fornecimento de {tema_base}",
-                f"soluções técnicas com {tema_base}",
-                f"características de {tema_base}",
-            ]
-
-        for tag in tags_complementares:
-
-            tag = re.sub(
-                r"\s+",
-                " ",
-                str(tag).strip()
-            )
-
-            if not tag:
-                continue
-
-            if tag.casefold() == tema_normalizado:
-                continue
-
-            if tag.casefold() in [
-                item.casefold()
-                for item in lista_tags
-            ]:
-                continue
-
-            lista_tags.append(tag)
-
-            if len(lista_tags) >= 30:
-                break
 
     # --------------------------------------------------------
     # A quantidade continua sendo obrigatória. Se mesmo a base
