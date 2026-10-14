@@ -9098,10 +9098,7 @@ def extrair_trechos_relevantes(
                 continue
 
         # Bloqueio explícito normalizado (acentos/capitalização não interferem).
-        if any(
-            re.search(r"(?<!\w)" + re.escape(termo) + r"(?!\w)", texto_norm)
-            for termo in bloqueados
-        ):
+        if any(termo in texto_norm for termo in bloqueados):
             continue
 
         # Remoção de interface evidente e penalização de linguagem comercial.
@@ -9128,10 +9125,10 @@ def extrair_trechos_relevantes(
 
         expressoes_explicativas = (
             r"\bporque\b", r"\bdepende de\b", r"\be utilizado para\b",
-            r"\bé utilizado para\b", r"\bocorre quando\b", r"\bpermite\b",
-            r"\bprovoca\b", r"\bresulta em\b", r"\bé causado por\b",
+            r"\bocorre quando\b", r"\bpermite\b",
+            r"\bprovoca\b", r"\bresulta em\b", r"\bcausado por\b",
             r"\bconsiste em\b", r"\bfunciona por meio de\b",
-            r"\bé composto por\b", r"\btem como função\b",
+            r"\bcomposto por\b", r"\btem como funcao\b",
         )
         score += min(
             sum(bool(re.search(padrao, texto_norm)) for padrao in expressoes_explicativas) * 3,
@@ -9226,70 +9223,46 @@ def preparar_grupo_para_ia(
     grupo,
     tema,
     mapa_texto,
-    limite=5000
+    limite=5000,
+    termos_bloqueados=None,
 ):
-
+    """Monta contexto para IA sem cortar fontes ou parágrafos pela metade."""
     partes = []
-
-    restante = limite
-
+    restante = max(0, int(limite or 0))
 
     for fonte in grupo:
-
         if restante <= 0:
-
             break
 
-
-        trecho = extrair_trechos_relevantes(
-
-            fonte["texto"],
-
-            tema,
-
-            mapa_texto,
-
-            limite=restante
-
+        cabecalho = (
+            f"\n[FONTE {fonte.get('indice', '')}]\n"
+            f"TIPO: {fonte.get('tipo', 'html')}\n"
+            f"PDF TÉCNICO: {'SIM' if fonte.get('eh_pdf') else 'NÃO'}\n"
+            f"URL: {fonte.get('url', '')}\n\n"
         )
-
-
-        if not trecho:
-
+        espaco_texto = restante - len(cabecalho)
+        if espaco_texto < 90:
             continue
 
+        trecho = extrair_trechos_relevantes(
+            fonte.get("texto", ""),
+            tema,
+            mapa_texto,
+            limite=espaco_texto,
+            termos_bloqueados=termos_bloqueados,
+        )
+        if not trecho:
+            continue
 
-        bloco = f"""
-[FONTE {fonte["indice"]}]
-TIPO: {fonte["tipo"]}
-PDF TÉCNICO: {"SIM" if fonte["eh_pdf"] else "NÃO"}
-URL: {fonte["url"]}
-
-{trecho}
-"""
-
-
+        bloco = cabecalho + trecho
+        # Nunca usar bloco[:restante]: isso cortaria evidência no meio.
         if len(bloco) > restante:
+            continue
 
-            bloco = bloco[
-                :restante
-            ]
+        partes.append(bloco)
+        restante -= len(bloco)
 
-
-        partes.append(
-            bloco
-        )
-
-
-        restante -= len(
-            bloco
-        )
-
-
-    return "\n".join(
-        partes
-    )[:limite]
-
+    return "\n".join(partes)
 
 
 # ============================================================
@@ -20057,9 +20030,28 @@ def validar_bloco_editorial_unico(paragrafos):
     for idx, paragrafo in enumerate(paragrafos, start=1):
         texto = str(paragrafo or "").strip()
         normalizado = normalizar_assunto_texto(texto)
-        # Heurística barata para cortes evidentes como "principalmen...".
-        if (not texto or texto.endswith((",", ";", ":", "-", "—", "...", "…"))
-                or re.search(r"\b(?:principalmen|extremam|muit|funcionamen|centrifug)\s*$", normalizado)):
+        # Barreira de integridade: detecta cortes no meio de palavra/frase.
+        # A regra é deliberadamente conservadora e não reescreve o conteúdo.
+        ultima_palavra = (normalizado.split() or [""])[-1]
+        finais_suspeitos = {
+            "in", "ba", "promov", "frequentemen", "principalmen",
+            "extremam", "muit", "funcionamen", "centrifug", "consequentemen",
+            "especialmen", "aproximadamen", "desenvolv", "permit", "garant",
+            "utiliz", "apresent", "proporcion", "atend", "possibil"
+        }
+        termina_sem_pontuacao = not re.search(r"[.!?][\"'”’)]*$", texto)
+        termina_em_conector = ultima_palavra in {
+            "a", "ao", "aos", "com", "como", "da", "das", "de", "do", "dos",
+            "e", "em", "entre", "para", "por", "que", "se", "sem", "sob",
+            "um", "uma", "uns", "umas", "na", "nas", "no", "nos", "ou"
+        }
+        if (
+            not texto
+            or texto.endswith((",", ";", ":", "-", "—", "...", "…"))
+            or re.search(r"\b(?:principalmen|extremam|muit|funcionamen|centrifug|promov)\s*$", normalizado)
+            or ultima_palavra in finais_suspeitos
+            or (termina_sem_pontuacao and termina_em_conector)
+        ):
             return False, f"EDITORIAL_P{idx}:POSSIVEL_TRUNCAMENTO", idx
         ok, motivo = auditar_saida_ollama_editorial(texto, None)
         if not ok:
@@ -20102,8 +20094,13 @@ def _jaccard_conceitual(a, b):
     return len(ta & tb) / max(1, len(ta | tb))
 
 
-def validar_unicidade_blocos(blocos, tema=""):
-    """Impede títulos duplicados e sobreposição editorial forte entre blocos."""
+def validar_unicidade_blocos(blocos, tema="", exigir_titulos=True):
+    """Impede títulos duplicados e sobreposição editorial forte entre blocos.
+
+    Na primeira gravação, os títulos podem ser adiados até os 15 parágrafos
+    estarem confirmados no JSON. Nesse estágio, títulos vazios são permitidos;
+    na gravação final, exigir_titulos=True mantém a barreira obrigatória.
+    """
     if not isinstance(blocos, dict):
         return False, "BLOCOS_INVALIDOS"
 
@@ -20116,18 +20113,21 @@ def validar_unicidade_blocos(blocos, tema=""):
         titulo = str(bloco.get("titulo", "") or "").strip()
         paras = [str(x or "").strip() for x in bloco.get("paragrafos_ollama", [])[:3]]
         frags = [str(x.get("texto", "") or "").strip() for x in bloco.get("informacoes_relevantes", [])[:3] if isinstance(x, dict)]
-        if not titulo:
+        if exigir_titulos and not titulo:
             return False, f"{chave}_SEM_TITULO"
         itens.append((chave, titulo, paras, frags))
 
     for i in range(len(itens)):
         for j in range(i + 1, len(itens)):
             a, b = itens[i], itens[j]
-            if normalizar_assunto_texto(a[1]) == normalizar_assunto_texto(b[1]):
-                return False, f"TITULOS_DUPLICADOS:{a[0]}x{b[0]}"
-            sim_titulo = _similaridade_textual(a[1], b[1])
-            if sim_titulo >= 0.90:
-                return False, f"TITULOS_MUITO_PARECIDOS:{a[0]}x{b[0]}:{sim_titulo:.3f}"
+            # Títulos vazios são aceitáveis somente na etapa explicitamente
+            # marcada como deferida. Compare títulos apenas quando ambos existem.
+            if a[1] and b[1]:
+                if normalizar_assunto_texto(a[1]) == normalizar_assunto_texto(b[1]):
+                    return False, f"TITULOS_DUPLICADOS:{a[0]}x{b[0]}"
+                sim_titulo = _similaridade_textual(a[1], b[1])
+                if sim_titulo >= 0.90:
+                    return False, f"TITULOS_MUITO_PARECIDOS:{a[0]}x{b[0]}:{sim_titulo:.3f}"
 
             for pa in a[2]:
                 for pb in b[2]:
@@ -20145,8 +20145,12 @@ def validar_unicidade_blocos(blocos, tema=""):
     return True, "OK"
 
 
-def validar_pagina_editorial_final(pagina, tema=""):
-    """Barreira editorial final: tamanho, integridade, lixo e unicidade."""
+def validar_pagina_editorial_final(pagina, tema="", exigir_titulos=True):
+    """Barreira editorial: integridade dos parágrafos e unicidade.
+
+    exigir_titulos=False só é usado na primeira persistência, quando a geração
+    dos títulos foi explicitamente adiada. A gravação final exige títulos.
+    """
     if not isinstance(pagina, dict):
         return False, "PAGINA_INVALIDA"
 
@@ -20162,7 +20166,11 @@ def validar_pagina_editorial_final(pagina, tema=""):
             return False, f"{chave}:{motivo}"
         blocos[chave] = bloco
 
-    ok, motivo = validar_unicidade_blocos(blocos, tema)
+    ok, motivo = validar_unicidade_blocos(
+        blocos,
+        tema,
+        exigir_titulos=exigir_titulos
+    )
     if not ok:
         return False, motivo
 
@@ -21077,7 +21085,7 @@ def gerar_conteudo_completo(
     # Essa variável será reutilizada em toda a página.
     # ========================================================
 
-    tipo = identificar_tipo_tema(
+    tipo_pagina_oficial = identificar_tipo_tema(
         tema
     )
     print()
@@ -21086,7 +21094,7 @@ def gerar_conteudo_completo(
     print("======================================")
     print(
         "TIPO:",
-        tipo
+        tipo_pagina_oficial
     )
     
     
@@ -23394,9 +23402,30 @@ def gerar_conteudo_completo(
         # Recuperação progressiva: não há teto artificial de três tentativas.
         # A cada rejeição, corrige a redação ou procura novas evidências limpas.
         tentativa_bloco = 0
+        MAX_TENTATIVAS_BLOCO = 5
 
         while True:
             tentativa_bloco += 1
+
+            if tentativa_bloco > MAX_TENTATIVAS_BLOCO:
+                print(
+                    f"🛑 LIMITE DE {MAX_TENTATIVAS_BLOCO} TENTATIVAS ATINGIDO "
+                    f"EM {chave_bloco_atual}; colocando a evidência em quarentena."
+                )
+                recuperou = _adaptar_evidencia_apos_rejeicao(ultimo_erro)
+                if recuperou:
+                    print(
+                        "⚠️ Uma nova evidência foi selecionada, mas o limite de "
+                        "tentativas deste bloco foi atingido. Encerrando o bloco "
+                        "com falha explícita para evitar loop infinito."
+                    )
+                return (
+                    None,
+                    ultimo_erro or (
+                        f"Limite de {MAX_TENTATIVAS_BLOCO} tentativas atingido "
+                        f"em {chave_bloco_atual}."
+                    ),
+                )
 
             # Se a tentativa anterior falhou por evidência, editorial ou
             # progressão, substitui somente o trecho responsável antes de
@@ -31764,7 +31793,8 @@ def salvar_banco(
         # duplicação editorial estiverem pendentes.
         ok_editorial_final, motivo_editorial_final = validar_pagina_editorial_final(
             pagina_final,
-            tema_original
+            tema_original,
+            exigir_titulos=not deferir_titulos
         )
 
         if not ok_editorial_final:
@@ -37172,10 +37202,18 @@ ESTRUTURA_EDITORIAL = {
 
 def obter_estrutura_editorial():
 
+    variaveis = globals().get("VARIAVEIS_EDITORIAIS", {})
+    estrutura_global = globals().get("ESTRUTURA_EDITORIAL", {})
+
+    # Execução sem interface gráfica: usa a estrutura já disponível e
+    # completa os checkboxes oficiais com o fallback determinístico.
+    if not variaveis:
+        return normalizar_checkboxes_editoriais(estrutura_global)
+
     estrutura = {
         chave: bool(valor)
         for chave, valor
-        in ESTRUTURA_EDITORIAL.items()
+        in estrutura_global.items()
     }
 
     print()
@@ -37911,7 +37949,7 @@ def executar():
 
         texto = ""
 
-        tipo = "html"
+        tipo_fonte = "html"
 
         if isinstance(
             dados,
@@ -37923,7 +37961,7 @@ def executar():
                 ""
             )
 
-            tipo = dados.get(
+            tipo_fonte = dados.get(
                 "tipo",
                 "html"
             )
