@@ -21460,6 +21460,20 @@ def gerar_conteudo_completo(
                             _hashes_cp.append(_h_cp)
                         if _t_cp:
                             _trechos_cp.append(_t_cp[:900])
+
+                    # As listas fragmentos_autorizados podem conter apenas o
+                    # texto puro. Nesse formato, recuperar os hashes da lista
+                    # paralela informacoes_relevantes para não criar checkpoint
+                    # sem vínculo verificável entre evidência e hash.
+                    _infos_hash_cp = _dados_cp.get("informacoes_relevantes", [])
+                    if isinstance(_infos_hash_cp, list):
+                        for _info_hash_cp in _infos_hash_cp:
+                            if not isinstance(_info_hash_cp, dict):
+                                continue
+                            _h_info_cp = str(_info_hash_cp.get("hash", _info_hash_cp.get("sha256", "")) or "").strip()
+                            if _h_info_cp and _h_info_cp not in _hashes_cp:
+                                _hashes_cp.append(_h_info_cp)
+
                     _fallback_cp = []
                     _status_paragrafos_cp = []
                     for _idx_cp in range(3):
@@ -25695,33 +25709,11 @@ Preserve proporcionalmente o conteúdo deles, sem meta ou limite de palavras.
         blocos_informacoes[chave_bloco]["titulo"] = ""
         print("TÍTULO FINAL: ADIADO ATÉ DEPOIS DO SALVAMENTO DOS PARÁGRAFOS")
 
-        # --------------------------------------------------------
-        # PREFLIGHT DE UNICIDADE DO TÍTULO — ANTES DO OLLAMA
-        # --------------------------------------------------------
-        # Se o título já foi usado, não desperdiçamos nenhuma chamada de IA.
-        # Tentamos um título técnico alternativo baseado nos mesmos trechos.
-        titulo_normalizado = normalizar_assunto_texto(titulo_bloco).strip()
-        titulos_anteriores = {normalizar_assunto_texto(v).strip() for v in titulos_blocos_preflight.values()}
-        if titulo_normalizado and titulo_normalizado in titulos_anteriores:
-            alternativas = [
-                f"Características Técnicas e Operação de {tema}",
-                f"Aplicações e Seleção de {tema}",
-                f"Desempenho e Manutenção de {tema}",
-                f"Funcionamento e Aplicações de {tema}",
-                f"Aspectos Técnicos de {tema}",
-            ]
-            substituto = next((x for x in alternativas if normalizar_assunto_texto(x).strip() not in titulos_anteriores), None)
-            if substituto:
-                print("⚠️ TÍTULO DUPLICADO NO PREFLIGHT:", titulo_bloco)
-                print("🟢 TÍTULO SUBSTITUÍDO:", substituto)
-                titulo_bloco = substituto
-            else:
-                print("🔴 TÍTULO DUPLICADO SEM ALTERNATIVA:", titulo_bloco)
-                return None
-
-        titulos_blocos_preflight[chave_bloco] = titulo_bloco
-        dados_bloco["titulo"] = titulo_bloco
-        blocos_informacoes[chave_bloco]["titulo"] = titulo_bloco
+        # Títulos editoriais são deliberadamente adiados até que os 15
+        # parágrafos tenham sido aprovados e confirmados no JSON.
+        # Nenhum título fixo é atribuído nesta etapa.
+        dados_bloco["titulo"] = ""
+        blocos_informacoes[chave_bloco]["titulo"] = ""
 
         # ========================================================
         # NOVA ARQUITETURA — OLLAMA RECEBE 3 TRECHOS
@@ -29497,167 +29489,120 @@ def validar_estrutura_pagina(
 # 05. GERAR TÍTULOS
 # ========================================================
 
-def gerar_titulos(
-    tema,
-    blocos_informacoes,
-    mapa_mead
-):
+def gerar_titulos(tema, blocos_informacoes, mapa_mead):
+    """Gera títulos somente depois que os parágrafos completos foram salvos.
 
-    print()
+    O Ollama recebe os parágrafos finais de cada bloco e cria títulos aderentes
+    ao conteúdo real. Não há modelos fixos de título/subtítulo. Se a chamada
+    falhar ou a resposta não passar pela validação estrutural, não inventamos
+    títulos de contingência: a publicação final deve permanecer bloqueada.
+    """
+    print("\n==============================")
+    print("GERANDO TÍTULOS COM BASE NOS PARÁGRAFOS APROVADOS")
     print("==============================")
-    print("GERANDO TÍTULOS PELO PYTHON")
-    print("==============================")
 
-    tema = str(
-        tema or ""
-    ).strip()
-
-    if not tema:
+    tema = str(tema or "").strip()
+    if not tema or not isinstance(blocos_informacoes, dict):
+        print("🔴 TÍTULOS NÃO GERADOS: tema ou blocos inválidos.")
         return {}
 
-
-    # ========================================================
-    # 01. H1 / TÍTULO
-    # ========================================================
-    
-    # Formata o tema para exibição, preservando a acentuação
-    # original e colocando a inicial de cada palavra em maiúscula.
-    tema_titulo = " ".join(
-        palavra[:1].upper() + palavra[1:]
-        for palavra in tema.split()
-    )
-    
-    h1 = tema_titulo
-    title = tema_titulo
-
-
-
-    # ========================================================
-    # 03. SUBTÍTULO DE IMPACTO
-    #
-    # Criado exclusivamente pelo Python.
-    # O Ollama NÃO participa.
-    # ========================================================
-
-    subtitulo = (
-        f"Soluções técnicas para aplicações, "
-        f"desempenho e confiabilidade em {tema}"
-    )
-
-    # ========================================================
-    # 04. SUBTÍTULO DOS SEGMENTOS
-    #
-    # Segundo subtítulo.
-    # Também criado exclusivamente pelo Python.
-    # ========================================================
-
-    subtitulo_segmentos = gerar_subtitulo_segmentos(
-        tema
-    )
-
-    # ========================================================
-    # 05. TÍTULOS DOS 5 BLOCOS
-    # ========================================================
-
-    # Títulos são definidos pelo MEAD, não pelos assuntos que por acaso
-    # aparecem nos três fragmentos escolhidos. Isso evita que um fragmento
-    # de pressão/vazão transforme o B1 em um bloco técnico e que um B4
-    # de conhecimento técnico receba um título de "aplicações".
-    bloco_1 = (
-        f"Contexto, importância e funcionamento de {tema}"
-    )
-
-    bloco_2 = (
-        f"Características, funcionamento e aplicações de {tema}"
-    )
-
-    bloco_3 = (
-        f"Critérios técnicos e cuidados com {tema}"
-    )
-
-    bloco_4 = (
-        f"Conhecimento técnico e suporte para {tema}"
-    )
-
-    bloco_5 = (
-        f"Seleção, aplicação e solução para {tema}"
-    )
-
-    # ========================================================
-    # 06. RESULTADO
-    # ========================================================
-
-    resultado = {
-
-        "h1":
-            h1,
-
-        "title":
-            title,
-
-        "subtitulo":
-            subtitulo,
-
-        "subtitulo_segmentos":
-            subtitulo_segmentos,
-
-        "bloco_1":
-            bloco_1,
-
-        "bloco_2":
-            bloco_2,
-
-        "bloco_3":
-            bloco_3,
-
-        "bloco_4":
-            bloco_4,
-
-        "bloco_5":
-            bloco_5
-    }
-
-    print()
-    print("==============================")
-    print("TÍTULOS GERADOS PELO PYTHON")
-    print("==============================")
-
-    print(
-        "H1:",
-        h1
-    )
-
-    print(
-        "TITLE:",
-        title
-    )
-
-    print(
-        "SUBTÍTULO IMPACTO:",
-        subtitulo
-    )
-
-    print(
-        "SUBTÍTULO SEGMENTOS:",
-        subtitulo_segmentos
-    )
-
+    blocos_prompt = []
     for numero in range(1, 6):
+        chave = f"bloco_{numero}"
+        bloco = blocos_informacoes.get(chave, {})
+        if not isinstance(bloco, dict):
+            print(f"🔴 TÍTULOS NÃO GERADOS: {chave} ausente.")
+            return {}
+        paragrafos = bloco.get("paragrafos_ollama", [])
+        if not isinstance(paragrafos, list) or len(paragrafos) != 3:
+            print(f"🔴 TÍTULOS NÃO GERADOS: {chave} não contém 3 parágrafos.")
+            return {}
+        paragrafos = [str(x or "").strip() for x in paragrafos]
+        if any(len(x) < 35 for x in paragrafos):
+            print(f"🔴 TÍTULOS NÃO GERADOS: {chave} tem parágrafo vazio/incompleto.")
+            return {}
+        blocos_prompt.append({"bloco": chave, "paragrafos": paragrafos})
 
-        print(
-            f"BLOCO {numero}:",
-            resultado.get(
-                f"bloco_{numero}",
-                ""
-            )
+    prompt = f"""Você é editor técnico em português do Brasil. Gere títulos com base EXCLUSIVAMENTE no conteúdo concluído abaixo.
+
+TEMA: {tema}
+
+OBJETIVO:
+- Criar um H1 e um title SEO fiéis à página, sem promessas comerciais não comprovadas.
+- Criar um subtítulo principal que sintetize o conteúdo real, sem frases genéricas de marketing.
+- Criar um subtítulo para a seção de segmentos coerente com o conteúdo, sem alegar características não documentadas.
+- Criar um título distinto para cada um dos cinco blocos, refletindo os assuntos efetivamente tratados nos seus três parágrafos.
+
+REGRAS OBRIGATÓRIAS:
+- Leia os três parágrafos de cada bloco antes de escolher seu título.
+- Não use modelos fixos repetidos, nem atribua ao bloco um assunto que seus parágrafos não desenvolvem.
+- Não acrescente fatos, especificações, marcas, empresas, normas, números, certificações, benefícios ou promessas.
+- Evite títulos intercambiáveis, redundantes ou excessivamente longos.
+- Preserve a expressão do tema quando natural, sem repetição mecânica.
+- Responda SOMENTE com um objeto JSON válido, sem Markdown e sem comentários.
+- Use exatamente estas chaves: h1, title, subtitulo, subtitulo_segmentos, bloco_1, bloco_2, bloco_3, bloco_4, bloco_5.
+- Todos os valores devem ser strings não vazias. Os cinco títulos de bloco devem ser distintos.
+
+CONTEÚDO APROVADO:
+{json.dumps(blocos_prompt, ensure_ascii=False, indent=2)}
+"""
+
+    try:
+        resposta_http = requests.post(
+            "http://localhost:11434/api/chat",
+            json={
+                "model": "qwen2.5:3b",
+                "messages": [{"role": "user", "content": prompt}],
+                "stream": False,
+                "format": "json",
+                "options": {
+                    "temperature": 0.2,
+                    "top_p": 0.9,
+                    "repeat_penalty": 1.05,
+                    "num_ctx": 8192,
+                    "num_predict": 500
+                }
+            },
+            timeout=(30, 300)
         )
+        if resposta_http.status_code != 200:
+            raise RuntimeError(f"Ollama retornou HTTP {resposta_http.status_code}")
+        payload_http = resposta_http.json()
+        texto_resposta = str(payload_http.get("message", {}).get("content", "") or "").strip()
+        if not texto_resposta:
+            raise ValueError("Ollama retornou resposta vazia para os títulos")
+        resultado = json.loads(texto_resposta)
+    except Exception as exc:
+        print("🔴 FALHA AO GERAR TÍTULOS COM OLLAMA:", repr(exc))
+        print("A publicação final deve permanecer bloqueada; nenhum título fixo será inserido.")
+        return {}
 
-    return resultado
+    chaves_obrigatorias = [
+        "h1", "title", "subtitulo", "subtitulo_segmentos",
+        "bloco_1", "bloco_2", "bloco_3", "bloco_4", "bloco_5"
+    ]
+    if not isinstance(resultado, dict):
+        print("🔴 RESPOSTA DE TÍTULOS INVÁLIDA: esperado objeto JSON.")
+        return {}
+    resultado_limpo = {chave: str(resultado.get(chave, "") or "").strip() for chave in chaves_obrigatorias}
+    faltantes = [chave for chave, valor in resultado_limpo.items() if not valor]
+    titulos_blocos = [resultado_limpo[f"bloco_{n}"] for n in range(1, 6)]
+    titulos_normalizados = [normalizar_assunto_texto(x).strip() for x in titulos_blocos]
+    if faltantes:
+        print("🔴 RESPOSTA DE TÍTULOS INCOMPLETA:", ", ".join(faltantes))
+        return {}
+    if len(set(titulos_normalizados)) != 5:
+        print("🔴 TÍTULOS DE BLOCO DUPLICADOS; não serão gravados.")
+        return {}
 
-    
-# ============================================================
-# SALVAR BANCO
-# ============================================================
+    print("🟢 TÍTULOS GERADOS A PARTIR DOS PARÁGRAFOS APROVADOS")
+    print("H1:", resultado_limpo["h1"])
+    print("TITLE:", resultado_limpo["title"])
+    print("SUBTÍTULO:", resultado_limpo["subtitulo"])
+    print("SUBTÍTULO SEGMENTOS:", resultado_limpo["subtitulo_segmentos"])
+    for numero in range(1, 6):
+        print(f"BLOCO {numero}:", resultado_limpo[f"bloco_{numero}"])
+    return resultado_limpo
 
 def salvar_banco(
     tema,
@@ -29684,7 +29629,8 @@ def salvar_banco(
     REGRAS:
 
     - Uma única estrutura oficial por tema.
-    - Uma nova execução do mesmo tema substitui a versão anterior.
+    - Uma nova execução sem checkpoint pode iniciar versão limpa do tema.
+    - Em retomada, o registro que contém checkpoint é preservado.
     - Os cinco blocos são preservados entre chamadas.
     - Python mantém os trechos selecionados em
       informacoes_relevantes e fragmentos_autorizados.
@@ -29943,63 +29889,50 @@ def salvar_banco(
     if primeira_gravacao:
 
         # ----------------------------------------------------
-        # Remover versão anterior do mesmo tema.
+        # RECUPERAÇÃO SEGURA: não apagar registro que contenha
+        # checkpoint MEAD. O checkpoint pode ser a única cópia
+        # dos textos/evidências de uma execução interrompida.
         # ----------------------------------------------------
-
-        for chave in list(
-            banco.keys()
-        ):
-
-            if not isinstance(
-                chave,
-                str
-            ):
+        registro_com_checkpoint = None
+        chave_checkpoint = None
+        for chave_cp, registro_cp in banco.items():
+            if not isinstance(chave_cp, str) or not isinstance(registro_cp, dict):
                 continue
-
             try:
-
-                chave_normalizada = normalizar_tema_chave(
-                    chave
-                )
-
+                normalizada_cp = normalizar_tema_chave(chave_cp)
             except Exception:
+                normalizada_cp = chave_cp.strip().lower()
+            if normalizada_cp == tema_normalizado and isinstance(registro_cp.get("_recuperacao_mead"), dict):
+                registro_com_checkpoint = registro_cp
+                chave_checkpoint = chave_cp
+                break
 
-                chave_normalizada = (
-                    chave
-                    .strip()
-                    .lower()
-                )
+        if registro_com_checkpoint is not None:
+            # Continuar sobre o registro existente preserva tanto a página
+            # anterior quanto o checkpoint não publicável. Os campos novos
+            # só entram pelo fluxo normal de atualização/validação.
+            chave_existente = chave_checkpoint
+        else:
+            # Nova execução sem checkpoint: manter o comportamento anterior
+            # de iniciar uma página limpa para o tema.
+            for chave in list(banco.keys()):
+                if not isinstance(chave, str):
+                    continue
+                try:
+                    chave_normalizada = normalizar_tema_chave(chave)
+                except Exception:
+                    chave_normalizada = chave.strip().lower()
+                if chave_normalizada == tema_normalizado:
+                    del banco[chave]
 
-            if chave_normalizada == tema_normalizado:
+            chave_existente = tema_original
+            estrutura_inicial = criar_estrutura_json_pagina(tema_original)
+            dados_iniciais = estrutura_inicial.get(tema_original, {})
+            if not isinstance(dados_iniciais, dict):
+                dados_iniciais = {}
+            banco[chave_existente] = dados_iniciais
 
-                del banco[
-                    chave
-                ]
-
-        chave_existente = tema_original
-
-        estrutura_inicial = criar_estrutura_json_pagina(
-            tema_original
-        )
-
-        dados_iniciais = estrutura_inicial.get(
-            tema_original,
-            {}
-        )
-
-        if not isinstance(
-            dados_iniciais,
-            dict
-        ):
-            dados_iniciais = {}
-
-        banco[
-            chave_existente
-        ] = dados_iniciais
-
-        PAGINAS_EM_PROCESSAMENTO.add(
-            tema_normalizado
-        )
+        PAGINAS_EM_PROCESSAMENTO.add(tema_normalizado)
 
     elif chave_existente is None:
 
@@ -30297,10 +30230,17 @@ def salvar_banco(
                 ]
 
                 if info_recebida:
-
-                    alvo[
-                        "informacoes_relevantes"
-                    ] = info_recebida
+                    info_existente = alvo.get("informacoes_relevantes", [])
+                    if not isinstance(info_existente, list):
+                        info_existente = []
+                    info_mesclada = list(info_existente[:3])
+                    info_mesclada += [{}] * (3 - len(info_mesclada))
+                    for indice_info, item_info in enumerate(info_recebida[:3]):
+                        # Atualizar apenas slots com um objeto útil; uma lista
+                        # parcial não deve apagar as outras evidências guardadas.
+                        if isinstance(item_info, dict) and item_info:
+                            info_mesclada[indice_info] = item_info
+                    alvo["informacoes_relevantes"] = info_mesclada[:3]
 
         # ====================================================
         # TÍTULO
@@ -30343,19 +30283,15 @@ def salvar_banco(
                 list
             ):
 
-                alvo[
-                    "fragmentos_autorizados"
-                ] = (
-                    list(
-                        fragmentos_autorizados[:3]
-                    )
-                    +
-                    [
-                        "",
-                        "",
-                        ""
-                    ]
-                )[:3]
+                fragmentos_existentes = alvo.get("fragmentos_autorizados", [])
+                if not isinstance(fragmentos_existentes, list):
+                    fragmentos_existentes = []
+                fragmentos_mesclados = list(fragmentos_existentes[:3])
+                fragmentos_mesclados += [""] * (3 - len(fragmentos_mesclados))
+                for indice_frag, frag_recebido in enumerate(fragmentos_autorizados[:3]):
+                    if frag_recebido is not None and str(frag_recebido).strip():
+                        fragmentos_mesclados[indice_frag] = frag_recebido
+                alvo["fragmentos_autorizados"] = fragmentos_mesclados[:3]
 
         # ====================================================
         # PARÁGRAFOS OLLAMA
@@ -30374,23 +30310,16 @@ def salvar_banco(
                 list
             ):
 
-                alvo[
-                    "paragrafos_ollama"
-                ] = (
-                    [
-                        str(
-                            item or ""
-                        ).strip()
-                        for item
-                        in paragrafos_ollama[:3]
-                    ]
-                    +
-                    [
-                        "",
-                        "",
-                        ""
-                    ]
-                )[:3]
+                paragrafos_existentes = alvo.get("paragrafos_ollama", [])
+                if not isinstance(paragrafos_existentes, list):
+                    paragrafos_existentes = []
+                paragrafos_mesclados = [str(x or "").strip() for x in paragrafos_existentes[:3]]
+                paragrafos_mesclados += [""] * (3 - len(paragrafos_mesclados))
+                for indice_para, par_recebido in enumerate(paragrafos_ollama[:3]):
+                    texto_recebido = str(par_recebido or "").strip()
+                    if texto_recebido:
+                        paragrafos_mesclados[indice_para] = texto_recebido
+                alvo["paragrafos_ollama"] = paragrafos_mesclados[:3]
 
         # ====================================================
         # COMPATIBILIDADE CONTROLADA
@@ -30419,23 +30348,16 @@ def salvar_banco(
                 list
             ):
 
-                alvo[
-                    "paragrafos_ollama"
-                ] = (
-                    [
-                        str(
-                            item or ""
-                        ).strip()
-                        for item
-                        in paragrafos_antigos[:3]
-                    ]
-                    +
-                    [
-                        "",
-                        "",
-                        ""
-                    ]
-                )[:3]
+                paragrafos_existentes = alvo.get("paragrafos_ollama", [])
+                if not isinstance(paragrafos_existentes, list):
+                    paragrafos_existentes = []
+                paragrafos_mesclados = [str(x or "").strip() for x in paragrafos_existentes[:3]]
+                paragrafos_mesclados += [""] * (3 - len(paragrafos_mesclados))
+                for indice_para, par_recebido in enumerate(paragrafos_antigos[:3]):
+                    texto_recebido = str(par_recebido or "").strip()
+                    if texto_recebido:
+                        paragrafos_mesclados[indice_para] = texto_recebido
+                alvo["paragrafos_ollama"] = paragrafos_mesclados[:3]
 
         # ====================================================
         # GARANTIR ESTRUTURA DOS CAMPOS
@@ -32626,6 +32548,14 @@ def salvar_banco(
             pagina.get(
                 "h1",
                 tema_original
+            ),
+
+        # Preservar o título editorial recebido/gerado. Quando a geração
+        # estiver adiada, permanece vazio até a etapa editorial apropriada.
+        "titulo":
+            pagina.get(
+                "titulo",
+                ""
             ),
 
         "subtitulo":
