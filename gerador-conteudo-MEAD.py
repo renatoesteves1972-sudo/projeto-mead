@@ -1,4 +1,4 @@
-# gerador-conteudo-MEAD.py — base enviada: v84-funcionando
+# gerador-conteudo-MEAD.py — base enviada: v88-funcionando
 # v86 — recuperação integrada ao JSON principal + retomada seletiva com revalidação de evidências.
 # Base: contingência e prioridade de fontes, limites de recuperação e telemetria Ollama.
 # configurações de desempenho por variáveis de ambiente.
@@ -49,11 +49,13 @@ def _config_int_env(nome, padrao, minimo, maximo):
     return max(minimo, min(valor, maximo))
 
 
-# Teto rígido para impedir que configuração externa reative ciclos longos.
-# O gate final tem seu próprio orçamento pequeno e compartilhado por bloco.
-MEAD_MAX_TENTATIVAS_BLOCO = min(3, _config_int_env(
-    "MEAD_MAX_TENTATIVAS_BLOCO", 3, 1, 20
-))
+# Tentativas editoriais por bloco. O limite é configurável (1–20), pois
+# bloquear em três tentativas tornava inalcançável a contingência da tentativa 5.
+# A segurança não depende de aprovar por força: cada resultado continua sujeito
+# aos gates editoriais e a falha mantém o checkpoint como pendente/não publicável.
+MEAD_MAX_TENTATIVAS_BLOCO = _config_int_env(
+    "MEAD_MAX_TENTATIVAS_BLOCO", 10, 1, 20
+)
 MEAD_MAX_RECUPERACOES_GATE_FINAL = _config_int_env(
     "MEAD_MAX_RECUPERACOES_GATE_FINAL", 3, 1, 10
 )
@@ -20474,6 +20476,92 @@ def validar_unicidade_blocos(blocos, tema="", exigir_titulos=True):
     return True, "OK"
 
 
+def validar_paragrafos_seo_originalidade_fontes(pagina, tema=""):
+    """Gate final de SEO literal, originalidade e identidade de fonte.
+
+    Não reescreve conteúdo. Reprova o bloco para que a rotina de geração/recuperação
+    possa corrigir o texto antes de a página ser considerada publicável.
+    """
+    import difflib
+
+    tema_literal = str(tema or "").strip()
+    if not tema_literal:
+        return False, "PALAVRA_CHAVE_VAZIA"
+    padrao_tema = re.compile(r"(?<!\w)" + re.escape(tema_literal) + r"(?!\w)", re.IGNORECASE)
+
+    nome_site = normalizar_assunto_texto(str(pagina.get("nome_site", "") or "")).strip()
+    nomes_fontes = set()
+    paragrafos_por_bloco = {}
+
+    for numero in range(1, 6):
+        chave = f"bloco_{numero}"
+        bloco = pagina.get(chave, {})
+        if not isinstance(bloco, dict):
+            return False, f"{chave}_INVALIDO"
+        paras = bloco.get("paragrafos_ollama", [])
+        if not isinstance(paras, list) or len(paras) != 3:
+            return False, f"{chave}_DEVE_TER_3_PARAGRAFOS"
+        fontes = bloco.get("fragmentos_autorizados", [])
+        if not isinstance(fontes, list):
+            fontes = []
+        if not fontes:
+            info = bloco.get("informacoes_relevantes", [])
+            if isinstance(info, list):
+                fontes = [x.get("texto", "") for x in info if isinstance(x, dict)]
+
+        info = bloco.get("informacoes_relevantes", [])
+        if isinstance(info, list):
+            for item in info:
+                if not isinstance(item, dict):
+                    continue
+                identidade = item.get("identidade_fonte", {})
+                if not isinstance(identidade, dict):
+                    continue
+                nome = str(identidade.get("nome", "") or "").strip()
+                nome_n = normalizar_assunto_texto(nome).strip()
+                if len(nome_n) >= 4 and nome_n not in {
+                    "fonte", "site", "pagina", "documento", "arquivo", "pdf", "html",
+                    "fonte tecnica", "fonte oficial", "site oficial", "documentacao tecnica",
+                    "material tecnico", "instituto", "universidade", "fabricante", "distribuidor"
+                }:
+                    if not nome_site or nome_n != nome_site:
+                        nomes_fontes.add(nome)
+
+        fontes_normalizadas = [
+            normalizar_assunto_texto(str(f or "")).strip()
+            for f in fontes if str(f or "").strip()
+        ]
+        for indice, paragrafo in enumerate(paras, start=1):
+            texto = str(paragrafo or "").strip()
+            ocorrencias = len(padrao_tema.findall(texto))
+            if ocorrencias != 1:
+                return False, f"SEO_P{numero}.{indice}_OCORRENCIAS_EXATAS_{ocorrencias}"
+
+            texto_n = normalizar_assunto_texto(texto).strip()
+            if texto_n:
+                for fonte_n in fontes_normalizadas:
+                    if len(fonte_n) < 60:
+                        continue
+                    similaridade = difflib.SequenceMatcher(None, texto_n, fonte_n).ratio()
+                    if similaridade >= 0.92:
+                        return False, f"COPIA_OU_PARAFRASE_MINIMA_P{numero}.{indice}_SIM_{similaridade:.3f}"
+            paragrafos_por_bloco.setdefault(chave, []).append(texto)
+
+    # Nomes identificados como empresas/marcas de fontes consultadas não devem
+    # atravessar para o texto publicado, salvo se forem o próprio nome do site.
+    for nome in sorted(nomes_fontes, key=len, reverse=True):
+        nome_n = normalizar_assunto_texto(nome).strip()
+        if not nome_n or nome_n == nome_site:
+            continue
+        padrao_nome = re.compile(r"(?<![a-z0-9])" + re.escape(nome_n) + r"(?![a-z0-9])", re.IGNORECASE)
+        for chave, paras in paragrafos_por_bloco.items():
+            for indice, texto in enumerate(paras, start=1):
+                if padrao_nome.search(normalizar_assunto_texto(texto)):
+                    return False, f"MARCA_OU_EMPRESA_DA_FONTE_P{chave[-1]}.{indice}:{nome}"
+
+    return True, "SEO_ORIGINALIDADE_E_FONTES_OK"
+
+
 def validar_pagina_editorial_final(pagina, tema="", exigir_titulos=True):
     """Barreira editorial: integridade dos parágrafos e unicidade.
 
@@ -20502,6 +20590,12 @@ def validar_pagina_editorial_final(pagina, tema="", exigir_titulos=True):
     )
     if not ok:
         return False, motivo
+
+    ok_seo_fontes, motivo_seo_fontes = validar_paragrafos_seo_originalidade_fontes(
+        pagina, tema
+    )
+    if not ok_seo_fontes:
+        return False, motivo_seo_fontes
 
     return True, "OK"
 
@@ -24189,7 +24283,7 @@ def gerar_conteudo_completo(
 
         while tentativa_bloco < MEAD_MAX_TENTATIVAS_BLOCO:
             tentativa_bloco += 1
-            modo_contingencia = tentativa_bloco > 1 and tentativa_bloco % 5 == 0
+            modo_contingencia = tentativa_bloco >= 5 and tentativa_bloco % 5 == 0
             print(
                 f"🔁 TENTATIVA {tentativa_bloco}/{MEAD_MAX_TENTATIVAS_BLOCO}: "
                 f"{chave_bloco_atual}"
@@ -24495,7 +24589,7 @@ Preserve proporcionalmente o conteúdo deles, sem meta ou limite de palavras.
                 falhas_operacionais_consecutivas += 1
                 print("❌", ultimo_erro, f"({falhas_operacionais_consecutivas}/{max_falhas_operacionais} falhas operacionais)")
                 if falhas_operacionais_consecutivas >= max_falhas_operacionais:
-                    return None, (ultimo_erro + "; serviço indisponível após 3 falhas operacionais consecutivas; lote seguirá para a próxima palavra-chave")
+                    return None, (ultimo_erro + "; serviço indisponível após 3 falhas operacionais consecutivas; geração deste tema permanece incompleta e deve ser retomada pelo checkpoint")
                 continue
 
             except requests.exceptions.ConnectionError as erro:
@@ -24507,7 +24601,7 @@ Preserve proporcionalmente o conteúdo deles, sem meta ou limite de palavras.
                 falhas_operacionais_consecutivas += 1
                 print("❌", ultimo_erro, f"({falhas_operacionais_consecutivas}/{max_falhas_operacionais} falhas operacionais)")
                 if falhas_operacionais_consecutivas >= max_falhas_operacionais:
-                    return None, (ultimo_erro + "; serviço indisponível após 3 falhas operacionais consecutivas; lote seguirá para a próxima palavra-chave")
+                    return None, (ultimo_erro + "; serviço indisponível após 3 falhas operacionais consecutivas; geração deste tema permanece incompleta e deve ser retomada pelo checkpoint")
                 continue
 
             except Exception as erro:
@@ -24518,7 +24612,7 @@ Preserve proporcionalmente o conteúdo deles, sem meta ou limite de palavras.
                 )
                 falhas_operacionais_consecutivas += 1
                 if falhas_operacionais_consecutivas >= max_falhas_operacionais:
-                    return None, (ultimo_erro + "; falhas operacionais consecutivas; lote seguirá para a próxima palavra-chave")
+                    return None, (ultimo_erro + "; falhas operacionais consecutivas; geração deste tema permanece incompleta e deve ser retomada pelo checkpoint")
 
                 print(
                     "❌",
@@ -24554,7 +24648,7 @@ Preserve proporcionalmente o conteúdo deles, sem meta ou limite de palavras.
                 )
                 print("❌", ultimo_erro, f"({falhas_operacionais_consecutivas}/{max_falhas_operacionais} falhas operacionais)")
                 if falhas_operacionais_consecutivas >= max_falhas_operacionais:
-                    return None, (ultimo_erro + "; serviço indisponível após falhas operacionais consecutivas; lote seguirá para a próxima palavra-chave")
+                    return None, (ultimo_erro + "; serviço indisponível após falhas operacionais consecutivas; geração deste tema permanece incompleta e deve ser retomada pelo checkpoint")
                 continue
 
             falhas_operacionais_consecutivas = 0
@@ -24846,8 +24940,52 @@ Preserve proporcionalmente o conteúdo deles, sem meta ou limite de palavras.
                 print("❌ VALIDAÇÃO EDITORIAL INICIAL:", ultimo_erro)
                 continue
 
+            # A presença flexível acima é útil como diagnóstico, mas não substitui
+            # a regra final do projeto: a expressão literal exata ocorre uma vez.
+            _padrao_literal_gate = re.compile(
+                r"(?<!\w)" + re.escape(_chave_gate_inicio) + r"(?!\w)",
+                re.IGNORECASE
+            )
+            _contagens_literais_gate = [
+                len(_padrao_literal_gate.findall(str(_p or "")))
+                for _p in paragrafos_extraidos
+            ]
+            _falhas_literais_gate = [
+                f"SEO_LITERAL_P{i}_OCORRENCIAS_{n}"
+                for i, n in enumerate(_contagens_literais_gate, 1) if n != 1
+            ]
+            if _falhas_literais_gate:
+                ultimo_erro = "; ".join(_falhas_literais_gate)
+                print("❌ VALIDAÇÃO DA PALAVRA-CHAVE LITERAL:", ultimo_erro)
+                continue
+
+            # Rejeita cópia quase literal dos fragmentos usados como evidência.
+            # O conteúdo factual continua autorizado, mas a redação precisa ser própria.
+            import difflib as _difflib_gate
+            _fontes_norm_gate = [
+                normalizar_assunto_texto(str(_f or "")).strip()
+                for _f in (fragmentos_autorizados if isinstance(fragmentos_autorizados, list) else [])
+                if str(_f or "").strip()
+            ]
+            _falha_copia_gate = None
+            for _i_p, _p in enumerate(paragrafos_extraidos, 1):
+                _p_norm = normalizar_assunto_texto(str(_p or "")).strip()
+                for _f_norm in _fontes_norm_gate:
+                    if len(_f_norm) < 60:
+                        continue
+                    _sim_fonte = _difflib_gate.SequenceMatcher(None, _p_norm, _f_norm).ratio()
+                    if _sim_fonte >= 0.92:
+                        _falha_copia_gate = f"COPIA_OU_PARAFRASE_MINIMA_P{_i_p}_SIM_{_sim_fonte:.3f}"
+                        break
+                if _falha_copia_gate:
+                    break
+            if _falha_copia_gate:
+                ultimo_erro = _falha_copia_gate
+                print("❌ ORIGINALIDADE EDITORIAL:", ultimo_erro)
+                continue
+
             print("🟢 VALIDAÇÃO ESTRUTURAL: ACEITA — 3 PARÁGRAFOS / SEM LIMITE DE PALAVRAS")
-            print("🟢 VALIDAÇÃO DA PALAVRA-CHAVE: ACEITA — TERMOS DO TEMA PRESENTES COM FLEXÃO LEVE")
+            print("🟢 VALIDAÇÃO DA PALAVRA-CHAVE: ACEITA — 1 OCORRÊNCIA LITERAL POR PARÁGRAFO")
 
             # ----------------------------------------------------
             # VALIDAÇÃO FACTUAL
