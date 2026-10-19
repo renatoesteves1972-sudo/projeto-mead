@@ -13724,14 +13724,13 @@ def selecionar_informacoes_relevantes(
     funcoes_permitidas_bloco = funcoes_autorizadas_pelos_checkboxes(
         estrutura_editorial
     )
-    # A autorização global dos checkboxes é restringida pela prioridade do bloco.
-    _funcoes_ativas_globais = set().union(*funcoes_permitidas_bloco.values()) if funcoes_permitidas_bloco else set()
-    for _chave_bloco, _prioridades in prioridades_funcoes_bloco.items():
-        _especificas = set(_prioridades) & _funcoes_ativas_globais
-        if _especificas:
-            funcoes_permitidas_bloco[_chave_bloco] = _especificas
+    # As prioridades por bloco são apenas sinais de pontuação editorial.
+    # Não podem restringir a autorização global dos checkboxes nem excluir
+    # uma evidência válida só porque ela combina melhor com outro bloco MEAD.
+    # A alocação considera relevância, evidência, diversidade e exclusividade;
+    # as funções prioritárias permanecem preferências, não filtros eliminatórios.
 
-    print("FUNÇÕES DE BLOCO AUTORIZADAS PELOS CHECKBOXES:")
+    print("FUNÇÕES AUTORIZADAS PELOS CHECKBOXES (SEM RESTRIÇÃO FIXA POR BLOCO):")
     for _bloco, _funcoes in funcoes_permitidas_bloco.items():
         print(_bloco, "=>", sorted(_funcoes))
 
@@ -13992,14 +13991,15 @@ def selecionar_informacoes_relevantes(
     
     fontes_utilizadas = {}
 
-    # Reservas em memória: até 20 fragmentos extras por bloco/tema/função MEAD.
-    # O pool já é organizado por tema e compatibilidade editorial do bloco.
-    # Não entram no JSON nem no prompt enquanto não forem utilizadas.
-    # Cada hash será revalidada novamente no momento da promoção.
+    # Reservas em memória: 20 hashes exclusivas por parágrafo.
+    # O pool é organizado por tema/função MEAD e cada hash será revalidada
+    # novamente no momento da promoção. As reservas não entram no JSON/prompt
+    # enquanto não forem efetivamente utilizadas.
     fragmentos_reserva_por_bloco = {
         f"bloco_{numero_bloco}": []
         for numero_bloco in range(1, 6)
     }
+    fragmentos_reserva_por_paragrafo = {}
 
     # --------------------------------------------------------
     # FUNÇÃO AUXILIAR:
@@ -16668,71 +16668,56 @@ TRECHO:
         print(chave_bloco, ': 3 |', total, 'palavras autorizadas')
     print('TOTAL:', len(fragmentos_selecionados), '/ 15')
 
-    # Reserva em memória, sem alterar a seleção principal.
-    # Uma reserva por bloco; só será consumida se houver
-    # uma re-seleção necessária após rejeição real.
-    # --------------------------------------------------------
-    # RESERVAS EM MEMÓRIA — LIMITE REDUZIDO PARA DESEMPENHO
-    # Mantém até 3 reservas por bloco (15 no total), em vez de até
-    # 150 por bloco. As reservas só são consumidas se houver re-seleção.
-    # A seleção principal e os portões de qualidade permanecem intactos.
-    # --------------------------------------------------------
-    META_RESERVAS_POR_BLOCO = 3
+    # Reservas em memória: 20 hashes exclusivas para cada parágrafo.
+    # Cada bloco contém 3 filas separadas (até 20 reservas por posição).
+    # Uma reserva pertence a uma única fila e não pode ser usada por outro parágrafo.
+    META_RESERVAS_POR_PARAGRAFO = 20
+    PARAGRAFOS_POR_BLOCO = 3
+    META_RESERVAS_POR_BLOCO = META_RESERVAS_POR_PARAGRAFO * PARAGRAFOS_POR_BLOCO
+    hashes_bloqueio_reserva_global = set(hashes_selecionados)
 
     # A montagem do estoque de reservas prioriza os blocos historicamente
     # mais carentes: 4, depois 1, depois 5. Os blocos 2 e 3 continuam recebendo
     # reservas normalmente; apenas a ordem de abastecimento muda.
     ORDEM_PRIORIDADE_ESTOQUE = (4, 1, 5, 2, 3)
+    fragmentos_reserva_por_paragrafo.clear()
     for numero_bloco in ORDEM_PRIORIDADE_ESTOQUE:
 
         chave_bloco = f"bloco_{numero_bloco}"
         reservas_bloco = []
-        hashes_bloqueio_reserva = set(hashes_selecionados)
+        hashes_bloqueio_reserva = hashes_bloqueio_reserva_global
 
-        for _ in range(META_RESERVAS_POR_BLOCO):
-
-            escolhido_reserva = selecionar_melhor_candidato(
-                candidatos_por_bloco.get(
+        for indice_paragrafo in range(PARAGRAFOS_POR_BLOCO):
+            reservas_paragrafo = []
+            for _ in range(META_RESERVAS_POR_PARAGRAFO):
+                escolhido_reserva = selecionar_melhor_candidato(
+                    candidatos_por_bloco.get(chave_bloco, []),
                     chave_bloco,
-                    []
-                ),
-                chave_bloco,
-                hashes_bloqueio_reserva
-            )
-
-            if escolhido_reserva is None:
-                break
-
-            escolhido_reserva = dict(
-                escolhido_reserva
-            )
-            escolhido_reserva["bloco_mead"] = chave_bloco
-
-            hash_reserva = (
-                escolhido_reserva.get("hash")
-                or gerar_hash_trecho(
-                    escolhido_reserva.get("texto", "")
+                    hashes_bloqueio_reserva
                 )
-            )
-            escolhido_reserva["hash"] = hash_reserva
+                if escolhido_reserva is None:
+                    break
 
-            if (
-                not hash_reserva
-                or hash_reserva in hashes_bloqueio_reserva
-            ):
-                break
+                escolhido_reserva = dict(escolhido_reserva)
+                escolhido_reserva["bloco_mead"] = chave_bloco
+                hash_reserva = (
+                    escolhido_reserva.get("hash")
+                    or gerar_hash_trecho(escolhido_reserva.get("texto", ""))
+                )
+                escolhido_reserva["hash"] = hash_reserva
 
-            escolhido_reserva["_reserva_memoria"] = True
-            reservas_bloco.append(
-                escolhido_reserva
-            )
-            hashes_bloqueio_reserva.add(
-                hash_reserva
-            )
+                if not hash_reserva or hash_reserva in hashes_bloqueio_reserva:
+                    break
 
-        fragmentos_reserva_por_bloco[
-            chave_bloco
-        ] = reservas_bloco
+                escolhido_reserva["_reserva_memoria"] = True
+                escolhido_reserva["_reserva_paragrafo"] = indice_paragrafo + 1
+                reservas_paragrafo.append(escolhido_reserva)
+                reservas_bloco.append(escolhido_reserva)
+                hashes_bloqueio_reserva.add(hash_reserva)
+
+            fragmentos_reserva_por_paragrafo[(chave_bloco, indice_paragrafo)] = reservas_paragrafo
+
+        fragmentos_reserva_por_bloco[chave_bloco] = reservas_bloco
 
     total_reservas_memoria = sum(
         len(x)
@@ -16742,11 +16727,16 @@ TRECHO:
     print(
         "RESERVAS EM MEMÓRIA:",
         total_reservas_memoria,
-        f"/ {META_RESERVAS_POR_BLOCO * 5} (até {META_RESERVAS_POR_BLOCO} por bloco)"
+        f"/ {META_RESERVAS_POR_BLOCO * 5} (até {META_RESERVAS_POR_PARAGRAFO} por parágrafo; "
+        f"{META_RESERVAS_POR_BLOCO} por bloco)"
     )
     print("ORDEM DE ABASTECIMENTO DO ESTOQUE:", "bloco_4 → bloco_1 → bloco_5 → bloco_2 → bloco_3")
     for _n_reserva in ORDEM_PRIORIDADE_ESTOQUE:
-        print(f"ESTOQUE bloco_{_n_reserva}: {len(fragmentos_reserva_por_bloco.get(f'bloco_{_n_reserva}', []))} reservas aprovadas em memória")
+        _chave_reserva = f"bloco_{_n_reserva}"
+        print(f"ESTOQUE {_chave_reserva}: {len(fragmentos_reserva_por_bloco.get(_chave_reserva, []))} reservas aprovadas em memória")
+        for _pos_reserva in range(PARAGRAFOS_POR_BLOCO):
+            _fila_pos = fragmentos_reserva_por_paragrafo.get((_chave_reserva, _pos_reserva), [])
+            print(f"  {_chave_reserva} P{_pos_reserva + 1}: {len(_fila_pos)}/20 hashes exclusivas")
 
     # ========================================================
     # 07.8 — TRIAGEM SIMPLIFICADA OLLAMA ANTES DA GRAVAÇÃO
@@ -16847,6 +16837,8 @@ TRECHO:
                 if not isinstance(candidato_sub, dict):
                     continue
                 candidato_sub = dict(candidato_sub)
+                candidato_sub.pop("_reserva_memoria", None)
+                candidato_sub.pop("_reserva_paragrafo", None)
                 candidato_sub["bloco_mead"] = bloco_atual
                 hash_sub = str(candidato_sub.get("hash") or gerar_hash_trecho(candidato_sub.get("texto", "")) or "")
                 if not hash_sub or hash_sub in hashes_ocupados or hash_sub in hashes_tentados:
@@ -17032,6 +17024,8 @@ TRECHO:
                 if not isinstance(cand, dict):
                     continue
                 cand = dict(cand)
+                cand.pop("_reserva_memoria", None)
+                cand.pop("_reserva_paragrafo", None)
                 h = cand.get('hash') or gerar_hash_trecho(cand.get('texto', ''))
                 cand['hash'] = h
                 if not h or h in usados:
@@ -17090,6 +17084,59 @@ TRECHO:
     if not ok_conjunto_final:
         print('❌ NENHUM TEXTO SERÁ ENVIADO AO OLLAMA.')
         return resultado_vazio
+
+    # Reconstituir o estoque após a triagem e o gate final. Uma hash que virou
+    # evidência principal não pode continuar ocupando uma reserva; cada posição
+    # volta a ter até 20 reservas próprias, únicas em toda a página.
+    hashes_selecionados.clear()
+    for _frag_principal in fragmentos_selecionados:
+        _h_principal = str(
+            _frag_principal.get("hash") or gerar_hash_trecho(_frag_principal.get("texto", ""))
+        ).strip()
+        _frag_principal["hash"] = _h_principal
+        if _h_principal:
+            hashes_selecionados.add(_h_principal)
+
+    hashes_reserva_usadas = set(hashes_selecionados)
+    fragmentos_reserva_por_paragrafo.clear()
+    for _n_bloco in range(1, 6):
+        fragmentos_reserva_por_bloco[f"bloco_{_n_bloco}"] = []
+
+    for _n_bloco in ORDEM_PRIORIDADE_ESTOQUE:
+        _chave_bloco_reserva = f"bloco_{_n_bloco}"
+        for _indice_paragrafo in range(PARAGRAFOS_POR_BLOCO):
+            _fila_reserva = []
+            _candidatos_reserva = candidatos_por_bloco.get(_chave_bloco_reserva, [])
+            while len(_fila_reserva) < META_RESERVAS_POR_PARAGRAFO:
+                _cand_reserva = selecionar_melhor_candidato(
+                    _candidatos_reserva, _chave_bloco_reserva, hashes_reserva_usadas
+                )
+                if not isinstance(_cand_reserva, dict):
+                    break
+                _cand_reserva = dict(_cand_reserva)
+                _h_reserva = str(
+                    _cand_reserva.get("hash") or gerar_hash_trecho(_cand_reserva.get("texto", ""))
+                ).strip()
+                if not _h_reserva or _h_reserva in hashes_reserva_usadas:
+                    break
+                _cand_reserva["hash"] = _h_reserva
+                _cand_reserva["bloco_mead"] = _chave_bloco_reserva
+                _cand_reserva["_reserva_memoria"] = True
+                _cand_reserva["_reserva_paragrafo"] = _indice_paragrafo + 1
+                _fila_reserva.append(_cand_reserva)
+                hashes_reserva_usadas.add(_h_reserva)
+
+            fragmentos_reserva_por_paragrafo[(_chave_bloco_reserva, _indice_paragrafo)] = _fila_reserva
+            fragmentos_reserva_por_bloco[_chave_bloco_reserva].extend(_fila_reserva)
+
+    print("ESTOQUE FINAL DE RESERVAS — APÓS TODOS OS GATES")
+    for _n_bloco_log in range(1, 6):
+        _chave_log = f"bloco_{_n_bloco_log}"
+        for _pos_log in range(PARAGRAFOS_POR_BLOCO):
+            print(
+                f"{_chave_log} P{_pos_log + 1}: "
+                f"{len(fragmentos_reserva_por_paragrafo.get((_chave_log, _pos_log), []))}/20 hashes exclusivas"
+            )
 
     for numero, frag in enumerate(fragmentos_selecionados, start=1):
         print(
@@ -17828,7 +17875,10 @@ TRECHO:
             candidatos_por_bloco,
 
         "_fragmentos_reserva_por_bloco":
-            fragmentos_reserva_por_bloco
+            fragmentos_reserva_por_bloco,
+
+        "_fragmentos_reserva_por_paragrafo":
+            fragmentos_reserva_por_paragrafo
 
     }
 
@@ -21128,11 +21178,11 @@ def avaliar_qualidade_final_python(
             falhas_criticas.append(f"PARAGRAFO_{i}_INICIO_TRUNCADO")
 
     # ------------------------------------------------------------
-    # 3A. PALAVRA-CHAVE LITERAL: EXATAMENTE UMA VEZ POR PARÁGRAFO
+    # 3A. PALAVRA-CHAVE LITERAL: 1 PREFERENCIAL; 2 SE NATURAL
     # ------------------------------------------------------------
-    # A contagem usa a expressão completa, sem diferenciar maiúsculas/minúsculas
-    # e respeitando limites de palavra Unicode. Não usa busca por substring,
-    # que contaria indevidamente termos maiores que apenas contêm a expressão.
+    # A expressão completa é contada respeitando limites Unicode.
+    # Uma ocorrência é a preferência editorial; duas são aceitas quando
+    # a redação as exige naturalmente. Zero ou mais de duas são rejeitadas.
     tema_literal = str(tema or "").strip()
     if tema_literal:
         padrao_tema_literal = re.compile(
@@ -21144,7 +21194,7 @@ def avaliar_qualidade_final_python(
             for p in paragrafos
         ]
         for indice, quantidade in enumerate(contagens_tema, 1):
-            if quantidade != 1:
+            if quantidade not in (1, 2):
                 falhas_criticas.append(
                     f"PALAVRA_CHAVE_P{indice}_OCORRENCIAS:{quantidade}"
                 )
@@ -21216,29 +21266,24 @@ def avaliar_qualidade_final_python(
         falhas_criticas.append("NUMEROS_OU_UNIDADES_NOVOS")
 
     # ------------------------------------------------------------
-    # 6. COMPATIBILIDADE MEAD
+    # 6. COMPATIBILIDADE MEAD — DIAGNÓSTICO, NÃO GATE LEXICAL
     # ------------------------------------------------------------
-    papeis = {
+    # O papel editorial do bloco orienta a distribuição, mas não pode ser
+    # validado pela presença de palavras predefinidas. Um texto pode cumprir
+    # a função com vocabulário legítimo diferente; reprovar por isso provoca
+    # retentativas artificiais e pode levar à troca indevida de evidências.
+    # Mantemos apenas telemetria para auditoria, sem reprovar nem descontar nota.
+    papeis_diagnostico = {
         "bloco_1": ["context", "import", "necess", "cenar", "demanda", "abastec", "relev"],
         "bloco_2": ["funcion", "aplic", "vazao", "press", "impuls", "rotor", "compon", "caracter"],
         "bloco_3": ["manuten", "instal", "operac", "segur", "dimension", "corros", "cuidad", "criter"],
-        # B4 também pode cumprir a função de CONHECIMENTO TÉCNICO.
-        # Não exigir a palavra literal "conhecimento" no texto final.
         "bloco_4": ["empresa", "suport", "atend", "servic", "soluc", "conhec", "fornec", "equipe", "especific", "dimension", "selec", "caracter", "compon", "operac", "desempen", "confiab", "criter", "cuidad"],
         "bloco_5": ["selec", "aplic", "necess", "soluc", "decis", "confiab", "operac", "manuten"]
     }
-    sinais = papeis.get(str(bloco_mead), [])
-    if sinais:
-        encontrados = sum(1 for sinal in sinais if sinal in texto_n)
-        if encontrados == 0:
-            falhas_criticas.append("INCOMPATIBILIDADE_MEAD")
-        elif encontrados == 1:
-            descontos += 6
-
-    # O título também precisa apontar para o papel do bloco.
-    titulo_sinais = sum(1 for sinal in sinais if sinal in titulo_n)
-    if sinais and titulo_sinais == 0:
-        descontos += 5
+    sinais_diagnostico = papeis_diagnostico.get(str(bloco_mead), [])
+    sinais_encontrados_diagnostico = sum(
+        1 for sinal in sinais_diagnostico if sinal in texto_n
+    )
 
     # ------------------------------------------------------------
     # 7. COERÊNCIA TEMA × CONTEÚDO
@@ -21688,6 +21733,12 @@ def gerar_conteudo_completo(
     )
     if not isinstance(fragmentos_reserva_por_bloco, dict):
         fragmentos_reserva_por_bloco = {}
+
+    fragmentos_reserva_por_paragrafo = textos_relevantes.get(
+        "_fragmentos_reserva_por_paragrafo", {}
+    )
+    if not isinstance(fragmentos_reserva_por_paragrafo, dict):
+        fragmentos_reserva_por_paragrafo = {}
 
     # Estado usado pela re-seleção após rejeição do Ollama.
     # Os hashes são reconstruídos aqui, no mesmo escopo de
@@ -23121,6 +23172,12 @@ def gerar_conteudo_completo(
                 )
             )
             reserva["hash"] = hash_reserva
+            for _chave_pos, _fila_pos in fragmentos_reserva_por_paragrafo.items():
+                if _chave_pos[0] == chave_bloco:
+                    _fila_pos[:] = [
+                        _item_pos for _item_pos in _fila_pos
+                        if str(_item_pos.get("hash") or gerar_hash_trecho(_item_pos.get("texto", ""))) != str(hash_reserva)
+                    ]
 
             if (
                 hash_reserva
@@ -23128,6 +23185,7 @@ def gerar_conteudo_completo(
                 and hash_reserva not in bloqueados
             ):
                 reserva.pop("_reserva_memoria", None)
+                reserva.pop("_reserva_paragrafo", None)
                 reserva["bloco_mead"] = chave_bloco
                 hashes_selecionados.add(
                     hash_reserva
@@ -23253,12 +23311,22 @@ def gerar_conteudo_completo(
                     fontes_utilizadas.pop(fonte_antiga, None)
 
         novo = None
-        reservas = fragmentos_reserva_por_bloco.get(chave_bloco, [])
+        chave_reserva_paragrafo = (chave_bloco, int(indice_fragmento))
+        if chave_reserva_paragrafo in fragmentos_reserva_por_paragrafo:
+            # A posição só consome a sua própria fila de 20 hashes.
+            reservas = fragmentos_reserva_por_paragrafo[chave_reserva_paragrafo]
+        else:
+            # Compatibilidade com execuções antigas sem filas por parágrafo.
+            reservas = fragmentos_reserva_por_bloco.get(chave_bloco, [])
 
         while reservas:
             reserva = dict(reservas.pop(0))
             h = reserva.get("hash") or gerar_hash_trecho(reserva.get("texto", ""))
             reserva["hash"] = h
+            fragmentos_reserva_por_bloco[chave_bloco][:] = [
+                _item_bloco for _item_bloco in fragmentos_reserva_por_bloco.get(chave_bloco, [])
+                if str(_item_bloco.get("hash") or gerar_hash_trecho(_item_bloco.get("texto", ""))) != str(h)
+            ]
             if not h or h in hashes_selecionados or h in bloqueados:
                 continue
 
@@ -23298,6 +23366,7 @@ def gerar_conteudo_completo(
                 continue
 
             reserva.pop("_reserva_memoria", None)
+            reserva.pop("_reserva_paragrafo", None)
             reserva["bloco_mead"] = chave_bloco
             novo = reserva
             break
@@ -23308,11 +23377,18 @@ def gerar_conteudo_completo(
         # porta para lixo.
         if novo is None:
             candidatos_disponiveis = candidatos_por_bloco.get(chave_bloco, []) if isinstance(candidatos_por_bloco, dict) else []
+            hashes_reservados_outras_posicoes = {
+                str(item.get("hash") or gerar_hash_trecho(item.get("texto", "")))
+                for chave_posicao, fila_posicao in fragmentos_reserva_por_paragrafo.items()
+                if chave_posicao != chave_reserva_paragrafo
+                for item in (fila_posicao or [])
+                if isinstance(item, dict)
+            }
             try:
                 candidato_extra = selecionar_melhor_candidato(
                     candidatos_disponiveis,
                     chave_bloco,
-                    bloqueados | hashes_selecionados
+                    bloqueados | hashes_selecionados | hashes_reservados_outras_posicoes
                 )
             except Exception:
                 candidato_extra = None
@@ -23326,6 +23402,7 @@ def gerar_conteudo_completo(
                         h_extra
                         and h_extra not in hashes_selecionados
                         and h_extra not in bloqueados
+                        and h_extra not in hashes_reservados_outras_posicoes
                         and _candidato_utilizavel_recuperacao(candidato_extra)
                         and _fragmento_compativel_recuperacao(candidato_extra, chave_bloco)
                     ):
@@ -23382,6 +23459,17 @@ def gerar_conteudo_completo(
 
     # Expõe a pesquisa de recuperação criada no escopo interno do processador,
     # para que o gate final possa reutilizar a mesma rotina/estado sem NameError.
+    # Blocos com texto provisório são persistidos para revisão, mas nunca
+    # considerados aprovados nem liberados para publicação.
+    BLOCOS_GENERICOS_PENDENTES = set()
+
+    def _criar_paragrafos_genericos_pendentes():
+        tema_generico = str(tema or "este tema").strip() or "este tema"
+        return [
+            f"Este parágrafo provisório aborda {tema_generico}; o conteúdo técnico específico precisa ser revisado e completado com evidências antes da publicação."
+            for _ in range(3)
+        ]
+
     _pesquisadores_recuperacao_por_bloco = {}
 
     def _processar_bloco_ollama_com_retentativas(
@@ -23821,18 +23909,20 @@ def gerar_conteudo_completo(
             return True
 
 
-        # Retentativa sem limite numérico: continua corrigindo até o bloco
-        # passar pelas validações. A cada cinco falhas, ativa modo de contingência
-        # para produzir uma redação mais simples, contextual e sustentada pelas fontes.
+        # Limite defensivo: 61 tentativas cobrem a hash inicial mais até 20
+        # substituições para cada um dos 3 parágrafos, sem loop infinito.
+        # Se não houver nova evidência,
+        # o bloco vira pendência explícita, não conteúdo aprovado.
         tentativa_bloco = 0
+        max_tentativas_bloco = 61
         falhas_operacionais_consecutivas = 0
-        max_falhas_operacionais = 3  # apenas para não travar o lote se o serviço estiver indisponível
+        max_falhas_operacionais = 3
 
-        while True:
+        while tentativa_bloco < max_tentativas_bloco:
             tentativa_bloco += 1
             modo_contingencia = tentativa_bloco > 1 and tentativa_bloco % 5 == 0
             print(
-                f"🔁 TENTATIVA {tentativa_bloco} (SEM LIMITE): "
+                f"🔁 TENTATIVA {tentativa_bloco}/{max_tentativas_bloco}: "
                 f"{chave_bloco_atual}"
                 + (" — MODO DE CONTINGÊNCIA EDITORIAL" if modo_contingencia else "")
             )
@@ -23867,6 +23957,9 @@ def gerar_conteudo_completo(
                     or "CABECALHO_EMBUTIDO" in erro_upper
                     or "ESTRUTURAL_NAVEGACAO_LISTA" in erro_upper
                     or "FINAL_TRUNCADO" in erro_upper
+                    # Falhas de palavra-chave são de redação: manter as mesmas
+                    # hashes e usar o reparo direcionado / nova redação.
+                    # Não descartar evidência válida por contagem lexical.
                     # META_EDITORIAL é uma rejeição de conteúdo, não apenas
                     # um defeito de formulação. Trocar somente o fragmento
                     # correspondente evita repetir a mesma evidência na próxima
@@ -23898,7 +23991,7 @@ def gerar_conteudo_completo(
                             "outras consultas/fontes e tentar novamente. O bloco não "
                             "será aprovado enquanto não passar por todas as validações."
                         )
-                        # Não continuar o while True com as mesmas hashes e as
+                        # Não continuar o ciclo com as mesmas hashes e as
                         # mesmas URLs. A busca complementar já esgotou as URLs
                         # novas disponíveis nesta rodada; retornar falha explícita
                         # permite ao chamador registrar o bloco como não aprovado,
@@ -23908,10 +24001,9 @@ def gerar_conteudo_completo(
                             "— mantendo as evidências atuais e solicitando nova redação; "
                             "o bloco não será encerrado nem aprovado incompleto."
                         )
-                        # Não retornar None: a próxima iteração volta a chamar o
-                        # Ollama com as evidências atuais e a instrução de correção.
-                        # Isso é especialmente importante para falhas de formato,
-                        # palavra-chave ausente ou problemas de formulação.
+                        # Sem hash nova disponível, não repetir indefinidamente a
+                        # mesma evidência. O bloco será marcado como pendente no JSON.
+                        break
 
             print()
             print("=" * 60)
@@ -23946,15 +24038,17 @@ o parágrafo indicado, mantendo os demais fatos autorizados e sem introduzir fat
 
 Gere novamente os três parágrafos.
 
-{("CORREÇÃO DE PALAVRA-CHAVE PRIORITÁRIA: a expressão literal obrigatória é exatamente " + repr(str(tema_base or "").strip()) + ". Confira cada parágrafo separadamente. Se o parágrafo indicado não contiver essa expressão completa, reescreva-o para incluí-la exatamente uma vez, preservando a acentuação e a concordância. Não basta incluir os termos separadamente. Mantenha as mesmas evidências e hashes, pois isso é um problema de redação.\n\n" if any(m in str(ultimo_erro).upper() for m in ("PALAVRA_CHAVE_P", "PALAVRA-CHAVE", "PALAVRA CHAVE")) else "")}
+{("CORREÇÃO DE PALAVRA-CHAVE PRIORITÁRIA: a expressão literal obrigatória é exatamente " + repr(str(tema_base or "").strip()) + ". Confira cada parágrafo separadamente. Se estiver ausente, inclua a expressão literal uma vez, com naturalidade. Se houver mais de duas ocorrências, reduza para uma ou duas. Uma segunda ocorrência só deve permanecer quando for natural e útil. Preserve a acentuação e a concordância. Não descarte nem troque as evidências por uma falha apenas de redação.\n\n" if any(m in str(ultimo_erro).upper() for m in ("PALAVRA_CHAVE_P", "PALAVRA-CHAVE", "PALAVRA CHAVE")) else "")}
 {("CORREÇÃO NUMÉRICA PRIORITÁRIA: a resposta anterior introduziu número/unidade não autorizado.\nNão troque as evidências por esse motivo. Reescreva o parágrafo indicado removendo o número/unidade que não aparece literalmente nas três evidências. Não substitua por outro número, faixa, quantidade, medida ou unidade. Preserve os fatos autorizados e regenere os três parágrafos.\n\n" if ("NÚMERO/UNIDADE NÃO AUTORIZADO" in str(ultimo_erro).upper() or "NUMERO/UNIDADE NÃO AUTORIZADO" in str(ultimo_erro).upper()) else "")}
 ATENÇÃO:
 
 - Corrija somente o problema informado.
 - Se o motivo contiver PALAVRA_CHAVE_Pn_AUSENTE, PALAVRA_CHAVE_Pn_OCORRENCIAS:N ou PALAVRA_CHAVE_Pn_AUSENTE (termos=...), corrija especificamente o parágrafo N.
 - A palavra-chave literal obrigatória é exatamente: {tema_base!r}. Copie essa expressão com a mesma grafia e acentuação; não basta usar palavras relacionadas, termos separados, flexões ou sinônimos.
-- Se estiver ausente, reescreva a frase do parágrafo N para inserir a expressão literal uma única vez, com concordância natural em português do Brasil. Se estiver repetida (N>1), mantenha uma ocorrência e remova apenas a repetição excedente.
+- Se estiver ausente, reescreva a frase do parágrafo N para inserir a expressão literal uma vez, com concordância natural em português do Brasil.
+- Uma ocorrência é preferencial. Duas ocorrências são aceitáveis se a segunda for natural e necessária; se houver mais de duas, reduza para uma ou duas.
 - Não altere nem descarte as evidências/hashes por uma falha que seja somente de redação. Não invente fatos para acomodar a palavra-chave.
+- Se a falha identificar apenas um parágrafo, preserve os outros dois literalmente, sem reescrevê-los nem melhorar seu estilo. Retorne os três parágrafos no formato exigido para permitir a revalidação do bloco.
 - Depois da correção, confira a concordância gramatical em português do Brasil. Não use substituição automática cega nem altere a grafia da expressão para fazer a contagem passar.
 - Não invente informações.
 - NÃO RESUMA. Os três trechos autorizados continuam sendo a fonte integral desta tentativa.
@@ -24456,7 +24550,8 @@ Preserve proporcionalmente o conteúdo deles, sem meta ou limite de palavras.
             # ----------------------------------------------------
             # Não esperar pelo gate final da página: uma ausência/repetição
             # reprova esta tentativa e pede correção editorial ao Ollama.
-            # A evidência/hash não é trocada por falha de redação.
+            # Primeiro há reparo direcionado de redação; se falhar, a hash
+            # exclusiva daquele parágrafo é substituída na próxima tentativa.
             _tema_kw_bloco = str(tema or "").strip()
             if not _tema_kw_bloco:
                 ultimo_erro = "PALAVRA_CHAVE_VAZIA"
@@ -24475,14 +24570,14 @@ Preserve proporcionalmente o conteúdo deles, sem meta ou limite de palavras.
                 (
                     f"PALAVRA_CHAVE_P{_idx}_OCORRENCIAS:{_qtd}"
                     for _idx, _qtd in enumerate(_contagens_kw_bloco, start=1)
-                    if _qtd != 1
+                    if _qtd not in (1, 2)
                 ),
                 None,
             )
             print(
                 "🔎 GATE PALAVRA-CHAVE LITERAL:",
                 _contagens_kw_bloco,
-                "| esperado: [1, 1, 1]",
+                "| permitido: 1 preferencial; 2 se natural",
             )
             if _falha_kw_bloco:
                 ultimo_erro = _falha_kw_bloco
@@ -24495,7 +24590,7 @@ Preserve proporcionalmente o conteúdo deles, sem meta ou limite de palavras.
                 _reparos_kw_ok = True
                 for _idx_kw, _texto_kw_atual in enumerate(list(paragrafos_extraidos), start=1):
                     _qtd_kw_atual = len(_padrao_kw_bloco.findall(str(_texto_kw_atual or "")))
-                    if _qtd_kw_atual == 1:
+                    if _qtd_kw_atual in (1, 2):
                         continue
 
                     _evidencia_kw = ""
@@ -24509,7 +24604,7 @@ Preserve proporcionalmente o conteúdo deles, sem meta ou limite de palavras.
                     _prompt_reparo_kw = f'''Você é um revisor técnico em português do Brasil. Corrija APENAS o parágrafo abaixo.
 
 TEMA / EXPRESSÃO LITERAL OBRIGATÓRIA: {_tema_kw_bloco!r}
-REGRA INEGOCIÁVEL: o parágrafo final deve conter a expressão literal completa exatamente UMA vez. Preserve a grafia e a acentuação. Não basta usar os termos separadamente. Não repita a expressão em título ou comentário.
+REGRA INEGOCIÁVEL: o parágrafo final deve conter a expressão literal completa pelo menos uma vez e no máximo duas. Prefira uma ocorrência; mantenha duas somente se a segunda for natural e útil. Preserve a grafia e a acentuação. Não basta usar os termos separadamente. Não repita a expressão em título ou comentário.
 
 EVIDÊNCIA AUTORIZADA para sustentar o conteúdo:
 {_evidencia_kw}
@@ -24519,7 +24614,7 @@ PARÁGRAFO ATUAL (corrija este texto, não escreva outro assunto):
 
 INSTRUÇÕES:
 - Se a expressão estiver ausente, insira-a naturalmente em uma frase do parágrafo.
-- Se aparecer mais de uma vez, mantenha exatamente uma ocorrência.
+- Se aparecer mais de duas vezes, reduza para uma ou duas; uma segunda ocorrência só pode permanecer se for natural.
 - Preserve os fatos já sustentados pela evidência; não invente dados, marcas, empresas, números ou especificações.
 - Não explique o que fez, não inclua título, não use aspas envolvendo o parágrafo e não devolva marcadores.
 - Retorne somente o parágrafo corrigido.
@@ -24555,7 +24650,7 @@ INSTRUÇÕES:
                             f"🔎 REPARO DIRECIONADO P{_idx_kw}: {_qtd_kw_atual} -> {_qtd_reparo_kw} ocorrência(s) | "
                             f"tempo={_dados_reparo_kw.get('total_duration', 0) / 1e9:.1f}s"
                         )
-                        if _texto_reparo_kw and _qtd_reparo_kw == 1:
+                        if _texto_reparo_kw and _qtd_reparo_kw in (1, 2):
                             paragrafos_extraidos[_idx_kw - 1] = _texto_reparo_kw
                         else:
                             _reparos_kw_ok = False
@@ -24568,10 +24663,10 @@ INSTRUÇÕES:
                     len(_padrao_kw_bloco.findall(str(_p or "")))
                     for _p in paragrafos_extraidos
                 ]
-                print("🔎 GATE PALAVRA-CHAVE APÓS REPARO:", _contagens_kw_bloco, "| esperado: [1, 1, 1]")
-                if not _reparos_kw_ok or _contagens_kw_bloco != [1, 1, 1]:
+                print("🔎 GATE PALAVRA-CHAVE APÓS REPARO:", _contagens_kw_bloco, "| permitido: 1 ou 2 por parágrafo")
+                if not _reparos_kw_ok or any(_qtd not in (1, 2) for _qtd in _contagens_kw_bloco):
                     ultimo_erro = next(
-                        (f"PALAVRA_CHAVE_P{_idx}_OCORRENCIAS:{_qtd}" for _idx, _qtd in enumerate(_contagens_kw_bloco, start=1) if _qtd != 1),
+                        (f"PALAVRA_CHAVE_P{_idx}_OCORRENCIAS:{_qtd}" for _idx, _qtd in enumerate(_contagens_kw_bloco, start=1) if _qtd not in (1, 2)),
                         "PALAVRA_CHAVE_REPARO_DIRECIONADO_FALHOU",
                     )
                     print("❌ VALIDAÇÃO DA PALAVRA-CHAVE APÓS REPARO:", ultimo_erro)
@@ -25070,11 +25165,18 @@ INSTRUÇÕES:
                 ""
             )
 
-        # O while True não tem limite de tentativas; este retorno foi removido
-        # intencionalmente para impedir que uma falha isolada encerre o lote.
-        # A página só sai deste processador quando o bloco passa nas validações.
+        # Esgotadas as tentativas/evidências, devolver texto provisório marcado
+        # como pendente. O gate final mantém a publicação bloqueada.
+        BLOCOS_GENERICOS_PENDENTES.add(chave_bloco_atual)
+        paragrafos_genericos = _criar_paragrafos_genericos_pendentes()
+        motivo_pendente = (
+            f"GENERICO_PENDENTE: bloco sem evidência/hash elegível após "
+            f"{tentativa_bloco} tentativa(s); exige revisão antes da publicação. "
+            f"Último erro: {str(ultimo_erro or 'sem detalhe')[:500]}"
+        )
+        print("🟠", motivo_pendente)
+        return paragrafos_genericos, motivo_pendente
 
-        
     # ============================================================
     # PRÉ-VALIDAÇÃO ABSOLUTA DOS 5 BLOCOS
     # ============================================================
@@ -25596,7 +25698,7 @@ PREFERÊNCIAS EDITORIAIS INDICADAS PELOS CHECKBOXES: {assuntos_prompt_txt}.
 Use esses sinais para orientar a abordagem, mas não é obrigatório incluir todos os assuntos marcados nem dedicar um bloco específico a cada assunto. Um assunto pode aparecer em qualquer bloco quando fizer sentido. Não force nem invente conteúdo para cobrir preferências; priorize relevância, diversidade entre os blocos e evidências reais das fontes.
 
 PALAVRA-CHAVE SEO LITERAL: {tema}
-Em cada um dos três parágrafos, use essa palavra-chave exatamente uma vez, preservando a grafia e a ordem literal. Não precisa abrir o parágrafo. Não a repita uma segunda vez no mesmo parágrafo.
+Prefira uma ocorrência literal natural em cada parágrafo, preservando grafia, acentuação e ordem. Uma segunda ocorrência é permitida somente quando for natural e útil para a compreensão; não force a repetição nem comece todos os parágrafos da mesma maneira. Zero ocorrências ou mais de duas serão rejeitadas.
 
 O Python já entregou três trechos autorizados. Sua tarefa é produzir uma redação editorial original, natural e tecnicamente fiel ao conteúdo factual recebido.
 
@@ -25609,11 +25711,11 @@ ORIGINALIDADE E QUALIDADE EDITORIAL OBRIGATÓRIAS:
 - Não use frases genéricas de marketing. Cada frase deve transmitir um fato concreto autorizado ou explicar uma consequência diretamente sustentada.
 
 CONCORDÂNCIA GRAMATICAL DA PALAVRA-CHAVE — OBRIGATÓRIA:
-- A expressão literal da palavra-chave deve aparecer exatamente uma vez em cada parágrafo, mas a frase inteira precisa continuar correta em português do Brasil.
+- A expressão literal deve aparecer pelo menos uma vez e no máximo duas vezes em cada parágrafo; prefira uma ocorrência quando ela for suficiente. A frase inteira precisa continuar correta em português do Brasil.
 - Construa a frase em torno da expressão exata; nunca force um artigo, pronome, verbo ou adjetivo incompatível com o número ou gênero da expressão.
 - Se a expressão estiver no singular, não escreva construções como “as {tema}”, “essas {tema}”, “os {tema}” ou “as {tema} são”. Prefira uma estrutura natural como “A {tema} ...”, “O uso de {tema} ...” ou “... da {tema} ...”, escolhendo o artigo conforme a gramática do termo.
 - Não altere a palavra-chave para o plural nem a substitua por sinônimo apenas para corrigir a frase. Reescreva a frase ao redor dela.
-- Antes de responder, conte mentalmente a expressão literal completa em cada parágrafo: deve haver uma ocorrência, nem zero nem duas.
+- Antes de responder, confira a expressão literal completa em cada parágrafo: uma ocorrência é preferencial; duas são permitidas somente se naturais; nunca deixe zero nem ultrapasse duas.
 - A expressão deve ser contada como frase exata, não como parte de uma palavra maior. Não tente corrigir a contagem alterando a grafia, pluralizando ou separando a expressão.
 - Faça uma última leitura individual dos três parágrafos: confirme uma ocorrência literal em cada um, concordância correta em português do Brasil, regência, pontuação e fluidez.
 
@@ -25639,8 +25741,9 @@ REGRAS DE REDAÇÃO:
 - Escreva como conteúdo técnico de site industrial, natural e desenvolvido, semelhante aos modelos de referência fornecidos.
 - Escreva para o leitor final: explique o que a informação significa na prática, dentro dos limites das evidências, em vez de apenas enumerar características.
 - Dê a cada parágrafo uma função clara e diferente, mantendo uma progressão lógica entre as ideias e evitando repetir a mesma informação com outras palavras.
-- Antes de redigir, distribua mentalmente as informações: o primeiro parágrafo estabelece o ponto principal sustentado pelas evidências; o segundo desenvolve outro aspecto relevante; o terceiro acrescenta uma condição, consequência, aplicação ou critério distinto, somente quando houver suporte nas evidências.
-- Não use o terceiro parágrafo para resumir os dois anteriores. Não repita definições, benefícios ou explicações já apresentadas apenas para alongar o texto ou aumentar a densidade da palavra-chave.
+- Distribua as informações entre os três parágrafos conforme as relações reais presentes nas evidências. Não existe função narrativa obrigatória para o primeiro, segundo ou terceiro parágrafo.
+- Escolha a ordem que produzir a explicação mais natural e útil. Uma condição, aplicação, característica, processo ou critério pode aparecer em qualquer parágrafo, conforme a relação factual e a progressão do texto.
+- Não use o terceiro parágrafo para resumir os anteriores. Não repita definições, benefícios ou explicações apenas para alongar o texto ou aumentar a densidade da palavra-chave.
 - Se as três evidências repetirem o mesmo fato, explique-o uma única vez e use o espaço restante para outros fatos distintos que estejam claramente sustentados. Não invente uma informação para preencher um parágrafo.
 - Use conectivos e anáforas naturais para evitar repetir o protagonista no início de todos os parágrafos.
 - O protagonista pode reaparecer quando necessário para clareza, mas não use uma fórmula mecânica nem force a palavra-chave no início das frases.
@@ -25751,19 +25854,34 @@ EVIDÊNCIAS AUTORIZADAS PELO PYTHON — USE AS TRÊS EM CONJUNTO:
         )
 
         if resultado_bloco is None:
-            print()
-            print("=" * 60)
-            print("❌ BLOCO NÃO APROVADO PELO OLLAMA")
-            print("=" * 60)
-            print("BLOCO:", chave_bloco)
-            print("MOTIVO FINAL:", erro_bloco)
-            print("REGRAS: 1 operação por tentativa / 3 fragmentos por operação")
-            print("=" * 60)
-            return None
+            # Falha operacional ou ausência de resposta: registrar pendência e
+            # continuar o lote sem declarar o bloco aprovado.
+            BLOCOS_GENERICOS_PENDENTES.add(chave_bloco)
+            resultado_bloco = _criar_paragrafos_genericos_pendentes()
+            erro_bloco = str(erro_bloco or "Ollama não retornou um bloco válido")
+            print("🟠 BLOCO SEM SAÍDA VÁLIDA; usando fallback pendente:", chave_bloco, erro_bloco[:300])
 
         fim_bloco = time.time()
 
         paragrafos_extraidos = resultado_bloco
+
+        if chave_bloco in BLOCOS_GENERICOS_PENDENTES:
+            # Fallback provisório: persistir como pendente, nunca como aprovado.
+            dados_bloco["fragmentos_autorizados"] = [
+                str(x.get("texto", "") or "").strip()
+                for x in fragmentos_bloco if isinstance(x, dict)
+            ]
+            dados_bloco["paragrafos_ollama"] = list(paragrafos_extraidos)
+            dados_bloco["status_paragrafos"] = ["GENERICO_PENDENTE"] * 3
+            dados_bloco["pendencias_paragrafos"] = [
+                {"status": "GENERICO_PENDENTE", "revisao_necessaria": True,
+                 "motivo": str(erro_bloco or "Evidência elegível esgotada")}
+                for _ in range(3)
+            ]
+            dados_bloco["status_bloco"] = "GENERICO_PENDENTE"
+            informacoes_blocos[chave_bloco] = dados_bloco
+            print("🟠 BLOCO SALVO EM MEMÓRIA COMO GENERICO_PENDENTE:", chave_bloco)
+            continue
         
         print()
         print(
@@ -26221,6 +26339,15 @@ EVIDÊNCIAS AUTORIZADAS PELO PYTHON — USE AS TRÊS EM CONJUNTO:
             bloco_q = {}
             informacoes_blocos[chave_q] = bloco_q
 
+        if chave_q in BLOCOS_GENERICOS_PENDENTES:
+            qualidade_pagina.append({
+                "bloco": chave_q, "nota": 0.0, "aprovado": False,
+                "pendente": True, "falhas": ["GENERICO_PENDENTE"],
+                "detalhes": {"status": "GENERICO_PENDENTE"}
+            })
+            print(f"🟠 {chave_q}: GENERICO_PENDENTE — será salvo para revisão; publicação bloqueada.")
+            continue
+
         titulo_q = str(bloco_q.get("titulo", "") or "").strip() or f"Objetivo editorial MEAD do {chave_q}"
         paras_q = bloco_q.get("paragrafos_ollama", [])
         frags_q = bloco_q.get("informacoes_relevantes", [])
@@ -26252,11 +26379,37 @@ EVIDÊNCIAS AUTORIZADAS PELO PYTHON — USE AS TRÊS EM CONJUNTO:
         tentativas_gate_final = 0
 
         while not aprovado_q:
-            # Sem limite numérico: continua buscando outra evidência e corrigindo
-            # o texto até aprovação. O gate de qualidade permanece obrigatório.
+            # Limite de recuperação: após 20 ciclos, preservar o bloco como
+            # pendente em vez de travar ou aprovar conteúdo reprovado.
             tentativas_gate_final += 1
+            if chave_q in BLOCOS_GENERICOS_PENDENTES:
+                bloco_q["paragrafos_ollama"] = _criar_paragrafos_genericos_pendentes()
+                bloco_q["status_paragrafos"] = ["GENERICO_PENDENTE"] * 3
+                bloco_q["pendencias_paragrafos"] = [
+                    {"status": "GENERICO_PENDENTE", "revisao_necessaria": True,
+                     "motivo": "Recuperação interna esgotou as hashes elegíveis"}
+                    for _ in range(3)
+                ]
+                bloco_q["status_bloco"] = "GENERICO_PENDENTE"
+                informacoes_blocos[chave_q] = bloco_q
+                paras_q = bloco_q["paragrafos_ollama"]
+                break
+            if tentativas_gate_final > 20:
+                BLOCOS_GENERICOS_PENDENTES.add(chave_q)
+                bloco_q["paragrafos_ollama"] = _criar_paragrafos_genericos_pendentes()
+                bloco_q["status_paragrafos"] = ["GENERICO_PENDENTE"] * 3
+                bloco_q["pendencias_paragrafos"] = [
+                    {"status": "GENERICO_PENDENTE", "revisao_necessaria": True,
+                     "motivo": "Gate final não aprovado após 20 ciclos de recuperação"}
+                    for _ in range(3)
+                ]
+                bloco_q["status_bloco"] = "GENERICO_PENDENTE"
+                informacoes_blocos[chave_q] = bloco_q
+                paras_q = bloco_q["paragrafos_ollama"]
+                print(f"🟠 {chave_q}: limite do gate final atingido; marcado GENERICO_PENDENTE.")
+                break
             print(
-                f"🔁 RECUPERAÇÃO FINAL {tentativas_gate_final} (SEM LIMITE) — {chave_q}"
+                f"🔁 RECUPERAÇÃO FINAL {tentativas_gate_final}/20 — {chave_q}"
             )
             motivo_reparo = ", ".join(falhas_q) if falhas_q else f"nota abaixo do mínimo ({nota_q}/10)"
             print("\n🔁 RECUPERAÇÃO DO GATE FINAL:", chave_q)
@@ -26515,8 +26668,8 @@ Retorne exatamente três parágrafos.
                     )
                     prompt_reparo = f"""
 Você é um redator técnico. Escreva exatamente três parágrafos completos em português do Brasil sobre o tema/palavra-chave: {tema}.
-Função editorial deste segmento: { _funcao_editorial_fallback or chave_q }.
-Use exclusivamente os fatos sustentados pelas três evidências fornecidas. Não invente dados, números, marcas, normas, empresas, especificações, causas ou benefícios. Não mencione fontes, evidências, prompts ou o processo de escrita. Cada parágrafo deve acrescentar um fato ou ângulo diferente. Inclua a palavra-chave literal uma vez por parágrafo, com concordância correta em português; reescreva a frase ao redor dela, sem pluralizar a expressão. Evite marketing genérico e afirmações técnicas não demonstradas. Retorne somente os três parágrafos, sem títulos, rótulos ou listas.
+Orientação editorial preferencial deste segmento (não é um molde rígido): { _funcao_editorial_fallback or chave_q }.
+Use exclusivamente os fatos sustentados pelas três evidências fornecidas. Não invente dados, números, marcas, normas, empresas, especificações, causas ou benefícios. Não mencione fontes, evidências, prompts ou o processo de escrita. Distribua os fatos na ordem mais natural; evite repetição quando houver conteúdo distinto suficiente, mas não invente um ângulo só para diferenciar parágrafos. Inclua a palavra-chave literal uma vez por parágrafo, com concordância correta em português; reescreva a frase ao redor dela, sem pluralizar a expressão. Evite marketing genérico e afirmações técnicas não demonstradas. Retorne somente os três parágrafos, sem títulos, rótulos ou listas.
 """
                 prompts_ollama_por_bloco[chave_q] = prompt_reparo
             instrucao_reparo = f"""
@@ -26530,18 +26683,18 @@ CORREÇÃO DIRECIONADA:
 - Se houver NUMEROS_OU_UNIDADES_NOVOS: remova números, percentuais, medidas e unidades que não estejam explicitamente nas evidências atuais.
 - Se houver METATEXTO_DETECTADO: elimine comentários sobre fontes, trechos, evidências, revisão ou processo de escrita; redija diretamente para o leitor.
 - Se houver CONTEUDO_COMERCIAL_OU_CTA: retire chamadas comerciais, promessas e linguagem promocional.
-- Se houver INCOMPATIBILIDADE_MEAD: alinhe o conteúdo à função editorial de {chave_q}, usando somente fatos sustentados pelas evidências.
+- Se houver INCOMPATIBILIDADE_MEAD: verifique se há uma incompatibilidade real entre o conteúdo e o objetivo editorial autorizado. Não force palavras, assuntos ou uma função narrativa fixa; se o texto for factual e pertinente, preserve-o e corrija apenas a falha objetiva que estiver comprovada.
 - Se houver sinais de repetição ou progressão fraca: faça cada parágrafo acrescentar uma informação diferente; não repita uma explicação apenas trocando palavras.
 - Se houver problema de estrutura: entregue exatamente três parágrafos completos, com pontuação final e sem etiquetas no texto dos parágrafos.
 
-Redija novamente os três parágrafos usando as evidências atuais. Preserve os fatos autorizados, não invente números, marcas, empresas, normas ou códigos e cumpra a função editorial de {chave_q}. Mantenha a palavra-chave literal conforme as regras do prompt original, mas não a use para iniciar mecanicamente todos os parágrafos.
+Redija novamente os três parágrafos usando as evidências atuais. Preserve os fatos autorizados, não invente números, marcas, empresas, normas ou códigos. Use a função editorial do bloco como orientação, não como molde obrigatório: não force um assunto ou uma sequência narrativa sem suporte nas evidências. Mantenha a palavra-chave literal conforme as regras do prompt original, mas não a use para iniciar mecanicamente todos os parágrafos.
 """
             if tentativas_gate_final % 5 == 0:
                 instrucao_reparo += f"""
 
 MODO DE CONTINGÊNCIA EDITORIAL: as tentativas anteriores foram reprovadas.
-Use uma redação mais simples e geral sobre {tema}, mantendo a relevância e a palavra-chave literal.
-Baseie cada afirmação exclusivamente nas três evidências atuais. Omita detalhes incertos; não invente fatos,
+Use uma redação mais clara e direta sobre {tema}, sem generalizar nem apagar relações técnicas específicas que estejam sustentadas nas três evidências atuais.
+Corrija o motivo concreto da reprovação; preserve os fatos, condições e limites autorizados. Omita apenas detalhes incertos. Não invente fatos,
 números, normas, marcas, empresas, benefícios ou especificações. Ainda é obrigatório passar por todos os validadores Python.
 """
             try:
@@ -26566,6 +26719,14 @@ números, normas, marcas, empresas, benefícios ou especificações. Ainda é ob
             else:
                 print(f"🟡 {chave_q}: ainda reprovado; será selecionada outra hash. QUALIDADE: {nota_q:.1f}/10")
 
+        if chave_q in BLOCOS_GENERICOS_PENDENTES:
+            qualidade_pagina.append({
+                "bloco": chave_q, "nota": 0.0, "aprovado": False,
+                "pendente": True, "falhas": ["GENERICO_PENDENTE"],
+                "detalhes": {"status": "GENERICO_PENDENTE"}
+            })
+            continue
+
         qualidade_pagina.append({
             "bloco": chave_q, "nota": nota_q, "aprovado": aprovado_q,
             "falhas": falhas_q, "detalhes": detalhes_q,
@@ -26579,22 +26740,36 @@ números, normas, marcas, empresas, benefícios ou especificações. Ainda é ob
             qualidade_reprovada = True
             print(f"   ⚠️ {chave_q}: recuperação não atingiu o critério de aprovação; blocos aprovados foram preservados.")
 
-    nota_pagina = min((x["nota"] for x in qualidade_pagina), default=0.0)
-    media_pagina = sum(x["nota"] for x in qualidade_pagina) / max(1, len(qualidade_pagina))
+    notas_aprovadas_metricas = [
+        x["nota"] for x in qualidade_pagina
+        if x.get("aprovado") and not x.get("pendente")
+    ]
+    nota_pagina = min(notas_aprovadas_metricas, default=0.0)
+    media_pagina = sum(notas_aprovadas_metricas) / max(1, len(notas_aprovadas_metricas))
+    quantidade_pendentes = sum(1 for x in qualidade_pagina if x.get("pendente"))
 
     print("=" * 60)
-    print(f"QUALIDADE MÍNIMA ENTRE BLOCOS: {nota_pagina:.1f}/10")
-    print(f"QUALIDADE MÉDIA DA PÁGINA: {media_pagina:.1f}/10")
-    print("MÍNIMO OBRIGATÓRIO: 8.5/10")
+    print(f"QUALIDADE MÍNIMA ENTRE BLOCOS APROVADOS: {nota_pagina:.1f}/10")
+    print(f"QUALIDADE MÉDIA DOS BLOCOS APROVADOS: {media_pagina:.1f}/10")
+    print("BLOCOS GENERICO_PENDENTE:", quantidade_pendentes)
+    print("MÍNIMO OBRIGATÓRIO PARA BLOCOS APROVADOS: 8.5/10")
 
-    if qualidade_reprovada or nota_pagina < 8.5:
+    notas_blocos_aprovados = [
+        item["nota"] for item in qualidade_pagina
+        if item.get("aprovado") and not item.get("pendente")
+    ]
+    if qualidade_reprovada or (notas_blocos_aprovados and min(notas_blocos_aprovados) < 8.5):
         print("🔴 GRAVAÇÃO NÃO AUTORIZADA")
         print("MOTIVO: QUALIDADE EDITORIAL OU GATE CRÍTICO REPROVADO")
         print("OLLAMA: processamento concluído, mas JSON oficial NÃO será gravado.")
         print("=" * 60)
         return None
 
-    print("🟢 QUALIDADE EDITORIAL: APROVADA")
+    if BLOCOS_GENERICOS_PENDENTES:
+        print("🟠 PÁGINA SALVÁVEL COMO PENDENTE — PUBLICAÇÃO BLOQUEADA")
+        print("BLOCOS/PARÁGRAFOS PARA REVISÃO:", ", ".join(sorted(BLOCOS_GENERICOS_PENDENTES)))
+    else:
+        print("🟢 QUALIDADE EDITORIAL: APROVADA")
     print("=" * 60)
 
     # ============================================================
@@ -26663,7 +26838,13 @@ números, normas, marcas, empresas, benefícios ou especificações. Ainda é ob
                 dados_bloco.get(
                     "paragrafos_ollama",
                     []
-                )
+                ),
+
+            **({
+                "status_bloco": dados_bloco.get("status_bloco", "GENERICO_PENDENTE"),
+                "status_paragrafos": dados_bloco.get("status_paragrafos", []),
+                "pendencias_paragrafos": dados_bloco.get("pendencias_paragrafos", [])
+            } if dados_bloco.get("status_bloco") == "GENERICO_PENDENTE" else {})
         })
 
 
@@ -30014,6 +30195,17 @@ def salvar_banco(
                     ]
                 )[:3]
 
+        # Persistência explícita das pendências por parágrafo. Esses campos
+        # são metadados de revisão, não substituem a validação nem aprovam texto.
+        if dados_bloco.get("status_bloco") == "GENERICO_PENDENTE":
+            alvo["status_bloco"] = "GENERICO_PENDENTE"
+            alvo["status_paragrafos"] = list(dados_bloco.get("status_paragrafos", []))[:3]
+            alvo["pendencias_paragrafos"] = list(dados_bloco.get("pendencias_paragrafos", []))[:3]
+        else:
+            alvo.pop("status_bloco", None)
+            alvo.pop("status_paragrafos", None)
+            alvo.pop("pendencias_paragrafos", None)
+
         # ====================================================
         # COMPATIBILIDADE CONTROLADA
         #
@@ -30203,6 +30395,15 @@ def salvar_banco(
     dados_tema[
         "tema"
     ] = tema_original
+
+    # Uma página com qualquer parágrafo genérico pode ser salva como rascunho
+    # de trabalho, mas fica explicitamente bloqueada para publicação.
+    pendencias_publicacao = any(
+        isinstance(bloco, dict) and bloco.get("status_bloco") == "GENERICO_PENDENTE"
+        for bloco in blocos.values()
+    ) if isinstance(blocos, dict) else False
+    dados_tema["revisao_necessaria"] = bool(pendencias_publicacao)
+    dados_tema["publicacao_bloqueada"] = bool(pendencias_publicacao)
 
     try:
 
@@ -32049,7 +32250,7 @@ def salvar_banco(
     # CONTAGEM GLOBAL DE REPETIÇÕES
     # Conta ocorrências reais em tags, segmentos, títulos e corpo.
     # Meta flexível: 59 ou mais; 60 é referência, não teto.
-    # O corpo mantém a regra de uma ocorrência por parágrafo.
+    # O corpo prefere uma ocorrência; permite duas quando a redação as justificar naturalmente.
     # ========================================================
     palavra_chave = str(tema_original or "").strip()
     padrao_chave = re.escape(palavra_chave) if palavra_chave else None
@@ -32060,12 +32261,17 @@ def salvar_banco(
         if isinstance(valor, str) and valor.strip():
             textos_contagem.append(valor.strip())
         elif isinstance(valor, dict):
-            # Objetos de segmento podem armazenar o texto em campos distintos.
+            # Se o objeto representa um único segmento, conta seu campo textual
+            # preferencial. Se for um contêiner (ex.: segmento_1..segmento_18),
+            # percorre os valores internos; antes, esses dicionários eram
+            # ignorados e a meta global ficava artificialmente abaixo de 59.
             for campo in ("texto", "titulo", "nome", "segmento", "label"):
                 v = valor.get(campo)
                 if isinstance(v, str) and v.strip():
                     textos_contagem.append(v.strip())
-                    break
+                    return
+            for item in valor.values():
+                _adicionar_texto_contagem(item)
         elif isinstance(valor, (list, tuple)):
             for item in valor:
                 _adicionar_texto_contagem(item)
@@ -32075,10 +32281,8 @@ def salvar_banco(
     _adicionar_texto_contagem(pagina.get("tags", []))
     # Segmentos em qualquer uma das estruturas utilizadas pelo gerador.
     for fonte_segmentos in (
-        dados_tema.get("segmentos_textuais", []),
         pagina.get("segmentos_textuais", []),
         pagina.get("segmentos_listas", []),
-        globals().get("lista_segmentos", []),
     ):
         _adicionar_texto_contagem(fonte_segmentos)
 
@@ -32131,10 +32335,12 @@ def salvar_banco(
         "repeticoes_realizadas": repeticoes,
         "repeticoes_faltantes": max(0, 59 - repeticoes),
         "meta_cumprida": repeticoes >= 59,
-        "regra_corpo_por_paragrafo": "1 ocorrência por parágrafo",
+        "regra_corpo_por_paragrafo": "1 ocorrência preferencial; 2 somente quando natural; 0 ou mais de 2 inválidas",
         "paragrafos_auditados": len(contagens_por_paragrafo),
         "paragrafos_com_exatamente_1_ocorrencia": sum(1 for n in contagens_por_paragrafo if n == 1),
+        "paragrafos_com_2_ocorrencias": sum(1 for n in contagens_por_paragrafo if n == 2),
         "paragrafos_com_contagem_diferente_de_1": [i + 1 for i, n in enumerate(contagens_por_paragrafo) if n != 1],
+        "paragrafos_fora_da_faixa_aceita": [i + 1 for i, n in enumerate(contagens_por_paragrafo) if n not in (1, 2)],
     }
 
     # ========================================================
@@ -32262,6 +32468,9 @@ def salvar_banco(
                 ""
             )
     }
+    if dados_tema.get("revisao_necessaria") or dados_tema.get("publicacao_bloqueada"):
+        pagina_final["revisao_necessaria"] = True
+        pagina_final["publicacao_bloqueada"] = True
 
     # ========================================================
     # 5 BLOCOS
@@ -32354,6 +32563,9 @@ def salvar_banco(
         "pagina":
             pagina_final
     }
+    if dados_tema.get("revisao_necessaria") or dados_tema.get("publicacao_bloqueada"):
+        dados_tema_final["revisao_necessaria"] = True
+        dados_tema_final["publicacao_bloqueada"] = True
 
     # ========================================================
     # PROTEÇÃO FINAL ABSOLUTA
@@ -32476,11 +32688,27 @@ def salvar_banco(
         # Editorial e estrutural são barreiras diferentes. Nenhum JSON
         # oficial pode existir enquanto tamanho, integridade, lixo ou
         # duplicação editorial estiverem pendentes.
-        ok_editorial_final, motivo_editorial_final = validar_pagina_editorial_final(
-            pagina_final,
-            tema_original,
-            exigir_titulos=not deferir_titulos
+        pendencias_publicacao_final = any(
+            isinstance(pagina_final.get(f"bloco_{n}"), dict)
+            and pagina_final[f"bloco_{n}"].get("status_bloco") == "GENERICO_PENDENTE"
+            for n in range(1, 6)
         )
+        if pendencias_publicacao_final:
+            # Salvar rascunho de trabalho com marcadores explícitos. Os gates
+            # editoriais de publicação continuam sem aprovação; a gravação aqui
+            # só conserva o estado para revisão manual posterior.
+            ok_editorial_final = True
+            motivo_editorial_final = "RASCUNHO PENDENTE: publicação bloqueada por GENERICO_PENDENTE"
+            pagina_final["revisao_necessaria"] = True
+            pagina_final["publicacao_bloqueada"] = True
+            dados_tema_final["revisao_necessaria"] = True
+            dados_tema_final["publicacao_bloqueada"] = True
+        else:
+            ok_editorial_final, motivo_editorial_final = validar_pagina_editorial_final(
+                pagina_final,
+                tema_original,
+                exigir_titulos=not deferir_titulos
+            )
 
         if not ok_editorial_final:
             print("\n🔴 GRAVAÇÃO NÃO AUTORIZADA — VALIDAÇÃO EDITORIAL FALHOU")
@@ -32488,7 +32716,10 @@ def salvar_banco(
             print("A página permanece somente em memória; JSON oficial não será substituído.")
             return False
 
-        print("\n🟢 VALIDAÇÃO EDITORIAL: OK")
+        if pendencias_publicacao_final:
+            print("\n🟠 RASCUNHO PENDENTE: estrutura será salva; publicação continua bloqueada.")
+        else:
+            print("\n🟢 VALIDAÇÃO EDITORIAL: OK")
 
         erros_json = []
 
@@ -32686,9 +32917,14 @@ def salvar_banco(
 
         print("\n============================================================")
         print("✅ VALIDAÇÃO ESTRUTURAL: OK")
-        print("✅ VALIDAÇÃO EDITORIAL: OK")
-        print("✅ QUALIDADE EDITORIAL: >= 8.0/10")
-        print("✅ GRAVAÇÃO 100% VALIDADA")
+        if pendencias_publicacao_final:
+            print("🟠 VALIDAÇÃO EDITORIAL: PENDENTE — texto genérico marcado para revisão")
+            print("🔒 PUBLICAÇÃO: BLOQUEADA")
+            print("🟠 GRAVAÇÃO: RASCUNHO DE TRABALHO VALIDADO E IDENTIFICADO")
+        else:
+            print("✅ VALIDAÇÃO EDITORIAL: OK")
+            print("✅ QUALIDADE EDITORIAL: >= 8.0/10")
+            print("✅ GRAVAÇÃO 100% VALIDADA")
         print("============================================================")
         print("BLOCOS:                5 / 5")
         print("FRAGMENTOS:           15 / 15")
@@ -32698,7 +32934,11 @@ def salvar_banco(
         print("FRAGMENTOS:            IDÊNTICOS")
         print("PARÁGRAFOS:            IDÊNTICOS")
         print("HASHES:                5 / 5 IDÊNTICOS")
-        print("STATUS:                APROVADO")
+        print(
+            "STATUS:               ",
+            "GENERICO_PENDENTE — PUBLICAÇÃO BLOQUEADA"
+            if pendencias_publicacao_final else "APROVADO"
+        )
         print("============================================================")
 
         # ====================================================
