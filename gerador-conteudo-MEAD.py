@@ -1,4 +1,4 @@
-# gerador-conteudo-MEAD.py 16/10
+# gerador-conteudo-MEAD.py 20/10
 # contingência e prioridade de fontes: limites de recuperação, telemetria Ollama e
 # configurações de desempenho por variáveis de ambiente.
 # Mantém os gates de qualidade: ao atingir limites, falha de forma explícita;
@@ -15252,7 +15252,7 @@ TRECHO:
     # ========================================================
     # O fragmento só deve chegar ao Ollama quando for excelente
     # individualmente. "Passou no portão" deixa de ser suficiente:
-    # o trecho precisa atingir nota máxima 100/100.
+    # o trecho precisa atingir nota individual mínima de 95/100.
     # ========================================================
     def _nota_maxima_trecho(candidato, chave_bloco):
         texto = str(candidato.get("texto", "") or "").strip()
@@ -15404,7 +15404,7 @@ TRECHO:
         nota_otima, motivos_otimos = _nota_maxima_trecho(candidato, chave_bloco)
         candidato['nota_trecho_otimo'] = nota_otima
         candidato['motivos_nota_trecho_otimo'] = motivos_otimos
-        NOTA_MINIMA_TRECHO = 85
+        NOTA_MINIMA_TRECHO = 95
         if nota_otima < NOTA_MINIMA_TRECHO:
             motivo = 'NOTA_TRECHO_ABAIXO_DO_MINIMO:' + str(NOTA_MINIMA_TRECHO) + ':' + ','.join(motivos_otimos or ['ABAIXO_DO_MINIMO'])
             return rejeitar(motivo)
@@ -15621,7 +15621,7 @@ TRECHO:
         )
         return adicionados
 
-    # Antes da alocação global, mede a capacidade REAL de 100/100.
+    # Antes da alocação global, mede a capacidade REAL de trechos com nota mínima 95/100.
     # Se um bloco estiver abaixo de 3, pesquisa somente a lacuna dele.
     for _numero_bloco in range(1, 6):
         _chave_bloco = f"bloco_{_numero_bloco}"
@@ -21178,11 +21178,10 @@ def avaliar_qualidade_final_python(
             falhas_criticas.append(f"PARAGRAFO_{i}_INICIO_TRUNCADO")
 
     # ------------------------------------------------------------
-    # 3A. PALAVRA-CHAVE LITERAL: 1 PREFERENCIAL; 2 SE NATURAL
+    # 3A. PALAVRA-CHAVE LITERAL: EXATAMENTE 1 OCORRÊNCIA
     # ------------------------------------------------------------
     # A expressão completa é contada respeitando limites Unicode.
-    # Uma ocorrência é a preferência editorial; duas são aceitas quando
-    # a redação as exige naturalmente. Zero ou mais de duas são rejeitadas.
+    # A regra do projeto exige exatamente uma ocorrência literal em cada parágrafo.
     tema_literal = str(tema or "").strip()
     if tema_literal:
         padrao_tema_literal = re.compile(
@@ -21194,7 +21193,7 @@ def avaliar_qualidade_final_python(
             for p in paragrafos
         ]
         for indice, quantidade in enumerate(contagens_tema, 1):
-            if quantidade not in (1, 2):
+            if quantidade != 1:
                 falhas_criticas.append(
                     f"PALAVRA_CHAVE_P{indice}_OCORRENCIAS:{quantidade}"
                 )
@@ -23957,9 +23956,12 @@ def gerar_conteudo_completo(
                     or "CABECALHO_EMBUTIDO" in erro_upper
                     or "ESTRUTURAL_NAVEGACAO_LISTA" in erro_upper
                     or "FINAL_TRUNCADO" in erro_upper
-                    # Falhas de palavra-chave são de redação: manter as mesmas
-                    # hashes e usar o reparo direcionado / nova redação.
-                    # Não descartar evidência válida por contagem lexical.
+                    # Se o reparo direcionado da palavra-chave falhou,
+                    # trocar a evidência exclusiva do parágrafo identificado.
+                    # Nunca chamar o Ollama novamente com a mesma hash rejeitada.
+                    or "PALAVRA_CHAVE_P" in erro_upper
+                    or "PALAVRA-CHAVE" in erro_upper
+                    or "PALAVRA CHAVE" in erro_upper
                     # META_EDITORIAL é uma rejeição de conteúdo, não apenas
                     # um defeito de formulação. Trocar somente o fragmento
                     # correspondente evita repetir a mesma evidência na próxima
@@ -24038,7 +24040,7 @@ o parágrafo indicado, mantendo os demais fatos autorizados e sem introduzir fat
 
 Gere novamente os três parágrafos.
 
-{("CORREÇÃO DE PALAVRA-CHAVE PRIORITÁRIA: a expressão literal obrigatória é exatamente " + repr(str(tema_base or "").strip()) + ". Confira cada parágrafo separadamente. Se estiver ausente, inclua a expressão literal uma vez, com naturalidade. Se houver mais de duas ocorrências, reduza para uma ou duas. Uma segunda ocorrência só deve permanecer quando for natural e útil. Preserve a acentuação e a concordância. Não descarte nem troque as evidências por uma falha apenas de redação.\n\n" if any(m in str(ultimo_erro).upper() for m in ("PALAVRA_CHAVE_P", "PALAVRA-CHAVE", "PALAVRA CHAVE")) else "")}
+{("CORREÇÃO DE PALAVRA-CHAVE PRIORITÁRIA: a expressão literal obrigatória é exatamente " + repr(str(tema_base or "").strip()) + ". Confira cada parágrafo separadamente. Se estiver ausente, inclua a expressão literal uma vez, com naturalidade. Se houver zero ou mais de uma ocorrência, ajuste para exatamente uma. Preserve a acentuação e a concordância. Tente corrigir a redação nesta chamada; se a validação continuar falhando, o Python trocará a hash exclusiva do parágrafo rejeitado.\n\n" if any(m in str(ultimo_erro).upper() for m in ("PALAVRA_CHAVE_P", "PALAVRA-CHAVE", "PALAVRA CHAVE")) else "")}
 {("CORREÇÃO NUMÉRICA PRIORITÁRIA: a resposta anterior introduziu número/unidade não autorizado.\nNão troque as evidências por esse motivo. Reescreva o parágrafo indicado removendo o número/unidade que não aparece literalmente nas três evidências. Não substitua por outro número, faixa, quantidade, medida ou unidade. Preserve os fatos autorizados e regenere os três parágrafos.\n\n" if ("NÚMERO/UNIDADE NÃO AUTORIZADO" in str(ultimo_erro).upper() or "NUMERO/UNIDADE NÃO AUTORIZADO" in str(ultimo_erro).upper()) else "")}
 ATENÇÃO:
 
@@ -24046,8 +24048,8 @@ ATENÇÃO:
 - Se o motivo contiver PALAVRA_CHAVE_Pn_AUSENTE, PALAVRA_CHAVE_Pn_OCORRENCIAS:N ou PALAVRA_CHAVE_Pn_AUSENTE (termos=...), corrija especificamente o parágrafo N.
 - A palavra-chave literal obrigatória é exatamente: {tema_base!r}. Copie essa expressão com a mesma grafia e acentuação; não basta usar palavras relacionadas, termos separados, flexões ou sinônimos.
 - Se estiver ausente, reescreva a frase do parágrafo N para inserir a expressão literal uma vez, com concordância natural em português do Brasil.
-- Uma ocorrência é preferencial. Duas ocorrências são aceitáveis se a segunda for natural e necessária; se houver mais de duas, reduza para uma ou duas.
-- Não altere nem descarte as evidências/hashes por uma falha que seja somente de redação. Não invente fatos para acomodar a palavra-chave.
+- A expressão literal deve aparecer exatamente uma vez em cada parágrafo.
+- Tente o reparo direcionado uma vez. Se a revalidação continuar falhando, o Python deve descartar a hash exclusiva desse parágrafo e selecionar outra reserva; não reutilize a hash rejeitada. Não invente fatos para acomodar a palavra-chave.
 - Se a falha identificar apenas um parágrafo, preserve os outros dois literalmente, sem reescrevê-los nem melhorar seu estilo. Retorne os três parágrafos no formato exigido para permitir a revalidação do bloco.
 - Depois da correção, confira a concordância gramatical em português do Brasil. Não use substituição automática cega nem altere a grafia da expressão para fazer a contagem passar.
 - Não invente informações.
@@ -24570,14 +24572,14 @@ Preserve proporcionalmente o conteúdo deles, sem meta ou limite de palavras.
                 (
                     f"PALAVRA_CHAVE_P{_idx}_OCORRENCIAS:{_qtd}"
                     for _idx, _qtd in enumerate(_contagens_kw_bloco, start=1)
-                    if _qtd not in (1, 2)
+                    if _qtd != 1
                 ),
                 None,
             )
             print(
                 "🔎 GATE PALAVRA-CHAVE LITERAL:",
                 _contagens_kw_bloco,
-                "| permitido: 1 preferencial; 2 se natural",
+                "| obrigatório: exatamente 1 por parágrafo",
             )
             if _falha_kw_bloco:
                 ultimo_erro = _falha_kw_bloco
@@ -24590,7 +24592,7 @@ Preserve proporcionalmente o conteúdo deles, sem meta ou limite de palavras.
                 _reparos_kw_ok = True
                 for _idx_kw, _texto_kw_atual in enumerate(list(paragrafos_extraidos), start=1):
                     _qtd_kw_atual = len(_padrao_kw_bloco.findall(str(_texto_kw_atual or "")))
-                    if _qtd_kw_atual in (1, 2):
+                    if _qtd_kw_atual == 1:
                         continue
 
                     _evidencia_kw = ""
@@ -24604,7 +24606,7 @@ Preserve proporcionalmente o conteúdo deles, sem meta ou limite de palavras.
                     _prompt_reparo_kw = f'''Você é um revisor técnico em português do Brasil. Corrija APENAS o parágrafo abaixo.
 
 TEMA / EXPRESSÃO LITERAL OBRIGATÓRIA: {_tema_kw_bloco!r}
-REGRA INEGOCIÁVEL: o parágrafo final deve conter a expressão literal completa pelo menos uma vez e no máximo duas. Prefira uma ocorrência; mantenha duas somente se a segunda for natural e útil. Preserve a grafia e a acentuação. Não basta usar os termos separadamente. Não repita a expressão em título ou comentário.
+REGRA INEGOCIÁVEL: o parágrafo final deve conter a expressão literal completa exatamente uma vez. Preserve a grafia e a acentuação. Não basta usar os termos separadamente. Não repita a expressão em título ou comentário.
 
 EVIDÊNCIA AUTORIZADA para sustentar o conteúdo:
 {_evidencia_kw}
@@ -24614,7 +24616,7 @@ PARÁGRAFO ATUAL (corrija este texto, não escreva outro assunto):
 
 INSTRUÇÕES:
 - Se a expressão estiver ausente, insira-a naturalmente em uma frase do parágrafo.
-- Se aparecer mais de duas vezes, reduza para uma ou duas; uma segunda ocorrência só pode permanecer se for natural.
+- Se aparecer zero ou mais de uma vez, ajuste para exatamente uma ocorrência.
 - Preserve os fatos já sustentados pela evidência; não invente dados, marcas, empresas, números ou especificações.
 - Não explique o que fez, não inclua título, não use aspas envolvendo o parágrafo e não devolva marcadores.
 - Retorne somente o parágrafo corrigido.
@@ -24650,7 +24652,7 @@ INSTRUÇÕES:
                             f"🔎 REPARO DIRECIONADO P{_idx_kw}: {_qtd_kw_atual} -> {_qtd_reparo_kw} ocorrência(s) | "
                             f"tempo={_dados_reparo_kw.get('total_duration', 0) / 1e9:.1f}s"
                         )
-                        if _texto_reparo_kw and _qtd_reparo_kw in (1, 2):
+                        if _texto_reparo_kw and _qtd_reparo_kw == 1:
                             paragrafos_extraidos[_idx_kw - 1] = _texto_reparo_kw
                         else:
                             _reparos_kw_ok = False
@@ -24663,10 +24665,10 @@ INSTRUÇÕES:
                     len(_padrao_kw_bloco.findall(str(_p or "")))
                     for _p in paragrafos_extraidos
                 ]
-                print("🔎 GATE PALAVRA-CHAVE APÓS REPARO:", _contagens_kw_bloco, "| permitido: 1 ou 2 por parágrafo")
-                if not _reparos_kw_ok or any(_qtd not in (1, 2) for _qtd in _contagens_kw_bloco):
+                print("🔎 GATE PALAVRA-CHAVE APÓS REPARO:", _contagens_kw_bloco, "| obrigatório: exatamente 1 por parágrafo")
+                if not _reparos_kw_ok or any(_qtd != 1 for _qtd in _contagens_kw_bloco):
                     ultimo_erro = next(
-                        (f"PALAVRA_CHAVE_P{_idx}_OCORRENCIAS:{_qtd}" for _idx, _qtd in enumerate(_contagens_kw_bloco, start=1) if _qtd not in (1, 2)),
+                        (f"PALAVRA_CHAVE_P{_idx}_OCORRENCIAS:{_qtd}" for _idx, _qtd in enumerate(_contagens_kw_bloco, start=1) if _qtd != 1),
                         "PALAVRA_CHAVE_REPARO_DIRECIONADO_FALHOU",
                     )
                     print("❌ VALIDAÇÃO DA PALAVRA-CHAVE APÓS REPARO:", ultimo_erro)
@@ -32335,12 +32337,12 @@ def salvar_banco(
         "repeticoes_realizadas": repeticoes,
         "repeticoes_faltantes": max(0, 59 - repeticoes),
         "meta_cumprida": repeticoes >= 59,
-        "regra_corpo_por_paragrafo": "1 ocorrência preferencial; 2 somente quando natural; 0 ou mais de 2 inválidas",
+        "regra_corpo_por_paragrafo": "exatamente 1 ocorrência literal por parágrafo",
         "paragrafos_auditados": len(contagens_por_paragrafo),
         "paragrafos_com_exatamente_1_ocorrencia": sum(1 for n in contagens_por_paragrafo if n == 1),
         "paragrafos_com_2_ocorrencias": sum(1 for n in contagens_por_paragrafo if n == 2),
         "paragrafos_com_contagem_diferente_de_1": [i + 1 for i, n in enumerate(contagens_por_paragrafo) if n != 1],
-        "paragrafos_fora_da_faixa_aceita": [i + 1 for i, n in enumerate(contagens_por_paragrafo) if n not in (1, 2)],
+        "paragrafos_fora_da_faixa_aceita": [i + 1 for i, n in enumerate(contagens_por_paragrafo) if n != 1],
     }
 
     # ========================================================
