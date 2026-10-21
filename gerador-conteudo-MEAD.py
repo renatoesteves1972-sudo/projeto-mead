@@ -1,7 +1,5 @@
-# gerador-conteudo-MEAD.py - 13/10/2026
-# v14 — prompt editorial + contagem literal + histórico integrado ao banco JSON
-# Inclui triagem inicial paralela limitada (2 workers), validação por parágrafo,
-# correção orientada pelo prompt e rotação contextual sem arquivo auxiliar.
+# gerador-conteudo-MEAD.py - 21/10/2026 -v89
+
 
 
 import json
@@ -13690,7 +13688,35 @@ def selecionar_informacoes_relevantes(
         print(_bloco, "=>", sorted(_funcoes))
 
     def fragmento_compativel_com_funcao_do_bloco(candidato, chave_bloco):
-        """Filtra por tema/checkboxes, sem impor função narrativa fixa por bloco."""
+        """Valida tema geral e finalidade editorial específica do bloco MEAD."""
+        # Mapa de finalidade por bloco. A classificação do fragmento e os gates
+        # técnicos existentes continuam sendo usados; estes sinais acrescentam
+        # uma validação temática determinística antes da seleção.
+        sinais_por_bloco = {
+            "bloco_1": {"fornecedor", "fornecimento", "empresa", "solucao", "cliente", "orcamento", "disponibilidade", "atendimento", "comercial", "custo"},
+            "bloco_2": {"componente", "caracteristica", "modelo", "construcao", "material", "configuracao", "produto", "equipamento", "bomba", "centrifuga"},
+            "bloco_3": {"funcionamento", "aplicacao", "fluido", "vazao", "pressao", "operacao", "sistema", "processo", "rotor", "impelidor"},
+            "bloco_4": {"especificacao", "parametro", "potencia", "temperatura", "pressao", "vazao", "dimensao", "material", "eficiencia", "norma"},
+            "bloco_5": {"criterio", "escolha", "selecao", "dimensionamento", "avaliacao", "necessidade", "orientacao", "manutencao", "instalacao", "seguranca"},
+        }
+        texto_previo = normalizar_assunto_texto(str(candidato.get("texto", "") or ""))
+        sinais_bloco = sinais_por_bloco.get(chave_bloco, set())
+        sinais_presentes = sum(1 for sinal in sinais_bloco if sinal in texto_previo)
+        # O texto ainda pode passar pelos sinais funcionais já existentes, mas
+        # não basta mencionar a palavra-chave: precisa ter pertinência temática.
+        if sinais_presentes == 0:
+            classificacao_previa = candidato.get("_funcao_editorial", {})
+            funcoes_previas = set(classificacao_previa.get("funcoes", []))
+            funcoes_por_bloco = {
+                "bloco_1": {"institucional", "comercial", "suporte", "solucao"},
+                "bloco_2": {"tecnico", "conhecimento", "contexto"},
+                "bloco_3": {"funcionamento", "aplicacao", "tecnico"},
+                "bloco_4": {"tecnico", "seguranca", "manutencao", "instalacao"},
+                "bloco_5": {"suporte", "solucao", "conhecimento", "seguranca", "manutencao"},
+            }
+            if not (funcoes_previas & funcoes_por_bloco.get(chave_bloco, set())):
+                return False
+
         assuntos_ativos_locais = set(assuntos_editoriais_ativos(estrutura_editorial))
         if not assuntos_ativos_locais:
             return False
@@ -13856,20 +13882,7 @@ def selecionar_informacoes_relevantes(
         )
 
     print()
-    print(
-        "=============================="
-    )
-    print(
-        "PRIORIZAÇÃO EDITORIAL POR BLOCO"
-    )
-    print(
-        "=============================="
-    )
-
-    print(
-        "ASSUNTOS ATIVOS:",
-        assuntos
-    )
+    # Relatório por bloco mantido; lista antiga de assuntos ativos removida.
 
     for numero_bloco in range(
         1,
@@ -16626,12 +16639,12 @@ TRECHO:
     # Uma reserva por bloco; só será consumida se houver
     # uma re-seleção necessária após rejeição real.
     # --------------------------------------------------------
-    # RESERVAS EM MEMÓRIA — 50 HASHES POR PARÁGRAFO
-    # Cada bloco possui 3 parágrafos; portanto, o teto é de até 150
-    # reservas por bloco (750 no total), quando houver candidatos válidos.
-    # A quantidade real pode ser menor se o pool não tiver candidatos únicos.
+    # RESERVAS EM MEMÓRIA — 20 HASHES CANDIDATOS POR PARÁGRAFO
+    # Cada bloco possui 3 parágrafos; o teto é de até 60 candidatos por bloco.
+    # Cada hash reservada é atribuída a um único parágrafo do bloco.
+    # As três filas são disjuntas e nunca compartilham reservas entre si.
     # --------------------------------------------------------
-    RESERVAS_POR_PARAGRAFO = 50
+    RESERVAS_POR_PARAGRAFO = 20
     PARAGRAFOS_POR_BLOCO = 3
     META_RESERVAS_POR_BLOCO = RESERVAS_POR_PARAGRAFO * PARAGRAFOS_POR_BLOCO
 
@@ -16639,11 +16652,13 @@ TRECHO:
     # mais carentes: 4, depois 1, depois 5. Os blocos 2 e 3 continuam recebendo
     # reservas normalmente; apenas a ordem de abastecimento muda.
     ORDEM_PRIORIDADE_ESTOQUE = (4, 1, 5, 2, 3)
+    hashes_reservados_globalmente = set(hashes_selecionados)
     for numero_bloco in ORDEM_PRIORIDADE_ESTOQUE:
 
         chave_bloco = f"bloco_{numero_bloco}"
         reservas_bloco = []
-        hashes_bloqueio_reserva = set(hashes_selecionados)
+        # Um hash reservado por um bloco fica bloqueado para os demais.
+        hashes_bloqueio_reserva = set(hashes_reservados_globalmente)
 
         for _ in range(META_RESERVAS_POR_BLOCO):
 
@@ -16685,24 +16700,94 @@ TRECHO:
             hashes_bloqueio_reserva.add(
                 hash_reserva
             )
+            hashes_reservados_globalmente.add(hash_reserva)
 
         fragmentos_reserva_por_bloco[
             chave_bloco
         ] = reservas_bloco
 
+        # Cada parágrafo recebe uma fila própria de 20 hashes exclusivas.
+        # A divisão é feita uma única vez após a seleção do estoque do bloco;
+        # uma hash atribuída a P1/P2/P3 não pode ser consumida pelos outros.
+        for _indice_paragrafo in range(PARAGRAFOS_POR_BLOCO):
+            _inicio = _indice_paragrafo * RESERVAS_POR_PARAGRAFO
+            _fim = _inicio + RESERVAS_POR_PARAGRAFO
+            _fila_exclusiva = [dict(_r) for _r in reservas_bloco[_inicio:_fim]]
+            for _reserva_exclusiva in _fila_exclusiva:
+                _reserva_exclusiva["paragrafo_reserva"] = _indice_paragrafo + 1
+            fragmentos_reserva_por_bloco[f"{chave_bloco}:P{_indice_paragrafo + 1}"] = _fila_exclusiva
+
+    # Contar somente as 15 filas exclusivas. As listas-mãe por bloco são
+    # espelhos de armazenamento e não podem ser somadas novamente ao total.
     total_reservas_memoria = sum(
-        len(x)
-        for x in fragmentos_reserva_por_bloco.values()
+        len(fragmentos_reserva_por_bloco.get(f"bloco_{_n}:P{_p}", []))
+        for _n in range(1, 6)
+        for _p in range(1, 4)
     )
 
     print(
-        "RESERVAS EM MEMÓRIA:",
+        "RESERVAS EXCLUSIVAS EM MEMÓRIA:",
         total_reservas_memoria,
-        f"/ {META_RESERVAS_POR_BLOCO * 5} (até {RESERVAS_POR_PARAGRAFO} por parágrafo; {META_RESERVAS_POR_BLOCO} por bloco)"
+        f"/ {RESERVAS_POR_PARAGRAFO * 5 * PARAGRAFOS_POR_BLOCO} (20 hashes por parágrafo; filas independentes)"
     )
     print("ORDEM DE ABASTECIMENTO DO ESTOQUE:", "bloco_4 → bloco_1 → bloco_5 → bloco_2 → bloco_3")
     for _n_reserva in ORDEM_PRIORIDADE_ESTOQUE:
-        print(f"ESTOQUE bloco_{_n_reserva}: {len(fragmentos_reserva_por_bloco.get(f'bloco_{_n_reserva}', []))} reservas aprovadas em memória")
+        _chave_estoque = f"bloco_{_n_reserva}"
+        print(f"ESTOQUE {_chave_estoque}: {len(fragmentos_reserva_por_bloco.get(_chave_estoque, []))} reservas aprovadas em memória")
+        for _p_reserva in range(1, 4):
+            print(f"  {_chave_estoque} P{_p_reserva}: {len(fragmentos_reserva_por_bloco.get(f'{_chave_estoque}:P{_p_reserva}', []))}/{RESERVAS_POR_PARAGRAFO} hashes exclusivas")
+
+    # ========================================================
+    # BARREIRA OBRIGATÓRIA — NÃO INICIAR O OLLAMA SEM 300 RESERVAS
+    # ========================================================
+    # Cada um dos 15 parágrafos precisa ter 20 hashes aprovadas, válidas,
+    # distintas entre si e diferentes das 15 hashes principais selecionadas.
+    # Falta de estoque bloqueia a execução antes de qualquer chamada ao Ollama.
+    _erros_estoque = []
+    _hashes_reserva_global = []
+    for _n_bloco in range(1, 6):
+        _chave_b = f"bloco_{_n_bloco}"
+        for _p in range(1, 4):
+            _chave_fila = f"{_chave_b}:P{_p}"
+            _fila = fragmentos_reserva_por_bloco.get(_chave_fila, [])
+            _hashes_fila = [
+                str(_r.get("hash") or gerar_hash_trecho(_r.get("texto", "")) or "").strip()
+                for _r in _fila if isinstance(_r, dict)
+            ]
+            if len(_fila) != RESERVAS_POR_PARAGRAFO:
+                _erros_estoque.append(f"{_chave_fila}: {len(_fila)}/{RESERVAS_POR_PARAGRAFO} reservas")
+            if len(_hashes_fila) != len(_fila) or any(not _h for _h in _hashes_fila):
+                _erros_estoque.append(f"{_chave_fila}: hash ausente ou registro inválido")
+            if len(set(_hashes_fila)) != len(_hashes_fila):
+                _erros_estoque.append(f"{_chave_fila}: hashes repetidas dentro da fila")
+            _hashes_reserva_global.extend(_hashes_fila)
+
+    if len(_hashes_reserva_global) != 300 or len(set(_hashes_reserva_global)) != 300:
+        _erros_estoque.append(
+            f"unicidade global inválida: {len(_hashes_reserva_global)} hashes listadas, "
+            f"{len(set(_hashes_reserva_global))} únicas; esperado 300/300"
+        )
+
+    _hashes_principais = {
+        str(_h).strip() for _h in hashes_selecionados if str(_h).strip()
+    }
+    _conflitos_principais = _hashes_principais.intersection(_hashes_reserva_global)
+    if _conflitos_principais:
+        _erros_estoque.append(
+            f"{len(_conflitos_principais)} hash(s) de reserva também constam entre as hashes principais"
+        )
+
+    if _erros_estoque:
+        print("\n" + "=" * 68)
+        print("❌ PROCESSO BLOQUEADO — ESTOQUE DE RESERVAS INCOMPLETO")
+        print("O Ollama e a geração dos parágrafos NÃO serão iniciados.")
+        for _erro_estoque in _erros_estoque:
+            print("  -", _erro_estoque)
+        print("Complete e valide todas as 300 reservas antes de continuar.")
+        print("=" * 68)
+        return resultado_vazio
+
+    print("✅ BARREIRA DE RESERVAS APROVADA: 15/15 filas completas; 300/300 hashes exclusivas.")
 
     # ========================================================
     # 07.8 — TRIAGEM SIMPLIFICADA OLLAMA ANTES DA GRAVAÇÃO
@@ -23190,7 +23275,8 @@ def gerar_conteudo_completo(
                     fontes_utilizadas.pop(fonte_antiga, None)
 
         novo = None
-        reservas = fragmentos_reserva_por_bloco.get(chave_bloco, [])
+        chave_fila_reserva = f"{chave_bloco}:P{int(indice_fragmento) + 1}"
+        reservas = fragmentos_reserva_por_bloco.get(chave_fila_reserva, [])
 
         while reservas:
             reserva = dict(reservas.pop(0))
@@ -23239,36 +23325,9 @@ def gerar_conteudo_completo(
             novo = reserva
             break
 
-        # Se a fila de reservas acabou, ainda podemos buscar outro
-        # candidato que já foi aprovado pelo mesmo pool Python. A barreira
-        # final é reaplicada antes da promoção, portanto isso não abre uma
-        # porta para lixo.
-        if novo is None:
-            candidatos_disponiveis = candidatos_por_bloco.get(chave_bloco, []) if isinstance(candidatos_por_bloco, dict) else []
-            try:
-                candidato_extra = selecionar_melhor_candidato(
-                    candidatos_disponiveis,
-                    chave_bloco,
-                    bloqueados | hashes_selecionados
-                )
-            except Exception:
-                candidato_extra = None
-            if isinstance(candidato_extra, dict):
-                candidato_extra = dict(candidato_extra)
-                try:
-                    candidato_extra["bloco_mead"] = chave_bloco
-                    h_extra = candidato_extra.get("hash") or gerar_hash_trecho(candidato_extra.get("texto", ""))
-                    candidato_extra["hash"] = h_extra
-                    if (
-                        h_extra
-                        and h_extra not in hashes_selecionados
-                        and h_extra not in bloqueados
-                        and _candidato_utilizavel_recuperacao(candidato_extra)
-                        and _fragmento_compativel_recuperacao(candidato_extra, chave_bloco)
-                    ):
-                        novo = candidato_extra
-                except Exception:
-                    novo = None
+        # Não tomar candidatos de outra fila nem iniciar pesquisa externa aqui.
+        # Se as 20 reservas exclusivas deste parágrafo se esgotarem, a recuperação
+        # falha de forma explícita e o bloco não pode ser liberado incompleto.
 
         if novo is None:
             print(
@@ -23310,6 +23369,7 @@ def gerar_conteudo_completo(
             "RESELEÇÃO INDIVIDUAL PYTHON:",
             chave_bloco,
             "FRAGMENTO:", indice_fragmento,
+            "FILA EXCLUSIVA:", chave_fila_reserva,
             "RESERVAS RESTANTES:", len(reservas),
             "QUARENTENA:", len(bloqueados)
         )
@@ -23660,41 +23720,8 @@ def gerar_conteudo_completo(
                 remover_atual=not hash_ja_quarentenada
             )
 
-            # Se as reservas e o pool local não tiverem substituto válido,
-            # buscar novas evidências para ESTE bloco. Cada candidato novo
-            # passa pelas mesmas validações Python antes de poder ser usado.
-            # A segunda chamada não remove o hash antigo nem altera a
-            # contabilidade global novamente; apenas tenta promover um novo.
-            if not isinstance(novo, dict):
-                print(
-                    "🔎 RECUPERAÇÃO LOCAL ESGOTADA:", chave_bloco_atual,
-                    "— buscando evidências adicionais para substituir somente o hash rejeitado."
-                )
-                # A pesquisa varia as consultas a cada ciclo e mantém a
-                # recuperação ativa enquanto o bloco não passar no gate.
-                try:
-                    houve_novas_evidencias = _pesquisar_novas_evidencias_para_bloco(
-                        chave_bloco_atual
-                    )
-                except Exception as erro_pesquisa:
-                    houve_novas_evidencias = False
-                    print("⚠️ ERRO NA PESQUISA DE RECUPERAÇÃO:", repr(erro_pesquisa))
-
-                if houve_novas_evidencias:
-                    novo = _reselecionar_fragmento_apos_rejeicao(
-                        chave_bloco_atual,
-                        atual,
-                        indice,
-                        motivo,
-                        fragmentos_selecionados,
-                        hashes_selecionados,
-                        fontes_utilizadas,
-                        candidatos_por_bloco,
-                        blocos,
-                        blocos_informacoes,
-                        fragmentos_reserva_por_bloco,
-                        remover_atual=False
-                    )
+            # Recuperação estritamente local: não repetir pesquisa externa.
+            # Se a fila exclusiva deste parágrafo acabar, falhar fechado.
 
             if not isinstance(novo, dict):
                 print(
@@ -24915,6 +24942,10 @@ Preserve proporcionalmente o conteúdo deles, sem meta ou limite de palavras.
 
     titulos_blocos_preflight = {}
 
+    # Estado global da qualidade: cada bloco entra no gate completo logo após a geração.
+    qualidade_pagina = []
+    qualidade_reprovada = False
+
     for numero_bloco in range(
         1,
         total_blocos + 1
@@ -25868,13 +25899,384 @@ EVIDÊNCIAS AUTORIZADAS PELO PYTHON — USE AS TRÊS EM CONJUNTO:
         ] = dados_bloco
 
 
+        # ============================================================
+        # GATE FINAL DE QUALIDADE — EXECUTADO INDIVIDUALMENTE POR BLOCO
+        # ============================================================
+        print()
+        print("=" * 60)
+        print("GATE FINAL — QUALIDADE EDITORIAL PYTHON")
+        print("=" * 60)
+
+        # Blocos aprovados ficam intactos. Para bloco reprovado, testar novas hashes
+        # de evidência: primeiro reservas, depois candidatos locais e, se necessário,
+        # nova pesquisa Python por lacuna editorial. A recuperação é persistente e
+        # não tem teto de tentativas: o ciclo só sai quando o bloco passa no gate.
+        # Se uma rodada não trouxer candidatos novos, a pesquisa deve continuar
+        # com novas consultas/fontes; nunca aprovar ou salvar um bloco reprovado.
+        for numero_bloco_gate in [numero_bloco]:
+            chave_q = f"bloco_{numero_bloco_gate}"
+            bloco_q = informacoes_blocos.get(chave_q, {})
+            if not isinstance(bloco_q, dict):
+                bloco_q = {}
+                informacoes_blocos[chave_q] = bloco_q
+
+            titulo_q = str(bloco_q.get("titulo", "") or "").strip() or f"Objetivo editorial MEAD do {chave_q}"
+            paras_q = bloco_q.get("paragrafos_ollama", [])
+            frags_q = bloco_q.get("informacoes_relevantes", [])
+            if not isinstance(frags_q, list) or not frags_q:
+                frags_q = bloco_q.get("fragmentos_autorizados", [])
+            if not isinstance(frags_q, list):
+                frags_q = []
+
+            if chave_q in BLOCOS_APROVADOS_NO_LIMITE:
+                aprovado_q, nota_q, falhas_q, detalhes_q = True, 8.5, [], {
+                    "cobertura_factual_lexical": "CONTINGENCIA_8_DE_8",
+                    "generalidades": 0, "numeros_novos": [], "descontos": 0,
+                }
+            else:
+                aprovado_q, nota_q, falhas_q, detalhes_q = avaliar_qualidade_final_python(
+                    titulo_q, paras_q, frags_q, chave_q, tema
+                )
+
+            hashes_testadas = set()
+            evidencias_atuais = evidencias_ollama_por_bloco.get(chave_q, [])
+            if not isinstance(evidencias_atuais, list):
+                evidencias_atuais = []
+            hashes_testadas.update(
+                str(x.get("hash") or gerar_hash_trecho(x.get("texto", "")))
+                for x in evidencias_atuais if isinstance(x, dict)
+            )
+            indice_substituicao = 0
+            pesquisas_sem_novos = 0
+
+            while not aprovado_q:
+                # RECUPERAÇÃO PERSISTENTE: não existe teto artificial de tentativas
+                # nem de pesquisas sem hash nova. Se uma rodada não trouxer material
+                # elegível, a próxima deve ampliar/variar a pesquisa e tentar de novo.
+                # O bloco nunca é considerado concluído nem salvo enquanto reprovado.
+                motivo_reparo = ", ".join(falhas_q) if falhas_q else f"nota abaixo do mínimo ({nota_q}/10)"
+                print("\n🔁 RECUPERAÇÃO DO GATE FINAL:", chave_q)
+                print("MOTIVOS:", motivo_reparo)
+
+                # Se os três parágrafos já existem e a única falha é incompatibilidade
+                # com a função MEAD do bloco, não troque evidências às cegas. Primeiro
+                # peça uma reescrita usando as mesmas evidências; isso preserva o bloco
+                # completo e evita rodar pelos índices 0, 1 e 2 sem diagnóstico específico.
+                _paras_completos = (
+                    isinstance(paras_q, list)
+                    and len(paras_q) == 3
+                    and all(str(p or "").strip() for p in paras_q)
+                )
+                _falhas_upper = [str(f or "").upper() for f in (falhas_q or [])]
+                _somente_mead = bool(_falhas_upper) and all(
+                    ("INCOMPATIBILIDADE_MEAD" in f or "FUNCAO_BLOCO" in f)
+                    for f in _falhas_upper
+                )
+                if _paras_completos and _somente_mead:
+                    prompt_mesmas_evidencias = prompts_ollama_por_bloco.get(chave_q)
+                    if prompt_mesmas_evidencias:
+                        instrucao_mead = f"""
+    REVISÃO EDITORIAL DO GATE FINAL — {chave_q}
+    A versão já contém três parágrafos completos, mas foi reprovada por incompatibilidade com a função editorial MEAD.
+    Reescreva os três parágrafos mantendo as MESMAS evidências autorizadas e os fatos sustentados por elas.
+    Não troque fontes nem invente fatos. Ajuste somente o enfoque editorial para cumprir a função de {chave_q}.
+    Retorne exatamente três parágrafos.
+    """
+                        try:
+                            _resultado_mead, _erro_mead = _processar_bloco_ollama_com_retentativas(
+                                prompt_mesmas_evidencias + instrucao_mead,
+                                evidencias_atuais,
+                                chave_q
+                            )
+                        except Exception as _exc_mead:
+                            _resultado_mead, _erro_mead = None, repr(_exc_mead)
+                        if isinstance(_resultado_mead, list) and len(_resultado_mead) == 3 and all(str(x or "").strip() for x in _resultado_mead):
+                            _nota_antiga = nota_q
+                            _falhas_antigas = list(falhas_q or [])
+                            _detalhes_antigos = detalhes_q
+                            _aprovado_mead, _nota_mead, _falhas_mead, _detalhes_mead = avaliar_qualidade_final_python(
+                                titulo_q, _resultado_mead, evidencias_atuais, chave_q, tema
+                            )
+                            bloco_q["paragrafos_ollama"] = [str(x or "").strip() for x in _resultado_mead]
+                            informacoes_blocos[chave_q] = bloco_q
+                            paras_q = bloco_q["paragrafos_ollama"]
+                            aprovado_q, nota_q, falhas_q, detalhes_q = _aprovado_mead, _nota_mead, _falhas_mead, _detalhes_mead
+                            if aprovado_q:
+                                print(f"🟢 {chave_q}: aprovado após revisão MEAD com as mesmas evidências — {nota_q:.1f}/10")
+                                break
+                            print(f"🟡 {chave_q}: revisão com as mesmas evidências ainda reprovada; agora será avaliada a troca pontual de evidência.")
+                        else:
+                            print(f"⚠️ {chave_q}: reescrita MEAD não retornou três parágrafos válidos; mantendo recuperação pontual.", str(_erro_mead)[:250])
+
+                if not isinstance(evidencias_atuais, list) or len(evidencias_atuais) != 3:
+                    print(f"⚠️ {chave_q}: cache não contém exatamente 3 evidências; recuperando do bloco antes de pesquisar novas fontes.")
+                    evidencias_atuais = bloco_q.get("informacoes_relevantes", [])
+                    if not isinstance(evidencias_atuais, list) or len(evidencias_atuais) != 3:
+                        # Compatibilidade com blocos que preservaram os três textos
+                        # autorizados, mas não o dicionário completo das evidências.
+                        autorizadas_salvas = bloco_q.get("fragmentos_autorizados", [])
+                        if isinstance(autorizadas_salvas, list) and len(autorizadas_salvas) == 3:
+                            evidencias_atuais = []
+                            for _i_ev, _ev in enumerate(autorizadas_salvas):
+                                if isinstance(_ev, dict):
+                                    _item_ev = dict(_ev)
+                                else:
+                                    _texto_ev = str(_ev or "").strip()
+                                    _item_ev = {
+                                        "texto": _texto_ev,
+                                        "hash": gerar_hash_trecho(_texto_ev),
+                                        "fonte": "EVIDENCIA_RECUPERADA_DO_BLOCO",
+                                        "bloco_mead": chave_q,
+                                    }
+                                evidencias_atuais.append(_item_ev)
+                    if not isinstance(evidencias_atuais, list) or len(evidencias_atuais) != 3:
+                        try:
+                            _pesquisar_recuperacao = _pesquisadores_recuperacao_por_bloco.get(chave_q)
+                            if callable(_pesquisar_recuperacao):
+                                _pesquisar_recuperacao(chave_q)
+                        except Exception as _erro_pesquisa_sem_evidencia:
+                            print("⚠️ PESQUISA DE RECUPERAÇÃO SEM EVIDÊNCIA:", repr(_erro_pesquisa_sem_evidencia))
+                        # A pesquisa adiciona candidatos ao pool; ela não preenche
+                        # automaticamente informacoes_relevantes. Se não houver
+                        # nenhuma evidência preservada, montar um conjunto novo
+                        # usando o seletor já existente e seus mesmos gates Python.
+                        _pool_recuperacao = candidatos_por_bloco.get(chave_q, [])
+                        _atuais_validas = (
+                            [dict(_x) if isinstance(_x, dict) else {
+                                "texto": str(_x or "").strip(),
+                                "hash": gerar_hash_trecho(str(_x or "").strip()),
+                                "fonte": "EVIDENCIA_PRESERVADA_DO_BLOCO",
+                                "bloco_mead": chave_q,
+                            } for _x in evidencias_atuais]
+                            if isinstance(evidencias_atuais, list)
+                            else []
+                        )
+                        # Preserva as evidências ainda utilizáveis e completa apenas
+                        # as posições ausentes com candidatos do pool já filtrado.
+                        _hashes_ev = {
+                            str(_x.get("hash") or gerar_hash_trecho(_x.get("texto", "")))
+                            for _x in _atuais_validas if str(_x.get("texto", "") or "").strip()
+                        }
+                        for _item_pool in _pool_recuperacao:
+                            if len(_atuais_validas) >= 3:
+                                break
+                            _cand_pool = _item_pool.get("candidato") if isinstance(_item_pool, dict) else None
+                            if not isinstance(_cand_pool, dict):
+                                continue
+                            _cand_pool = dict(_cand_pool)
+                            _h_pool = str(_cand_pool.get("hash") or gerar_hash_trecho(_cand_pool.get("texto", "")))
+                            if not _h_pool or _h_pool in _hashes_ev or _h_pool in hashes_selecionados or _h_pool in quarentena_ollama_por_bloco.get(chave_q, set()):
+                                continue
+                            try:
+                                _pool_ok = (
+                                    _candidato_utilizavel_recuperacao(_cand_pool)
+                                    and _fragmento_compativel_recuperacao(_cand_pool, chave_q)
+                                )
+                            except Exception:
+                                _pool_ok = False
+                            if not _pool_ok:
+                                continue
+                            _cand_pool["hash"] = _h_pool
+                            _cand_pool["bloco_mead"] = chave_q
+                            _atuais_validas.append(_cand_pool)
+                            _hashes_ev.add(_h_pool)
+                            hashes_selecionados.add(_h_pool)
+                            fragmentos_selecionados.append(_cand_pool)
+                            _fonte_pool = _cand_pool.get("fonte")
+                            fontes_utilizadas[_fonte_pool] = fontes_utilizadas.get(_fonte_pool, 0) + 1
+                        if len(_atuais_validas) == 3:
+                            evidencias_atuais = _atuais_validas
+                            bloco_q["informacoes_relevantes"] = [dict(_x) for _x in evidencias_atuais]
+                            bloco_q["fragmentos_autorizados"] = [
+                                str(_x.get("texto", "") or "") for _x in evidencias_atuais
+                            ]
+                            evidencias_ollama_por_bloco[chave_q] = [dict(_x) for _x in evidencias_atuais]
+                            informacoes_blocos[chave_q] = bloco_q
+                        elif not _atuais_validas and _pool_recuperacao:
+                            try:
+                                _novo_conjunto_ev = _reselecionar_conjunto_apos_rejeicao(
+                                    chave_q, [], "RECUPERAR_CONJUNTO_DE_EVIDENCIAS_AUSENTE",
+                                    fragmentos_selecionados, hashes_selecionados, fontes_utilizadas,
+                                    candidatos_por_bloco, blocos, blocos_informacoes,
+                                    fragmentos_reserva_por_bloco
+                                )
+                                if isinstance(_novo_conjunto_ev, list) and len(_novo_conjunto_ev) == 3:
+                                    evidencias_atuais = [dict(_x) for _x in _novo_conjunto_ev]
+                                    bloco_q["informacoes_relevantes"] = [dict(_x) for _x in evidencias_atuais]
+                                    bloco_q["fragmentos_autorizados"] = [
+                                        str(_x.get("texto", "") or "") for _x in evidencias_atuais
+                                    ]
+                                    evidencias_ollama_por_bloco[chave_q] = [dict(_x) for _x in evidencias_atuais]
+                                    informacoes_blocos[chave_q] = bloco_q
+                            except Exception as _erro_reselecionar_conjunto:
+                                print("⚠️ NÃO FOI POSSÍVEL RECONSTRUIR O CONJUNTO DE EVIDÊNCIAS:", repr(_erro_reselecionar_conjunto))
+                        if not isinstance(evidencias_atuais, list) or len(evidencias_atuais) != 3:
+                            print(f"🔄 {chave_q}: evidências insuficientes nesta rodada; reiniciando a recuperação sem aprovar nem salvar.")
+                            continue
+
+                # A troca é direcionada ao parágrafo apontado pela validação.
+                # Nunca avançar ciclicamente por P1/P2/P3 quando só um deles falhou.
+                _indice_falha = None
+                for _padrao_indice in (r"EDITORIAL_P([1-3])", r"PARAGRAFO[_ ]([1-3])", r"PARÁGRAFO\s+([1-3])", r"P([1-3])"):
+                    _m_indice = re.search(_padrao_indice, motivo_reparo, flags=re.IGNORECASE)
+                    if _m_indice:
+                        _indice_falha = int(_m_indice.group(1)) - 1
+                        break
+                if _indice_falha is None:
+                    # Sem identificação confiável de parágrafo, não descartar uma hash
+                    # arbitrária: tentar primeiro corrigir a redação com as evidências atuais.
+                    print(f"🟡 {chave_q}: falha sem parágrafo identificado; preservando hashes e solicitando correção editorial.")
+                    _prompt_sem_troca = prompts_ollama_por_bloco.get(chave_q) or bloco_q.get("prompt_ollama") or bloco_q.get("prompt_base") or ""
+                    if _prompt_sem_troca:
+                        try:
+                            _resultado_mesmas, _erro_mesmas = _processar_bloco_ollama_com_retentativas(
+                                _prompt_sem_troca + f"\n\nCORRIJA SOMENTE A REDAÇÃO. Motivos de reprovação: {motivo_reparo}. Preserve as três evidências atuais, não invente fatos e retorne exatamente três parágrafos completos.",
+                                evidencias_atuais, chave_q
+                            )
+                        except Exception as _exc_mesmas:
+                            _resultado_mesmas, _erro_mesmas = None, repr(_exc_mesmas)
+                        if isinstance(_resultado_mesmas, list) and len(_resultado_mesmas) == 3:
+                            bloco_q["paragrafos_ollama"] = [str(x or "").strip() for x in _resultado_mesmas]
+                            informacoes_blocos[chave_q] = bloco_q
+                            paras_q = bloco_q["paragrafos_ollama"]
+                            aprovado_q, nota_q, falhas_q, detalhes_q = avaliar_qualidade_final_python(
+                                titulo_q, paras_q, evidencias_atuais, chave_q, tema
+                            )
+                            if aprovado_q:
+                                print(f"🟢 {chave_q}: aprovado corrigindo redação sem descartar hashes — {nota_q:.1f}/10")
+                                break
+                            motivo_reparo = ", ".join(str(x) for x in falhas_q) if falhas_q else motivo_reparo
+                            continue
+                    # Não existe diagnóstico seguro para uma substituição individual.
+                    qualidade_reprovada = True
+                    print(f"🔴 {chave_q}: sem parágrafo identificável; nenhuma hash será trocada às cegas.")
+                    break
+                indice = _indice_falha
+                indice_substituicao = indice
+                atual = evidencias_atuais[indice]
+                if not isinstance(atual, dict):
+                    atual = {"texto": str(atual or ""), "hash": gerar_hash_trecho(str(atual or ""))}
+                hash_antiga = str(atual.get("hash") or gerar_hash_trecho(atual.get("texto", "")))
+
+                novo = _reselecionar_fragmento_apos_rejeicao(
+                    chave_q, atual, indice, motivo_reparo,
+                    fragmentos_selecionados, hashes_selecionados, fontes_utilizadas,
+                    candidatos_por_bloco, blocos, blocos_informacoes,
+                    fragmentos_reserva_por_bloco, remover_atual=True
+                )
+
+                # Não iniciar pesquisa externa nem consumir candidatos de outra fila.
+                # A fila exclusiva de 20 hashes deste parágrafo é a fonte de recuperação.
+                if not isinstance(novo, dict):
+                    pesquisas_sem_novos += 1
+                    qualidade_reprovada = True
+                    print(f"🔴 {chave_q} P{indice + 1}: reservas exclusivas esgotadas; bloco permanece reprovado.")
+                    break
+
+                hash_nova = str(novo.get("hash") or gerar_hash_trecho(novo.get("texto", "")))
+                if not hash_nova or hash_nova in hashes_testadas or hash_nova == hash_antiga:
+                    print(f"⚠️ {chave_q}: candidato repetido ({hash_nova}); buscando próxima evidência.")
+                    continue
+                hashes_testadas.add(hash_nova)
+                pesquisas_sem_novos = 0  # reinicia ao obter progresso real
+                evidencias_atuais = [dict(x) if isinstance(x, dict) else x for x in evidencias_atuais]
+                evidencias_atuais[indice] = dict(novo)
+                evidencias_ollama_por_bloco[chave_q] = [dict(x) if isinstance(x, dict) else x for x in evidencias_atuais]
+                bloco_q["informacoes_relevantes"] = [dict(x) if isinstance(x, dict) else x for x in evidencias_atuais]
+                bloco_q["fragmentos_autorizados"] = [str(x.get("texto", "") or "") if isinstance(x, dict) else str(x or "") for x in evidencias_atuais]
+                informacoes_blocos[chave_q] = bloco_q
+
+                prompt_reparo = prompts_ollama_por_bloco.get(chave_q)
+                if not prompt_reparo:
+                    # Recuperação de contingência: não abandonar o bloco só porque
+                    # o cache do prompt sumiu. Prioriza prompts preservados no bloco;
+                    # se não existirem, monta um prompt mínimo sem alterar o caminho
+                    # normal nem relaxar os gates de qualidade.
+                    prompt_reparo = (
+                        bloco_q.get("prompt_ollama")
+                        or bloco_q.get("prompt_base")
+                        or bloco_q.get("prompt")
+                        or ""
+                    )
+                    if not prompt_reparo:
+                        _funcao_editorial_fallback = (
+                            mapa_mead.get(chave_q, "")
+                            if isinstance(mapa_mead, dict)
+                            else ""
+                        )
+                        prompt_reparo = f"""
+    Você é um redator técnico. Escreva exatamente três parágrafos completos em português do Brasil sobre o tema/palavra-chave: {tema}.
+    Função editorial deste segmento: { _funcao_editorial_fallback or chave_q }.
+    Use exclusivamente os fatos sustentados pelas três evidências fornecidas. Não invente dados, números, marcas, normas, empresas, especificações, causas ou benefícios. Não mencione fontes, evidências, prompts ou o processo de escrita. Cada parágrafo deve acrescentar um fato ou ângulo diferente. Inclua a palavra-chave literal uma vez por parágrafo, com concordância correta em português; reescreva a frase ao redor dela, sem pluralizar a expressão. Evite marketing genérico e afirmações técnicas não demonstradas. Retorne somente os três parágrafos, sem títulos, rótulos ou listas.
+    """
+                    prompts_ollama_por_bloco[chave_q] = prompt_reparo
+                _paragrafos_antes_reparo = list(paras_q) if isinstance(paras_q, list) and len(paras_q) == 3 else ["", "", ""]
+                instrucao_reparo = f"""
+
+    RECUPERAÇÃO DO GATE FINAL — {chave_q}
+    A versão anterior foi reprovada por: {motivo_reparo}.
+    Foi selecionada uma nova evidência/hash para substituir apenas a evidência de índice {indice + 1}.
+
+    CORREÇÃO DIRECIONADA:
+    - Se houver FIDELIDADE_LEXICAL_INSUFICIENTE: mantenha os conceitos e termos técnicos efetivamente presentes nas evidências atuais; não acrescente conteúdo externo.
+    - Se houver NUMEROS_OU_UNIDADES_NOVOS: remova números, percentuais, medidas e unidades que não estejam explicitamente nas evidências atuais.
+    - Se houver METATEXTO_DETECTADO: elimine comentários sobre fontes, trechos, evidências, revisão ou processo de escrita; redija diretamente para o leitor.
+    - Se houver CONTEUDO_COMERCIAL_OU_CTA: retire chamadas comerciais, promessas e linguagem promocional.
+    - Se houver INCOMPATIBILIDADE_MEAD: alinhe o conteúdo à função editorial de {chave_q}, usando somente fatos sustentados pelas evidências.
+    - Se houver sinais de repetição ou progressão fraca: faça cada parágrafo acrescentar uma informação diferente; não repita uma explicação apenas trocando palavras.
+    - Se houver problema de estrutura: entregue exatamente três parágrafos completos, com pontuação final e sem etiquetas no texto dos parágrafos.
+
+    Redija novamente os três parágrafos usando as evidências atuais. Preserve os fatos autorizados, não invente números, marcas, empresas, normas ou códigos e cumpra a função editorial de {chave_q}. Mantenha a palavra-chave literal conforme as regras do prompt original, mas não a use para iniciar mecanicamente todos os parágrafos.
+    """
+                try:
+                    resultado_reparo, erro_reparo = _processar_bloco_ollama_com_retentativas(
+                        prompt_reparo + instrucao_reparo, evidencias_atuais, chave_q
+                    )
+                except Exception as exc_reparo:
+                    resultado_reparo, erro_reparo = None, repr(exc_reparo)
+                if not isinstance(resultado_reparo, list) or len(resultado_reparo) != 3:
+                    print(f"⚠️ {chave_q}: Ollama não retornou 3 parágrafos; será usada a próxima hash se houver.", str(erro_reparo)[:300])
+                    continue
+
+                _novos_paragrafos_reparo = [str(x or "").strip() for x in resultado_reparo]
+                # A chamada do Ollama retorna o bloco completo por compatibilidade, mas
+                # só o parágrafo afetado pode ser alterado; os demais são restaurados.
+                for _i_preservar in range(3):
+                    if _i_preservar != indice and _paragrafos_antes_reparo[_i_preservar].strip():
+                        _novos_paragrafos_reparo[_i_preservar] = _paragrafos_antes_reparo[_i_preservar]
+                bloco_q["paragrafos_ollama"] = _novos_paragrafos_reparo
+                informacoes_blocos[chave_q] = bloco_q
+                paras_q = bloco_q["paragrafos_ollama"]
+                frags_q = evidencias_atuais
+                aprovado_q, nota_q, falhas_q, detalhes_q = avaliar_qualidade_final_python(
+                    titulo_q, paras_q, frags_q, chave_q, tema
+                )
+                if aprovado_q:
+                    print(f"🟢 {chave_q}: APROVADO após trocar a hash {hash_nova} — {nota_q:.1f}/10")
+                else:
+                    print(f"🟡 {chave_q}: ainda reprovado; será selecionada outra hash. QUALIDADE: {nota_q:.1f}/10")
+
+            qualidade_pagina.append({
+                "bloco": chave_q, "nota": nota_q, "aprovado": aprovado_q,
+                "falhas": falhas_q, "detalhes": detalhes_q,
+            })
+            status_q = "🟢 APROVADO" if aprovado_q else "🔴 REPROVADO"
+            print(f"{status_q} — {chave_q} — QUALIDADE: {nota_q:.1f}/10")
+            if falhas_q:
+                print("   FALHAS CRÍTICAS:", ", ".join(falhas_q))
+            print("   COBERTURA FACTUAL:", detalhes_q.get("cobertura_factual_lexical"))
+            if not aprovado_q:
+                qualidade_reprovada = True
+                print(f"   ⚠️ {chave_q}: recuperação não atingiu o critério de aprovação; blocos aprovados foram preservados.")
+
+
     # ============================================================
-    # VALIDAR OS 5 BLOCOS
+    # CONFERÊNCIA ESTRUTURAL DOS 5 BLOCOS (SEM REGERAÇÃO)
     # ============================================================
 
     print()
     print("=" * 60)
-    print("VALIDAÇÃO FINAL DO OLLAMA")
+    print("CONFERÊNCIA ESTRUTURAL FINAL DO OLLAMA")
     print("=" * 60)
 
 
@@ -25960,377 +26362,6 @@ EVIDÊNCIAS AUTORIZADAS PELO PYTHON — USE AS TRÊS EM CONJUNTO:
 
     print("=" * 60)
 
-
-    # ============================================================
-    # GATE FINAL DE QUALIDADE — ANTES DE QUALQUER GRAVAÇÃO
-    # ============================================================
-    print()
-    print("=" * 60)
-    print("GATE FINAL — QUALIDADE EDITORIAL PYTHON")
-    print("=" * 60)
-
-    qualidade_pagina = []
-    qualidade_reprovada = False
-
-    # Blocos aprovados ficam intactos. Para bloco reprovado, testar novas hashes
-    # de evidência: primeiro reservas, depois candidatos locais e, se necessário,
-    # nova pesquisa Python por lacuna editorial. A recuperação é persistente e
-    # não tem teto de tentativas: o ciclo só sai quando o bloco passa no gate.
-    # Se uma rodada não trouxer candidatos novos, a pesquisa deve continuar
-    # com novas consultas/fontes; nunca aprovar ou salvar um bloco reprovado.
-    for numero_bloco in range(1, total_blocos + 1):
-        chave_q = f"bloco_{numero_bloco}"
-        bloco_q = informacoes_blocos.get(chave_q, {})
-        if not isinstance(bloco_q, dict):
-            bloco_q = {}
-            informacoes_blocos[chave_q] = bloco_q
-
-        titulo_q = str(bloco_q.get("titulo", "") or "").strip() or f"Objetivo editorial MEAD do {chave_q}"
-        paras_q = bloco_q.get("paragrafos_ollama", [])
-        frags_q = bloco_q.get("informacoes_relevantes", [])
-        if not isinstance(frags_q, list) or not frags_q:
-            frags_q = bloco_q.get("fragmentos_autorizados", [])
-        if not isinstance(frags_q, list):
-            frags_q = []
-
-        if chave_q in BLOCOS_APROVADOS_NO_LIMITE:
-            aprovado_q, nota_q, falhas_q, detalhes_q = True, 8.5, [], {
-                "cobertura_factual_lexical": "CONTINGENCIA_8_DE_8",
-                "generalidades": 0, "numeros_novos": [], "descontos": 0,
-            }
-        else:
-            aprovado_q, nota_q, falhas_q, detalhes_q = avaliar_qualidade_final_python(
-                titulo_q, paras_q, frags_q, chave_q, tema
-            )
-
-        hashes_testadas = set()
-        evidencias_atuais = evidencias_ollama_por_bloco.get(chave_q, [])
-        if not isinstance(evidencias_atuais, list):
-            evidencias_atuais = []
-        hashes_testadas.update(
-            str(x.get("hash") or gerar_hash_trecho(x.get("texto", "")))
-            for x in evidencias_atuais if isinstance(x, dict)
-        )
-        indice_substituicao = 0
-        pesquisas_sem_novos = 0
-
-        while not aprovado_q:
-            # RECUPERAÇÃO PERSISTENTE: não existe teto artificial de tentativas
-            # nem de pesquisas sem hash nova. Se uma rodada não trouxer material
-            # elegível, a próxima deve ampliar/variar a pesquisa e tentar de novo.
-            # O bloco nunca é considerado concluído nem salvo enquanto reprovado.
-            motivo_reparo = ", ".join(falhas_q) if falhas_q else f"nota abaixo do mínimo ({nota_q}/10)"
-            print("\n🔁 RECUPERAÇÃO DO GATE FINAL:", chave_q)
-            print("MOTIVOS:", motivo_reparo)
-
-            # Se os três parágrafos já existem e a única falha é incompatibilidade
-            # com a função MEAD do bloco, não troque evidências às cegas. Primeiro
-            # peça uma reescrita usando as mesmas evidências; isso preserva o bloco
-            # completo e evita rodar pelos índices 0, 1 e 2 sem diagnóstico específico.
-            _paras_completos = (
-                isinstance(paras_q, list)
-                and len(paras_q) == 3
-                and all(str(p or "").strip() for p in paras_q)
-            )
-            _falhas_upper = [str(f or "").upper() for f in (falhas_q or [])]
-            _somente_mead = bool(_falhas_upper) and all(
-                ("INCOMPATIBILIDADE_MEAD" in f or "FUNCAO_BLOCO" in f)
-                for f in _falhas_upper
-            )
-            if _paras_completos and _somente_mead:
-                prompt_mesmas_evidencias = prompts_ollama_por_bloco.get(chave_q)
-                if prompt_mesmas_evidencias:
-                    instrucao_mead = f"""
-REVISÃO EDITORIAL DO GATE FINAL — {chave_q}
-A versão já contém três parágrafos completos, mas foi reprovada por incompatibilidade com a função editorial MEAD.
-Reescreva os três parágrafos mantendo as MESMAS evidências autorizadas e os fatos sustentados por elas.
-Não troque fontes nem invente fatos. Ajuste somente o enfoque editorial para cumprir a função de {chave_q}.
-Retorne exatamente três parágrafos.
-"""
-                    try:
-                        _resultado_mead, _erro_mead = _processar_bloco_ollama_com_retentativas(
-                            prompt_mesmas_evidencias + instrucao_mead,
-                            evidencias_atuais,
-                            chave_q
-                        )
-                    except Exception as _exc_mead:
-                        _resultado_mead, _erro_mead = None, repr(_exc_mead)
-                    if isinstance(_resultado_mead, list) and len(_resultado_mead) == 3 and all(str(x or "").strip() for x in _resultado_mead):
-                        _nota_antiga = nota_q
-                        _falhas_antigas = list(falhas_q or [])
-                        _detalhes_antigos = detalhes_q
-                        _aprovado_mead, _nota_mead, _falhas_mead, _detalhes_mead = avaliar_qualidade_final_python(
-                            titulo_q, _resultado_mead, evidencias_atuais, chave_q, tema
-                        )
-                        bloco_q["paragrafos_ollama"] = [str(x or "").strip() for x in _resultado_mead]
-                        informacoes_blocos[chave_q] = bloco_q
-                        paras_q = bloco_q["paragrafos_ollama"]
-                        aprovado_q, nota_q, falhas_q, detalhes_q = _aprovado_mead, _nota_mead, _falhas_mead, _detalhes_mead
-                        if aprovado_q:
-                            print(f"🟢 {chave_q}: aprovado após revisão MEAD com as mesmas evidências — {nota_q:.1f}/10")
-                            break
-                        print(f"🟡 {chave_q}: revisão com as mesmas evidências ainda reprovada; agora será avaliada a troca pontual de evidência.")
-                    else:
-                        print(f"⚠️ {chave_q}: reescrita MEAD não retornou três parágrafos válidos; mantendo recuperação pontual.", str(_erro_mead)[:250])
-
-            if not isinstance(evidencias_atuais, list) or len(evidencias_atuais) != 3:
-                print(f"⚠️ {chave_q}: cache não contém exatamente 3 evidências; recuperando do bloco antes de pesquisar novas fontes.")
-                evidencias_atuais = bloco_q.get("informacoes_relevantes", [])
-                if not isinstance(evidencias_atuais, list) or len(evidencias_atuais) != 3:
-                    # Compatibilidade com blocos que preservaram os três textos
-                    # autorizados, mas não o dicionário completo das evidências.
-                    autorizadas_salvas = bloco_q.get("fragmentos_autorizados", [])
-                    if isinstance(autorizadas_salvas, list) and len(autorizadas_salvas) == 3:
-                        evidencias_atuais = []
-                        for _i_ev, _ev in enumerate(autorizadas_salvas):
-                            if isinstance(_ev, dict):
-                                _item_ev = dict(_ev)
-                            else:
-                                _texto_ev = str(_ev or "").strip()
-                                _item_ev = {
-                                    "texto": _texto_ev,
-                                    "hash": gerar_hash_trecho(_texto_ev),
-                                    "fonte": "EVIDENCIA_RECUPERADA_DO_BLOCO",
-                                    "bloco_mead": chave_q,
-                                }
-                            evidencias_atuais.append(_item_ev)
-                if not isinstance(evidencias_atuais, list) or len(evidencias_atuais) != 3:
-                    try:
-                        _pesquisar_recuperacao = _pesquisadores_recuperacao_por_bloco.get(chave_q)
-                        if callable(_pesquisar_recuperacao):
-                            _pesquisar_recuperacao(chave_q)
-                    except Exception as _erro_pesquisa_sem_evidencia:
-                        print("⚠️ PESQUISA DE RECUPERAÇÃO SEM EVIDÊNCIA:", repr(_erro_pesquisa_sem_evidencia))
-                    # A pesquisa adiciona candidatos ao pool; ela não preenche
-                    # automaticamente informacoes_relevantes. Se não houver
-                    # nenhuma evidência preservada, montar um conjunto novo
-                    # usando o seletor já existente e seus mesmos gates Python.
-                    _pool_recuperacao = candidatos_por_bloco.get(chave_q, [])
-                    _atuais_validas = (
-                        [dict(_x) if isinstance(_x, dict) else {
-                            "texto": str(_x or "").strip(),
-                            "hash": gerar_hash_trecho(str(_x or "").strip()),
-                            "fonte": "EVIDENCIA_PRESERVADA_DO_BLOCO",
-                            "bloco_mead": chave_q,
-                        } for _x in evidencias_atuais]
-                        if isinstance(evidencias_atuais, list)
-                        else []
-                    )
-                    # Preserva as evidências ainda utilizáveis e completa apenas
-                    # as posições ausentes com candidatos do pool já filtrado.
-                    _hashes_ev = {
-                        str(_x.get("hash") or gerar_hash_trecho(_x.get("texto", "")))
-                        for _x in _atuais_validas if str(_x.get("texto", "") or "").strip()
-                    }
-                    for _item_pool in _pool_recuperacao:
-                        if len(_atuais_validas) >= 3:
-                            break
-                        _cand_pool = _item_pool.get("candidato") if isinstance(_item_pool, dict) else None
-                        if not isinstance(_cand_pool, dict):
-                            continue
-                        _cand_pool = dict(_cand_pool)
-                        _h_pool = str(_cand_pool.get("hash") or gerar_hash_trecho(_cand_pool.get("texto", "")))
-                        if not _h_pool or _h_pool in _hashes_ev or _h_pool in hashes_selecionados or _h_pool in quarentena_ollama_por_bloco.get(chave_q, set()):
-                            continue
-                        try:
-                            _pool_ok = (
-                                _candidato_utilizavel_recuperacao(_cand_pool)
-                                and _fragmento_compativel_recuperacao(_cand_pool, chave_q)
-                            )
-                        except Exception:
-                            _pool_ok = False
-                        if not _pool_ok:
-                            continue
-                        _cand_pool["hash"] = _h_pool
-                        _cand_pool["bloco_mead"] = chave_q
-                        _atuais_validas.append(_cand_pool)
-                        _hashes_ev.add(_h_pool)
-                        hashes_selecionados.add(_h_pool)
-                        fragmentos_selecionados.append(_cand_pool)
-                        _fonte_pool = _cand_pool.get("fonte")
-                        fontes_utilizadas[_fonte_pool] = fontes_utilizadas.get(_fonte_pool, 0) + 1
-                    if len(_atuais_validas) == 3:
-                        evidencias_atuais = _atuais_validas
-                        bloco_q["informacoes_relevantes"] = [dict(_x) for _x in evidencias_atuais]
-                        bloco_q["fragmentos_autorizados"] = [
-                            str(_x.get("texto", "") or "") for _x in evidencias_atuais
-                        ]
-                        evidencias_ollama_por_bloco[chave_q] = [dict(_x) for _x in evidencias_atuais]
-                        informacoes_blocos[chave_q] = bloco_q
-                    elif not _atuais_validas and _pool_recuperacao:
-                        try:
-                            _novo_conjunto_ev = _reselecionar_conjunto_apos_rejeicao(
-                                chave_q, [], "RECUPERAR_CONJUNTO_DE_EVIDENCIAS_AUSENTE",
-                                fragmentos_selecionados, hashes_selecionados, fontes_utilizadas,
-                                candidatos_por_bloco, blocos, blocos_informacoes,
-                                fragmentos_reserva_por_bloco
-                            )
-                            if isinstance(_novo_conjunto_ev, list) and len(_novo_conjunto_ev) == 3:
-                                evidencias_atuais = [dict(_x) for _x in _novo_conjunto_ev]
-                                bloco_q["informacoes_relevantes"] = [dict(_x) for _x in evidencias_atuais]
-                                bloco_q["fragmentos_autorizados"] = [
-                                    str(_x.get("texto", "") or "") for _x in evidencias_atuais
-                                ]
-                                evidencias_ollama_por_bloco[chave_q] = [dict(_x) for _x in evidencias_atuais]
-                                informacoes_blocos[chave_q] = bloco_q
-                        except Exception as _erro_reselecionar_conjunto:
-                            print("⚠️ NÃO FOI POSSÍVEL RECONSTRUIR O CONJUNTO DE EVIDÊNCIAS:", repr(_erro_reselecionar_conjunto))
-                    if not isinstance(evidencias_atuais, list) or len(evidencias_atuais) != 3:
-                        print(f"🔄 {chave_q}: evidências insuficientes nesta rodada; reiniciando a recuperação sem aprovar nem salvar.")
-                        continue
-
-            # Escolhe ciclicamente qual das três evidências será trocada. Cada
-            # hash já usada nesta recuperação é posta em quarentena e não volta.
-            indice = indice_substituicao % 3
-            indice_substituicao += 1
-            atual = evidencias_atuais[indice]
-            if not isinstance(atual, dict):
-                atual = {"texto": str(atual or ""), "hash": gerar_hash_trecho(str(atual or ""))}
-            hash_antiga = str(atual.get("hash") or gerar_hash_trecho(atual.get("texto", "")))
-
-            novo = _reselecionar_fragmento_apos_rejeicao(
-                chave_q, atual, indice, motivo_reparo,
-                fragmentos_selecionados, hashes_selecionados, fontes_utilizadas,
-                candidatos_por_bloco, blocos, blocos_informacoes,
-                fragmentos_reserva_por_bloco, remover_atual=True
-            )
-
-            # Se reserva e pool local acabaram, ampliar a pesquisa para a lacuna
-            # específica do bloco. Só continuar se a pesquisa trouxer hashes novas.
-            if not isinstance(novo, dict):
-                antes = {
-                    str(((item or {}).get("candidato") or {}).get("hash") or
-                        gerar_hash_trecho(((item or {}).get("candidato") or {}).get("texto", "")))
-                    for item in candidatos_por_bloco.get(chave_q, []) if isinstance(item, dict)
-                }
-                try:
-                    # A rotina foi registrada quando o bloco foi processado;
-                    # sua closure conserva o estado de URLs e hashes tentadas.
-                    _pesquisar_recuperacao = _pesquisadores_recuperacao_por_bloco.get(chave_q)
-                    if not callable(_pesquisar_recuperacao):
-                        raise RuntimeError(
-                            f"pesquisa de recuperação não registrada para {chave_q}"
-                        )
-                    adicionados = _pesquisar_recuperacao(chave_q)
-                except Exception as exc_pesquisa:
-                    adicionados = 0
-                    print("⚠️ ERRO NA PESQUISA COMPLEMENTAR:", repr(exc_pesquisa))
-                depois = {
-                    str(((item or {}).get("candidato") or {}).get("hash") or
-                        gerar_hash_trecho(((item or {}).get("candidato") or {}).get("texto", "")))
-                    for item in candidatos_por_bloco.get(chave_q, []) if isinstance(item, dict)
-                }
-                hashes_novas = depois - antes - hashes_testadas
-                if adicionados and hashes_novas:
-                    novo = _reselecionar_fragmento_apos_rejeicao(
-                        chave_q, atual, indice, motivo_reparo,
-                        fragmentos_selecionados, hashes_selecionados, fontes_utilizadas,
-                        candidatos_por_bloco, blocos, blocos_informacoes,
-                        fragmentos_reserva_por_bloco, remover_atual=False
-                    )
-                else:
-                    pesquisas_sem_novos += 1
-                    print(
-                        f"🔎 {chave_q}: ciclo de pesquisa {pesquisas_sem_novos} não trouxe hash elegível; "
-                        "a busca vai avançar para outras consultas e fontes."
-                    )
-
-            if not isinstance(novo, dict):
-                # Não encerrar por esgotamento momentâneo de candidatos. O próximo
-                # ciclo executa uma nova janela de consultas, com termos diferentes.
-                # Só uma falha operacional externa (ex.: interrupção do processo)
-                # deve encerrar a recuperação; nunca declarar aprovado sem passar no gate.
-                print(f"🔄 {chave_q}: nenhuma hash elegível neste ciclo; iniciando nova rodada de pesquisa.")
-                continue
-
-            hash_nova = str(novo.get("hash") or gerar_hash_trecho(novo.get("texto", "")))
-            if not hash_nova or hash_nova in hashes_testadas or hash_nova == hash_antiga:
-                print(f"⚠️ {chave_q}: candidato repetido ({hash_nova}); buscando próxima evidência.")
-                continue
-            hashes_testadas.add(hash_nova)
-            pesquisas_sem_novos = 0  # reinicia ao obter progresso real
-            evidencias_atuais = [dict(x) if isinstance(x, dict) else x for x in evidencias_atuais]
-            evidencias_atuais[indice] = dict(novo)
-            evidencias_ollama_por_bloco[chave_q] = [dict(x) if isinstance(x, dict) else x for x in evidencias_atuais]
-            bloco_q["informacoes_relevantes"] = [dict(x) if isinstance(x, dict) else x for x in evidencias_atuais]
-            bloco_q["fragmentos_autorizados"] = [str(x.get("texto", "") or "") if isinstance(x, dict) else str(x or "") for x in evidencias_atuais]
-            informacoes_blocos[chave_q] = bloco_q
-
-            prompt_reparo = prompts_ollama_por_bloco.get(chave_q)
-            if not prompt_reparo:
-                # Recuperação de contingência: não abandonar o bloco só porque
-                # o cache do prompt sumiu. Prioriza prompts preservados no bloco;
-                # se não existirem, monta um prompt mínimo sem alterar o caminho
-                # normal nem relaxar os gates de qualidade.
-                prompt_reparo = (
-                    bloco_q.get("prompt_ollama")
-                    or bloco_q.get("prompt_base")
-                    or bloco_q.get("prompt")
-                    or ""
-                )
-                if not prompt_reparo:
-                    _funcao_editorial_fallback = (
-                        mapa_mead.get(chave_q, "")
-                        if isinstance(mapa_mead, dict)
-                        else ""
-                    )
-                    prompt_reparo = f"""
-Você é um redator técnico. Escreva exatamente três parágrafos completos em português do Brasil sobre o tema/palavra-chave: {tema}.
-Função editorial deste segmento: { _funcao_editorial_fallback or chave_q }.
-Use exclusivamente os fatos sustentados pelas três evidências fornecidas. Não invente dados, números, marcas, normas, empresas, especificações, causas ou benefícios. Não mencione fontes, evidências, prompts ou o processo de escrita. Cada parágrafo deve acrescentar um fato ou ângulo diferente. Inclua a palavra-chave literal uma vez por parágrafo, com concordância correta em português; reescreva a frase ao redor dela, sem pluralizar a expressão. Evite marketing genérico e afirmações técnicas não demonstradas. Retorne somente os três parágrafos, sem títulos, rótulos ou listas.
-"""
-                prompts_ollama_por_bloco[chave_q] = prompt_reparo
-            instrucao_reparo = f"""
-
-RECUPERAÇÃO DO GATE FINAL — {chave_q}
-A versão anterior foi reprovada por: {motivo_reparo}.
-Foi selecionada uma nova evidência/hash para substituir apenas a evidência de índice {indice + 1}.
-
-CORREÇÃO DIRECIONADA:
-- Se houver FIDELIDADE_LEXICAL_INSUFICIENTE: mantenha os conceitos e termos técnicos efetivamente presentes nas evidências atuais; não acrescente conteúdo externo.
-- Se houver NUMEROS_OU_UNIDADES_NOVOS: remova números, percentuais, medidas e unidades que não estejam explicitamente nas evidências atuais.
-- Se houver METATEXTO_DETECTADO: elimine comentários sobre fontes, trechos, evidências, revisão ou processo de escrita; redija diretamente para o leitor.
-- Se houver CONTEUDO_COMERCIAL_OU_CTA: retire chamadas comerciais, promessas e linguagem promocional.
-- Se houver INCOMPATIBILIDADE_MEAD: alinhe o conteúdo à função editorial de {chave_q}, usando somente fatos sustentados pelas evidências.
-- Se houver sinais de repetição ou progressão fraca: faça cada parágrafo acrescentar uma informação diferente; não repita uma explicação apenas trocando palavras.
-- Se houver problema de estrutura: entregue exatamente três parágrafos completos, com pontuação final e sem etiquetas no texto dos parágrafos.
-
-Redija novamente os três parágrafos usando as evidências atuais. Preserve os fatos autorizados, não invente números, marcas, empresas, normas ou códigos e cumpra a função editorial de {chave_q}. Mantenha a palavra-chave literal conforme as regras do prompt original, mas não a use para iniciar mecanicamente todos os parágrafos.
-"""
-            try:
-                resultado_reparo, erro_reparo = _processar_bloco_ollama_com_retentativas(
-                    prompt_reparo + instrucao_reparo, evidencias_atuais, chave_q
-                )
-            except Exception as exc_reparo:
-                resultado_reparo, erro_reparo = None, repr(exc_reparo)
-            if not isinstance(resultado_reparo, list) or len(resultado_reparo) != 3:
-                print(f"⚠️ {chave_q}: Ollama não retornou 3 parágrafos; será usada a próxima hash se houver.", str(erro_reparo)[:300])
-                continue
-
-            bloco_q["paragrafos_ollama"] = [str(x or "").strip() for x in resultado_reparo]
-            informacoes_blocos[chave_q] = bloco_q
-            paras_q = bloco_q["paragrafos_ollama"]
-            frags_q = evidencias_atuais
-            aprovado_q, nota_q, falhas_q, detalhes_q = avaliar_qualidade_final_python(
-                titulo_q, paras_q, frags_q, chave_q, tema
-            )
-            if aprovado_q:
-                print(f"🟢 {chave_q}: APROVADO após trocar a hash {hash_nova} — {nota_q:.1f}/10")
-            else:
-                print(f"🟡 {chave_q}: ainda reprovado; será selecionada outra hash. QUALIDADE: {nota_q:.1f}/10")
-
-        qualidade_pagina.append({
-            "bloco": chave_q, "nota": nota_q, "aprovado": aprovado_q,
-            "falhas": falhas_q, "detalhes": detalhes_q,
-        })
-        status_q = "🟢 APROVADO" if aprovado_q else "🔴 REPROVADO"
-        print(f"{status_q} — {chave_q} — QUALIDADE: {nota_q:.1f}/10")
-        if falhas_q:
-            print("   FALHAS CRÍTICAS:", ", ".join(falhas_q))
-        print("   COBERTURA FACTUAL:", detalhes_q.get("cobertura_factual_lexical"))
-        if not aprovado_q:
-            qualidade_reprovada = True
-            print(f"   ⚠️ {chave_q}: recuperação não atingiu o critério de aprovação; blocos aprovados foram preservados.")
 
     nota_pagina = min((x["nota"] for x in qualidade_pagina), default=0.0)
     media_pagina = sum(x["nota"] for x in qualidade_pagina) / max(1, len(qualidade_pagina))
@@ -37900,111 +37931,6 @@ def abrir_interface():
 
     janela.geometry(
         "1200x800"
-    )
-
-
-    # =====================================
-    # PAINEL LATERAL
-    # ESTRUTURA EDITORIAL
-    # =====================================
-
-    frame_editorial = tk.LabelFrame(
-        janela,
-        text="ESTRUTURA EDITORIAL",
-        padx=12,
-        pady=12
-    )
-
-    frame_editorial.pack(
-        side="right",
-        fill="y",
-        padx=10,
-        pady=10
-    )
-
-
-    # ========================================================
-    # 01. TÍTULO DO PAINEL
-    # ========================================================
-
-    tk.Label(
-        frame_editorial,
-        text="Selecione os conteúdos\ndesta página:",
-        font=("Arial", 10, "bold"),
-        justify="left"
-    ).pack(
-        anchor="w",
-        pady=(0, 10)
-    )
-
-
-    # ========================================================
-    # 02. CHECKBOXES
-    # ========================================================
-
-    for chave, nome in NOMES_BLOCOS_EDITORIAIS.items():
-
-        variavel = tk.BooleanVar(
-            value=ESTRUTURA_EDITORIAL.get(
-                chave,
-                True
-            )
-        )
-
-        VARIAVEIS_EDITORIAIS[chave] = variavel
-
-        tk.Checkbutton(
-            frame_editorial,
-            text=nome,
-            variable=variavel,
-            anchor="w",
-            justify="left",
-            command=atualizar_estrutura_editorial
-        ).pack(
-            anchor="w",
-            fill="x",
-            pady=2
-        )
-
-
-    # ========================================================
-    # 03. SEPARADOR
-    # ========================================================
-
-    tk.Frame(
-        frame_editorial,
-        height=2
-    ).pack(
-        fill="x",
-        pady=10
-    )
-
-
-    # ========================================================
-    # 04. SELECIONAR TODOS
-    # ========================================================
-
-    tk.Button(
-        frame_editorial,
-        text="SELECIONAR TODOS",
-        command=selecionar_todos_blocos_editoriais
-    ).pack(
-        fill="x",
-        pady=3
-    )
-
-
-    # ========================================================
-    # 05. LIMPAR SELEÇÃO
-    # ========================================================
-
-    tk.Button(
-        frame_editorial,
-        text="LIMPAR SELEÇÃO",
-        command=limpar_blocos_editoriais
-    ).pack(
-        fill="x",
-        pady=3
     )
 
 
