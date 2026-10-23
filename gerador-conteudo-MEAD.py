@@ -1,4 +1,4 @@
-# gerador-conteudo-MEAD.py - 22/10/2026
+# gerador-conteudo-MEAD.py - 13/10/2026
 # v14 — prompt editorial + contagem literal + histórico integrado ao banco JSON
 # Inclui triagem inicial paralela limitada (2 workers), validação por parágrafo,
 # correção orientada pelo prompt e rotação contextual sem arquivo auxiliar.
@@ -16635,20 +16635,18 @@ TRECHO:
     # Uma reserva por bloco; só será consumida se houver
     # uma re-seleção necessária após rejeição real.
     # --------------------------------------------------------
-    # RESERVAS EM MEMÓRIA — TENTAR 60; APROVAR A PARTIR DE 45
-    # Até 20 hashes exclusivas por parágrafo (60 por bloco).
-    # Se não for possível completar 60, o bloco ainda pode prosseguir
-    # com pelo menos 45 reservas, distribuídas de forma equilibrada:
-    # mínimo de 15 e máximo de 20 por parágrafo.
+    # RESERVAS EM MEMÓRIA — 20 HASHES CANDIDATOS POR PARÁGRAFO
+    # Cada bloco possui 3 parágrafos; o teto é de até 60 candidatos por bloco.
+    # Cada hash reservada é atribuída a um único parágrafo do bloco.
+    # As três filas são disjuntas e nunca compartilham reservas entre si.
     # --------------------------------------------------------
     RESERVAS_POR_PARAGRAFO = 20
-    MIN_RESERVAS_POR_PARAGRAFO = 15
     PARAGRAFOS_POR_BLOCO = 3
     META_RESERVAS_POR_BLOCO = RESERVAS_POR_PARAGRAFO * PARAGRAFOS_POR_BLOCO
-    MIN_RESERVAS_POR_BLOCO = MIN_RESERVAS_POR_PARAGRAFO * PARAGRAFOS_POR_BLOCO
 
-    # Tentar completar todas as 60 reservas do bloco antes de desistir.
-    # As reservas são exclusivas e nunca são compartilhadas entre blocos.
+    # Abastecer sequencialmente: completar bloco 1, depois bloco 2, etc.
+    # O estoque de um bloco só é considerado pronto quando as três filas
+    # possuem 20 reservas aprovadas e exclusivas cada.
     ORDEM_PRIORIDADE_ESTOQUE = (1, 2, 3, 4, 5)
     MAX_CICLOS_PESQUISA_RESERVAS = 6
     MAX_CICLOS_SEM_CANDIDATOS_NOVOS = 2
@@ -16659,18 +16657,25 @@ TRECHO:
         reservas_bloco = []
         ciclos_pesquisa_reservas = 0
         ciclos_sem_candidatos_novos = 0
+        # Um hash reservado por um bloco fica bloqueado para os demais.
         hashes_bloqueio_reserva = set(hashes_reservados_globalmente)
 
         for _ in range(META_RESERVAS_POR_BLOCO):
+
             escolhido_reserva = selecionar_melhor_candidato(
-                candidatos_por_bloco.get(chave_bloco, []),
+                candidatos_por_bloco.get(
+                    chave_bloco,
+                    []
+                ),
                 chave_bloco,
                 hashes_bloqueio_reserva
             )
 
             if escolhido_reserva is None:
-                # Continuar a recuperação do mesmo bloco até completar 60,
-                # atingir os limites de tentativa ou esgotar candidatos elegíveis.
+                # Pesquisa complementar específica deste bloco, ainda na fase
+                # Python e antes de qualquer chamada de geração ao Ollama.
+                # Só avançar para o próximo bloco depois de completar as 60
+                # reservas atuais ou de esgotar as tentativas de pesquisa.
                 if ciclos_pesquisa_reservas >= MAX_CICLOS_PESQUISA_RESERVAS:
                     print(f"⚠️ {chave_bloco}: limite de ciclos de pesquisa de reserva atingido ({MAX_CICLOS_PESQUISA_RESERVAS}).")
                     break
@@ -16682,64 +16687,67 @@ TRECHO:
                     print(f"⚠️ PESQUISA DE RESERVAS FALHOU — {chave_bloco}:", repr(erro_pesquisa_reserva)[:220])
                 if novos_candidatos_reserva:
                     ciclos_sem_candidatos_novos = 0
-                    print(f"🔎 {chave_bloco}: +{novos_candidatos_reserva} candidatos aprovados por Python; retomando a recuperação rumo a 60 reservas.")
+                    print(f"🔎 {chave_bloco}: +{novos_candidatos_reserva} candidatos aprovados por Python; retomando a mesma fila de reservas.")
                     continue
                 ciclos_sem_candidatos_novos += 1
                 print(f"🔎 {chave_bloco}: pesquisa sem novo candidato elegível ({ciclos_sem_candidatos_novos}/{MAX_CICLOS_SEM_CANDIDATOS_NOVOS}).")
                 if ciclos_sem_candidatos_novos < MAX_CICLOS_SEM_CANDIDATOS_NOVOS:
                     continue
-                print(f"⚠️ {chave_bloco}: não foi possível encontrar mais reservas exclusivas; avaliando o mínimo de {MIN_RESERVAS_POR_BLOCO}.")
+                print(f"❌ {chave_bloco}: sem novas evidências aprovadas; estoque deste bloco ficará incompleto e o Ollama será bloqueado.")
                 break
 
-            escolhido_reserva = dict(escolhido_reserva)
+            escolhido_reserva = dict(
+                escolhido_reserva
+            )
             escolhido_reserva["bloco_mead"] = chave_bloco
+
             hash_reserva = (
                 escolhido_reserva.get("hash")
-                or gerar_hash_trecho(escolhido_reserva.get("texto", ""))
+                or gerar_hash_trecho(
+                    escolhido_reserva.get("texto", "")
+                )
             )
             escolhido_reserva["hash"] = hash_reserva
 
-            if not hash_reserva or hash_reserva in hashes_bloqueio_reserva:
-                # Não encerrar o ciclo todo por um candidato inválido; a
-                # próxima iteração continuará procurando outro candidato.
-                continue
+            if (
+                not hash_reserva
+                or hash_reserva in hashes_bloqueio_reserva
+            ):
+                break
 
             escolhido_reserva["_reserva_memoria"] = True
-            reservas_bloco.append(escolhido_reserva)
-            hashes_bloqueio_reserva.add(hash_reserva)
+            reservas_bloco.append(
+                escolhido_reserva
+            )
+            hashes_bloqueio_reserva.add(
+                hash_reserva
+            )
             hashes_reservados_globalmente.add(hash_reserva)
 
-        total_bloco = len(reservas_bloco)
-        if total_bloco < MIN_RESERVAS_POR_BLOCO:
+        if len(reservas_bloco) != META_RESERVAS_POR_BLOCO:
             print("\n" + "=" * 68)
-            print(f"❌ BLOCO NÃO COMPLETO: {chave_bloco} — {total_bloco}/{META_RESERVAS_POR_BLOCO} reservas aprovadas; mínimo para aprovação: {MIN_RESERVAS_POR_BLOCO}.")
-            print("A recuperação tentou chegar a 60, mas não alcançou o mínimo de 45 reservas exclusivas.")
+            print(f"❌ BLOCO NÃO COMPLETO: {chave_bloco} — {len(reservas_bloco)}/{META_RESERVAS_POR_BLOCO} reservas aprovadas.")
+            print("A pesquisa deste bloco não conseguiu completar o estoque dentro dos ciclos disponíveis.")
             print("O próximo bloco NÃO será pesquisado e o Ollama NÃO será iniciado.")
             print("=" * 68)
             return resultado_vazio
 
-        fragmentos_reserva_por_bloco[chave_bloco] = [dict(_r) for _r in reservas_bloco]
+        fragmentos_reserva_por_bloco[
+            chave_bloco
+        ] = reservas_bloco
 
-        # Distribuição equilibrada em rodízio: 45 reservas resultam em 15 por
-        # parágrafo; reservas adicionais vão alternadamente até o teto de 20.
-        _filas_paragrafo = [[] for _ in range(PARAGRAFOS_POR_BLOCO)]
-        for _indice_reserva, _reserva in enumerate(reservas_bloco):
-            _indice_fila = _indice_reserva % PARAGRAFOS_POR_BLOCO
-            _reserva_exclusiva = dict(_reserva)
-            _reserva_exclusiva["paragrafo_reserva"] = _indice_fila + 1
-            _filas_paragrafo[_indice_fila].append(_reserva_exclusiva)
-
-        _contagens_filas = [len(_fila) for _fila in _filas_paragrafo]
-        if any(_q < MIN_RESERVAS_POR_PARAGRAFO or _q > RESERVAS_POR_PARAGRAFO for _q in _contagens_filas):
-            print(f"❌ BLOCO NÃO COMPLETO: {chave_bloco} — distribuição inválida das reservas por parágrafo: {_contagens_filas}.")
-            return resultado_vazio
-
-        for _indice_paragrafo, _fila_exclusiva in enumerate(_filas_paragrafo):
+        # Cada parágrafo recebe uma fila própria de 20 hashes exclusivas.
+        # A divisão é feita uma única vez após a seleção do estoque do bloco;
+        # uma hash atribuída a P1/P2/P3 não pode ser consumida pelos outros.
+        for _indice_paragrafo in range(PARAGRAFOS_POR_BLOCO):
+            _inicio = _indice_paragrafo * RESERVAS_POR_PARAGRAFO
+            _fim = _inicio + RESERVAS_POR_PARAGRAFO
+            _fila_exclusiva = [dict(_r) for _r in reservas_bloco[_inicio:_fim]]
+            for _reserva_exclusiva in _fila_exclusiva:
+                _reserva_exclusiva["paragrafo_reserva"] = _indice_paragrafo + 1
             fragmentos_reserva_por_bloco[f"{chave_bloco}:P{_indice_paragrafo + 1}"] = _fila_exclusiva
 
-        print(f"✅ ESTOQUE {chave_bloco}: {total_bloco}/60 reservas; filas por parágrafo: " + ", ".join(f"P{i+1}={len(f)}" for i, f in enumerate(_filas_paragrafo)))
-
-    # Contar somente as 15 filas exclusivas; as listas-mãe por bloco são
+    # Contar somente as 15 filas exclusivas. As listas-mãe por bloco são
     # espelhos de armazenamento e não podem ser somadas novamente ao total.
     total_reservas_memoria = sum(
         len(fragmentos_reserva_por_bloco.get(f"bloco_{_n}:P{_p}", []))
@@ -16750,29 +16758,25 @@ TRECHO:
     print(
         "RESERVAS EXCLUSIVAS EM MEMÓRIA:",
         total_reservas_memoria,
-        f"/ até {RESERVAS_POR_PARAGRAFO * 5 * PARAGRAFOS_POR_BLOCO} (meta 60 por bloco; mínimo 45 por bloco; filas independentes)"
+        f"/ {RESERVAS_POR_PARAGRAFO * 5 * PARAGRAFOS_POR_BLOCO} (20 hashes por parágrafo; filas independentes)"
     )
     print("ORDEM DE ABASTECIMENTO DO ESTOQUE:", "bloco_1 → bloco_2 → bloco_3 → bloco_4 → bloco_5")
     for _n_reserva in ORDEM_PRIORIDADE_ESTOQUE:
         _chave_estoque = f"bloco_{_n_reserva}"
-        print(f"ESTOQUE {_chave_estoque}: {len(fragmentos_reserva_por_bloco.get(_chave_estoque, []))}/60 reservas aprovadas em memória (mínimo 45)")
+        print(f"ESTOQUE {_chave_estoque}: {len(fragmentos_reserva_por_bloco.get(_chave_estoque, []))} reservas aprovadas em memória")
         for _p_reserva in range(1, 4):
-            print(f"  {_chave_estoque} P{_p_reserva}: {len(fragmentos_reserva_por_bloco.get(f'{_chave_estoque}:P{_p_reserva}', []))}/{RESERVAS_POR_PARAGRAFO} hashes exclusivas (mínimo {MIN_RESERVAS_POR_PARAGRAFO})")
+            print(f"  {_chave_estoque} P{_p_reserva}: {len(fragmentos_reserva_por_bloco.get(f'{_chave_estoque}:P{_p_reserva}', []))}/{RESERVAS_POR_PARAGRAFO} hashes exclusivas")
 
     # ========================================================
-    # BARREIRA OBRIGATÓRIA — 45 A 60 RESERVAS POR BLOCO
+    # BARREIRA OBRIGATÓRIA — NÃO INICIAR O OLLAMA SEM 300 RESERVAS
     # ========================================================
-    # Cada parágrafo precisa de 15 a 20 hashes exclusivas, válidas e distintas.
-    # As reservas devem diferir das hashes principais e das reservas de outros
-    # parágrafos/blocos. Não é necessário completar 300 se todos os blocos
-    # atingirem o mínimo de 45 (total mínimo possível: 225).
+    # Cada um dos 15 parágrafos precisa ter 20 hashes aprovadas, válidas,
+    # distintas entre si e diferentes das 15 hashes principais selecionadas.
+    # Falta de estoque bloqueia a execução antes de qualquer chamada ao Ollama.
     _erros_estoque = []
     _hashes_reserva_global = []
     for _n_bloco in range(1, 6):
         _chave_b = f"bloco_{_n_bloco}"
-        _total_b = len(fragmentos_reserva_por_bloco.get(_chave_b, []))
-        if not (MIN_RESERVAS_POR_BLOCO <= _total_b <= META_RESERVAS_POR_BLOCO):
-            _erros_estoque.append(f"{_chave_b}: {_total_b}/60 reservas; mínimo {MIN_RESERVAS_POR_BLOCO}")
         for _p in range(1, 4):
             _chave_fila = f"{_chave_b}:P{_p}"
             _fila = fragmentos_reserva_por_bloco.get(_chave_fila, [])
@@ -16780,18 +16784,18 @@ TRECHO:
                 str(_r.get("hash") or gerar_hash_trecho(_r.get("texto", "")) or "").strip()
                 for _r in _fila if isinstance(_r, dict)
             ]
-            if not (MIN_RESERVAS_POR_PARAGRAFO <= len(_fila) <= RESERVAS_POR_PARAGRAFO):
-                _erros_estoque.append(f"{_chave_fila}: {len(_fila)}/20 reservas; mínimo {MIN_RESERVAS_POR_PARAGRAFO}")
+            if len(_fila) != RESERVAS_POR_PARAGRAFO:
+                _erros_estoque.append(f"{_chave_fila}: {len(_fila)}/{RESERVAS_POR_PARAGRAFO} reservas")
             if len(_hashes_fila) != len(_fila) or any(not _h for _h in _hashes_fila):
                 _erros_estoque.append(f"{_chave_fila}: hash ausente ou registro inválido")
             if len(set(_hashes_fila)) != len(_hashes_fila):
                 _erros_estoque.append(f"{_chave_fila}: hashes repetidas dentro da fila")
             _hashes_reserva_global.extend(_hashes_fila)
 
-    if len(_hashes_reserva_global) != len(set(_hashes_reserva_global)):
+    if len(_hashes_reserva_global) != 300 or len(set(_hashes_reserva_global)) != 300:
         _erros_estoque.append(
             f"unicidade global inválida: {len(_hashes_reserva_global)} hashes listadas, "
-            f"{len(set(_hashes_reserva_global))} únicas"
+            f"{len(set(_hashes_reserva_global))} únicas; esperado 300/300"
         )
 
     _hashes_principais = {
@@ -16809,11 +16813,11 @@ TRECHO:
         print("O Ollama e a geração dos parágrafos NÃO serão iniciados.")
         for _erro_estoque in _erros_estoque:
             print("  -", _erro_estoque)
-        print("Cada bloco precisa de pelo menos 45 reservas, com no mínimo 15 por parágrafo.")
+        print("Complete e valide todas as 300 reservas antes de continuar.")
         print("=" * 68)
         return resultado_vazio
 
-    print(f"✅ BARREIRA DE RESERVAS APROVADA: todos os 5 blocos têm entre 45 e 60 reservas; mínimo de 15 por parágrafo; {total_reservas_memoria} hashes exclusivas no total.")
+    print("✅ BARREIRA DE RESERVAS APROVADA: 15/15 filas completas; 300/300 hashes exclusivas.")
 
     # ========================================================
     # 07.8 — TRIAGEM SIMPLIFICADA OLLAMA ANTES DA GRAVAÇÃO
@@ -16965,9 +16969,8 @@ TRECHO:
         return True
 
     # A triagem prévia por Ollama foi removida de propósito: os trechos e
-    # as reservas disponíveis (mínimo de 45 por bloco, meta de 60) precisam
-    # passar pelos gates Python antes de o modelo receber qualquer conteúdo.
-    # O Ollama será chamado somente para
+    # as 300 reservas precisam ser aprovados pelos gates Python antes de o
+    # modelo receber qualquer conteúdo. O Ollama será chamado somente para
     # redigir os parágrafos finais, após a barreira completa de reservas.
     print("VALIDAÇÃO DAS EVIDÊNCIAS: PYTHON — sem chamadas Ollama de triagem")
 
@@ -23372,7 +23375,7 @@ def gerar_conteudo_completo(
             break
 
         # Não tomar candidatos de outra fila nem iniciar pesquisa externa aqui.
-        # Se as reservas exclusivas disponíveis (15 a 20 por parágrafo) se esgotarem, a recuperação
+        # Se as 20 reservas exclusivas deste parágrafo se esgotarem, a recuperação
         # falha de forma explícita e o bloco não pode ser liberado incompleto.
 
         if novo is None:
@@ -26280,7 +26283,7 @@ Retorne exatamente três parágrafos, sem títulos ou rótulos.
                 )
 
                 # Não iniciar pesquisa externa nem consumir candidatos de outra fila.
-                # A fila exclusiva de 15 a 20 hashes deste parágrafo é a fonte de recuperação.
+                # A fila exclusiva de 20 hashes deste parágrafo é a fonte de recuperação.
                 if not isinstance(novo, dict):
                     pesquisas_sem_novos += 1
                     qualidade_reprovada = True
