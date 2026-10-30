@@ -1,4 +1,4 @@
-# gerador-conteudo-MEAD.py - 28/10/2026 - v99
+# gerador-conteudo-MEAD.py - 28/10/2026 - v99.1 qualidade + 150 reservas
 
 
 
@@ -3253,19 +3253,20 @@ def pesquisar(termo, limite=10):
 
 def pesquisar_completo(tema, estrutura_editorial=None, limite_total=100):
     """
-    Pesquisa URLs para o tema e assuntos editoriais disponíveis.
+    Pesquisa URLs em uma única etapa delimitada para a palavra-chave.
 
-    Executa uma consulta principal e até 19 consultas complementares,
-    usando até dois termos por assunto. Deduplica URLs e respeita o limite
-    total. Esta função localiza URLs; não abre páginas nem aprova hashes.
+    Combina a consulta original, variantes semanticamente justificadas e poucas
+    consultas contextuais/comerciais. Deduplica URLs e respeita limites de tempo
+    e volume. A função apenas localiza URLs; não abre páginas nem aprova hashes.
     """
     tema = str(tema or "").strip()
     if not tema:
         print("PESQUISA COMPLETA IGNORADA: tema vazio.")
         return []
 
-    estrutura = normalizar_checkboxes_editoriais(estrutura_editorial)
-    assuntos_ativos = assuntos_editoriais_ativos(estrutura)
+    # Não carrega uma lista editorial fixa para orientar a pesquisa. As consultas
+    # complementares serão montadas a partir do sentido real da keyword.
+    analise_pesquisa = _mead_analisar_intencao_tema(tema)
 
     try:
         limite_total = max(1, int(limite_total))
@@ -3293,12 +3294,12 @@ def pesquisar_completo(tema, estrutura_editorial=None, limite_total=100):
 
         return len(urls_finais) >= limite_total
 
-    max_consultas = 20
+    max_consultas = 10
     consultas_feitas = 0
 
     print("\nPESQUISA COMPLETA: tema =", tema)
-    print("ASSUNTOS EDITORIAIS ATIVOS:", assuntos_ativos or "nenhum")
-    print("LIMITE DE CONSULTAS:", max_consultas)
+    print("ESTRATÉGIA: núcleo + modificadores semânticos + consultas contextuais/comerciais; sem taxonomia editorial fixa.")
+    print("LIMITE DE CONSULTAS NESTA ETAPA ÚNICA:", max_consultas)
     print("LIMITE DE URLs ÚNICAS:", limite_total)
 
     # 1. A consulta principal sempre é executada.
@@ -3320,49 +3321,100 @@ def pesquisar_completo(tema, estrutura_editorial=None, limite_total=100):
     except Exception as erro:
         print(f"PESQUISA COMPLETA: falha na consulta principal: {erro}")
 
-    # 2. Consultas complementares por assunto editorial.
-    # Cada assunto fornece até dois termos, sem exceder o teto global.
-    for assunto in assuntos_ativos:
-        termos = TERMOS_PESQUISA_CHECKBOX.get(assunto, [])
-        if not termos:
+    # 2. Consultas semânticas do próprio tema, priorizadas antes dos eixos gerais.
+    # Esta função só é chamada quando o patrimônio local já foi considerado insuficiente.
+    try:
+        consultas_semanticas = _mead_consultas_semanticas_tema(tema, limite=6)
+    except Exception:
+        consultas_semanticas = [tema]
+    for consulta_semantica in consultas_semanticas:
+        if _mead_norm(consulta_semantica) == _mead_norm(tema):
+            continue
+        restantes = limite_total - len(urls_finais)
+        if restantes <= 0 or consultas_feitas >= max_consultas:
+            break
+        consultas_feitas += 1
+        print(
+            f"PESQUISA COMPLETA: consulta {consultas_feitas}/{max_consultas} "
+            f"— dimensão semântica — {consulta_semantica}"
+        )
+        try:
+            resultados_semanticos = pesquisar(
+                consulta_semantica,
+                limite=min(10, restantes)
+            )
+            if adicionar(resultados_semanticos):
+                print("PESQUISA COMPLETA: consultas realizadas:", consultas_feitas)
+                print("PESQUISA COMPLETA: URLs únicas encontradas:", len(urls_finais))
+                return urls_finais
+        except Exception as erro:
+            print(f"PESQUISA COMPLETA: falha na consulta semântica '{consulta_semantica}': {erro}")
             continue
 
-        for termo in termos[:2]:
-            restantes = limite_total - len(urls_finais)
-            if restantes <= 0 or consultas_feitas >= max_consultas:
-                break
+    # 3. Consultas contextuais e comerciais construídas a partir da intenção real.
+    # São rotas de descoberta; não são categorias obrigatórias para os parágrafos.
+    analise = analise_pesquisa
+    base_busca = analise.get("nucleo_para_busca") or tema
+    assunto = analise.get("assunto_central") or base_busca
+    assunto_norm = _mead_norm(assunto)
+    eixos = analise.get("modalidades", []) + analise.get("condicoes_ou_objetivos", [])
+    modo = eixos[0].get("rotulo", "") if analise.get("modalidades") else ""
+    alvo = analise["condicoes_ou_objetivos"][0].get("rotulo", "") if analise.get("condicoes_ou_objetivos") else ""
 
-            termo = str(termo or "").strip()
-            if not termo:
-                continue
+    eh_servico_psicologico = assunto_norm in {"terapia", "psicoterapia", "psicologo", "psicologa", "psicologia"}
+    if eh_servico_psicologico:
+        consultas_complementares = [
+            f"atendimento psicológico {modo} para {alvo}" if modo and alvo else f"atendimento psicológico {assunto}",
+            f"psicoterapia {modo} para {alvo}" if modo and alvo else f"psicoterapia {modo or assunto}",
+            f"como funciona {assunto} {modo} para {alvo}" if modo and alvo else f"como funciona {assunto}",
+            f"profissional de psicologia atendimento {modo} {alvo}".strip(),
+            f"serviço de {assunto} {modo} {alvo}".strip(),
+            f"orientações para escolher {assunto} {modo} {alvo}".strip(),
+            f"sessões de {assunto} {modo} {alvo}".strip(),
+            f"atendimento remoto saúde mental {alvo}".strip() if modo else f"atendimento e orientação {assunto}",
+            f"como funciona o atendimento {modo} {alvo}".strip() if modo and alvo else f"informações sobre {assunto}",
+            f"serviços de psicologia e formas de atendimento {modo}".strip(),
+        ]
+    else:
+        consultas_complementares = [
+            f"fornecedor de {base_busca}",
+            f"fornecimento de {base_busca}",
+            f"empresa que fornece {base_busca}",
+            f"distribuidor de {base_busca}",
+            f"venda e disponibilidade de {base_busca}",
+            f"orçamento para fornecimento de {base_busca}",
+            f"funcionamento de {base_busca}",
+            f"aplicações e contextos de uso de {base_busca}",
+            f"critérios para seleção de {base_busca}",
+            f"dados técnicos e especificações de {base_busca}",
+            f"instalação e manutenção de {base_busca}",
+            f"catálogo e documentação técnica de {base_busca}",
+        ]
 
-            consulta = f"{termo} {tema}".strip()
-            consultas_feitas += 1
-
-            print(
-                f"PESQUISA COMPLETA: consulta {consultas_feitas}/{max_consultas} "
-                f"— assunto={assunto} — {consulta}"
-            )
-
-            try:
-                resultados = pesquisar(
-                    consulta,
-                    limite=min(10, restantes)
-                )
-                if adicionar(resultados):
-                    print("PESQUISA COMPLETA: consultas realizadas:", consultas_feitas)
-                    print("PESQUISA COMPLETA: URLs únicas encontradas:", len(urls_finais))
-                    return urls_finais
-            except Exception as erro:
-                print(
-                    "PESQUISA COMPLETA: falha na consulta "
-                    f"'{consulta}': {erro}"
-                )
-                # Uma falha não impede as próximas consultas.
-                continue
-
-        if consultas_feitas >= max_consultas or len(urls_finais) >= limite_total:
+    consultadas_norm = {_mead_norm(tema)}
+    for consulta in consultas_complementares:
+        consulta = re.sub(r"\s+", " ", str(consulta or "")).strip()
+        consulta_norm = _mead_norm(consulta)
+        if not consulta_norm or consulta_norm in consultadas_norm:
+            continue
+        restantes = limite_total - len(urls_finais)
+        if restantes <= 0 or consultas_feitas >= max_consultas:
             break
+        consultadas_norm.add(consulta_norm)
+        consultas_feitas += 1
+        print(
+            f"PESQUISA COMPLETA: consulta {consultas_feitas}/{max_consultas} "
+            f"— rota contextual/comercial — {consulta}"
+        )
+        try:
+            resultados_complementares = pesquisar(consulta, limite=min(10, restantes))
+            if adicionar(resultados_complementares):
+                print("PESQUISA COMPLETA: consultas realizadas:", consultas_feitas)
+                print("PESQUISA COMPLETA: URLs únicas encontradas:", len(urls_finais))
+                return urls_finais
+        except Exception as erro:
+            print(f"PESQUISA COMPLETA: falha na consulta contextual '{consulta}': {erro}")
+            continue
 
     print("PESQUISA COMPLETA: consultas realizadas:", consultas_feitas)
     print("PESQUISA COMPLETA: URLs únicas encontradas:", len(urls_finais))
@@ -3402,6 +3454,439 @@ def identificar_grupo_tema(tema):
 # NÃO chama Ollama.
 #
 # ============================================================
+
+def _mead_nucleo_tema(tema):
+    """Remove localidade final reconhecida para reutilizar o acervo temático.
+
+    A palavra-chave original nunca é alterada para SEO. Para evitar confundir uma
+    aplicação com um lugar, localidades desconhecidas só são removidas quando há
+    um marcador geográfico explícito ("na cidade de", "no município de" etc.).
+    """
+    original = re.sub(r"\s+", " ", str(tema or "")).strip()
+    if not original:
+        return ""
+
+    # Abreviações/nomes oficiais das UFs, capitais e localidades frequentes.
+    # A lista pode ser ampliada sem alterar a keyword original.
+    localidades = {
+        "acre", "ac", "alagoas", "al", "amapa", "ap", "amazonas", "am", "bahia", "ba",
+        "ceara", "ce", "distrito federal", "df", "espirito santo", "es", "goias", "go",
+        "maranhao", "ma", "mato grosso", "mt", "mato grosso do sul", "ms", "minas gerais", "mg",
+        "para", "pa", "paraiba", "pb", "parana", "pr", "pernambuco", "pe", "piaui", "pi",
+        "rio de janeiro", "rj", "rio grande do norte", "rn", "rio grande do sul", "rs", "rondonia", "ro",
+        "roraima", "rr", "santa catarina", "sc", "sao paulo", "sp", "sergipe", "se", "tocantins", "to",
+        "rio branco", "maceio", "macapa", "manaus", "salvador", "fortaleza", "brasilia", "vitoria",
+        "goiania", "sao luis", "cuiaba", "campo grande", "belo horizonte", "belem", "joao pessoa",
+        "curitiba", "recife", "teresina", "natal", "porto velho", "boa vista", "florianopolis",
+        "aracaju", "palmas", "porto alegre", "guarulhos", "campinas", "santos", "osasco",
+        "ribeirao preto", "sorocaba", "sao jose dos campos", "sao bernardo do campo", "santo andre",
+        "sao caetano do sul", "diadema", "maua", "barueri", "cotia", "jundiai", "piracicaba", "bauru",
+        "franca", "marilia", "araraquara", "presidente prudente", "sao jose do rio preto", "taubate",
+        "mogi das cruzes", "suzano", "itaquaquecetuba", "taboao da serra", "embu das artes", "indaiatuba",
+        "americana", "limeira", "sumare", "hortolandia", "jacarei", "atibaia", "braganca paulista",
+        "uberlandia", "juiz de fora", "betim", "contagem", "montes claros", "uberaba", "ipatinga",
+        "niteroi", "duque de caxias", "nova iguacu", "petropolis", "cabo frio", "volta redonda",
+        "londrina", "maringa", "ponta grossa", "cascavel", "foz do iguacu", "joinville", "blumenau",
+        "itajai", "chapeco", "criciuma", "caxias do sul", "pelotas", "canoas", "santa maria",
+        "passo fundo", "juazeiro do norte", "sobral", "mossoro", "campina grande", "caruaru", "petrolina",
+        "feira de santana", "vitoria da conquista", "ilheus", "itajai", "anapolis", "aparecida de goiania",
+        "rio verde", "dourados", "sinop", "rondonopolis", "maraba", "santarem", "parauapebas",
+        "imperatriz", "araguaina", "barreiras", "juazeiro", "crato", "boa esperanca"
+    }
+    descritores_geo = [
+        ("no", "estado", "de"), ("na", "cidade", "de"), ("na", "regiao", "de"),
+        ("na", "regiao", "metropolitana", "de"), ("no", "municipio", "de"),
+        ("no", "bairro", "de"), ("em", "cidade", "de"), ("em", "municipio", "de"),
+        ("em", "estado", "de"), ("regiao", "metropolitana", "de"),
+        ("cidade", "de"), ("municipio", "de"), ("estado", "de"), ("regiao", "de"),
+    ]
+    conectores = {"em", "no", "na", "nos", "nas", "de", "do", "da", "dos", "das"}
+    tokens_match = list(re.finditer(r"[\wÀ-ÿ-]+", original, flags=re.UNICODE))
+    tokens = [m.group(0) for m in tokens_match]
+    norm = [_mead_norm(t) for t in tokens]
+    localidades_tokens = sorted(
+        {tuple(_mead_norm(loc).split()) for loc in localidades},
+        key=len, reverse=True
+    )
+
+    for loc_tokens in localidades_tokens:
+        n = len(loc_tokens)
+        if n > len(norm) or tuple(norm[-n:]) != loc_tokens:
+            continue
+        inicio_loc = len(norm) - n
+        inicio_remover = inicio_loc
+        prefix_norm = tuple(norm[:inicio_loc])
+        for desc in sorted(descritores_geo, key=len, reverse=True):
+            if len(prefix_norm) >= len(desc) and prefix_norm[-len(desc):] == desc:
+                inicio_remover = inicio_loc - len(desc)
+                break
+        else:
+            if inicio_loc > 0 and norm[inicio_loc - 1] in conectores:
+                inicio_remover = inicio_loc - 1
+        if inicio_remover <= 0:
+            continue
+        corte = tokens_match[inicio_remover].start()
+        nucleo = original[:corte].strip(" ,-/")
+        if nucleo:
+            return nucleo
+
+    # Compatibilidade conservadora com expressões explícitas de localidade ainda
+    # não incluídas na lista: só remover após um marcador inequívoco de local.
+    padrao_explicito = (
+        r"\s+(?:na\s+regi[aã]o\s+metropolitana\s+de|na\s+regi[aã]o\s+de|"
+        r"no\s+estado\s+de|no\s+munic[ií]pio\s+de|na\s+cidade\s+de|"
+        r"em\s+cidade\s+de|em\s+munic[ií]pio\s+de|em\s+estado\s+de)\s+.+$"
+    )
+    candidato = re.sub(padrao_explicito, "", original, flags=re.IGNORECASE).strip()
+    if candidato and candidato != original:
+        return candidato
+    return original
+
+
+# ============================================================
+# INTERPRETAÇÃO SEMÂNTICA CONSERVADORA DA PALAVRA-CHAVE
+# ============================================================
+# A keyword literal continua intacta para SEO. A análise abaixo serve somente
+# para formular buscas e verificar se as evidências sustentam todas as suas
+# dimensões de significado. Qualificador geográfico pode ser separado para
+# localizar o acervo-base; modalidade/condição/finalidade nunca é descartada.
+
+_MEAD_MODOS_ATENDIMENTO = {
+    "online": {
+        "rotulos": ["online", "on-line", "a distância", "à distância", "remoto", "remota", "virtual", "por videochamada", "teleatendimento", "teleconsulta", "remote", "remotely", "virtual session", "video call", "telehealth", "online session"],
+        "consultas": ["online", "a distância", "por videochamada"],
+    },
+    "presencial": {
+        "rotulos": ["presencial", "em clínica", "na clínica", "em consultório", "no consultório", "face a face"],
+        "consultas": ["presencial", "em clínica", "em consultório"],
+    },
+    "domiciliar": {
+        "rotulos": ["domiciliar", "em domicílio", "a domicílio", "em casa", "visita domiciliar"],
+        "consultas": ["domiciliar", "em domicílio", "em casa"],
+    },
+    "hibrido": {
+        "rotulos": ["híbrido", "híbrida", "hibrido", "hibrida", "presencial e online", "presencial e remoto"],
+        "consultas": ["híbrido", "presencial e online"],
+    },
+}
+
+# Conceitos/necessidades conhecidos são pistas de busca, não afirmações clínicas.
+# A lista é deliberadamente limitada: palavras desconhecidas continuam parte do
+# assunto e não são removidas nem presumidas como sinônimos.
+_MEAD_CONCEITOS_ALVO = {
+    "depressao": {
+        "rotulos": ["depressão", "depressao", "depressivo", "depressiva", "sintomas depressivos", "quadro depressivo", "depresión", "depression", "depressive symptoms", "depressive disorder"],
+        "consultas": ["depressão", "sintomas depressivos"],
+    },
+    "ansiedade": {
+        "rotulos": ["ansiedade", "ansioso", "ansiosa", "sintomas de ansiedade"],
+        "consultas": ["ansiedade", "sintomas de ansiedade"],
+    },
+    "panico": {
+        "rotulos": ["pânico", "panico", "crise de pânico", "crises de pânico"],
+        "consultas": ["pânico", "crise de pânico"],
+    },
+    "estresse": {
+        "rotulos": ["estresse", "stress", "estresse emocional"],
+        "consultas": ["estresse", "estresse emocional"],
+    },
+    "burnout": {
+        "rotulos": ["burnout", "esgotamento profissional", "esgotamento ocupacional"],
+        "consultas": ["burnout", "esgotamento profissional"],
+    },
+    "luto": {
+        "rotulos": ["luto", "processo de luto", "perda de um ente querido"],
+        "consultas": ["luto", "apoio durante o luto"],
+    },
+}
+
+_MEAD_ALIASES_ASSUNTO = {
+    "terapia": ["terapia", "psicoterapia", "atendimento psicológico", "atendimento psicologico", "therapy", "psychotherapy", "psychological therapy", "mental health therapy"],
+    "psicoterapia": ["psicoterapia", "terapia", "atendimento psicológico", "atendimento psicologico", "psychotherapy", "therapy", "psychological treatment"],
+    "psicologo": ["psicólogo", "psicóloga", "psicologia", "profissional de psicologia", "atendimento psicológico", "atendimento psicologico", "psychologist", "psychologists", "psychology professional", "mental health professional"],
+    "psicologa": ["psicóloga", "psicólogo", "psicologia", "profissional de psicologia", "atendimento psicológico", "atendimento psicologico", "psychologist", "psychologists", "psychology professional", "mental health professional"],
+    "psicologia": ["psicologia", "psicólogo", "psicóloga", "profissional de psicologia", "atendimento psicológico", "atendimento psicologico", "psychology", "psychologist", "psychological care", "mental health care"],
+    "bomba centrifuga": ["bomba centrífuga", "bomba centrifuga", "bombas centrífugas", "bombas centrifugas", "centrifugal pump", "centrifugal pumps"],
+    "centrifugal pump": ["centrifugal pump", "centrifugal pumps", "bomba centrífuga", "bombas centrífugas"],
+}
+
+_MEAD_STOPWORDS_INTENCAO = {
+    "a", "as", "o", "os", "de", "da", "das", "do", "dos", "em", "no", "na", "nos", "nas",
+    "para", "por", "com", "sem", "e", "ou", "um", "uma", "ao", "aos", "à", "às", "the", "of", "in"
+}
+
+
+def _mead_norm(texto):
+    """Normaliza para comparação sem alterar a keyword guardada ou publicada."""
+    valor = unicodedata.normalize("NFKD", str(texto or "").casefold())
+    valor = "".join(ch for ch in valor if not unicodedata.combining(ch))
+    valor = re.sub(r"[^a-z0-9]+", " ", valor)
+    return re.sub(r"\s+", " ", valor).strip()
+
+
+def _mead_frase_presente(texto, frase):
+    t = _mead_norm(texto)
+    f = _mead_norm(frase)
+    return bool(t and f and re.search(r"\b" + re.escape(f) + r"\b", t))
+
+
+def _mead_analisar_intencao_tema(tema):
+    """Separa núcleo, localidade e modificadores sem apagar significado desconhecido."""
+    original = re.sub(r"\s+", " ", str(tema or "")).strip()
+    nucleo_geografico = _mead_nucleo_tema(original)
+    geografico = bool(original and _mead_norm(nucleo_geografico) != _mead_norm(original))
+    base = nucleo_geografico if geografico else original
+    tokens = re.findall(r"[\wÀ-ÿ-]+", base, flags=re.UNICODE)
+    norm_tokens = [_mead_norm(t) for t in tokens]
+    removidos = set()
+    modos = []
+    condicoes = []
+
+    def marcar_frases(grupos, destino):
+        # Longas primeiro evita que uma expressão curta capture parte de uma maior.
+        itens = []
+        for canonico, dados in grupos.items():
+            for rotulo in dados.get("rotulos", []):
+                pt = tuple(x for x in _mead_norm(rotulo).split() if x)
+                if pt:
+                    itens.append((len(pt), canonico, rotulo, pt))
+        itens.sort(key=lambda x: x[0], reverse=True)
+        detectados = set()
+        for tamanho, canonico, rotulo, frase_tokens in itens:
+            if canonico in detectados:
+                continue
+            for inicio in range(0, max(0, len(norm_tokens) - tamanho + 1)):
+                fim = inicio + tamanho
+                if tuple(norm_tokens[inicio:fim]) == frase_tokens:
+                    destino.append({"id": canonico, "rotulo": rotulo, "aliases": grupos[canonico]["rotulos"], "consultas": grupos[canonico].get("consultas", [])})
+                    removidos.update(range(inicio, fim))
+                    detectados.add(canonico)
+                    break
+
+    marcar_frases(_MEAD_MODOS_ATENDIMENTO, modos)
+    marcar_frases(_MEAD_CONCEITOS_ALVO, condicoes)
+
+    tokens_sujeito = [
+        token for i, token in enumerate(tokens)
+        if i not in removidos and _mead_norm(token) not in _MEAD_STOPWORDS_INTENCAO
+    ]
+    assunto = " ".join(tokens_sujeito).strip()
+    if not assunto:
+        assunto = base
+
+    localidade = ""
+    if geografico:
+        # O núcleo é prefixo do original para os qualificadores tratados acima.
+        localidade = original[len(nucleo_geografico):].strip(" ,-")
+        localidade = re.sub(r"^(?:em|no|na|nos|nas|de|do|da|dos|das)\s+", "", localidade, flags=re.IGNORECASE)
+
+    return {
+        "keyword_literal": original,
+        "nucleo_para_busca": nucleo_geografico,
+        "geografico": geografico,
+        "localidade": localidade,
+        "assunto_central": assunto,
+        "modalidades": modos,
+        "condicoes_ou_objetivos": condicoes,
+        "modificador_semantico": bool(modos or condicoes),
+        "termos_nao_descartados": tokens_sujeito,
+    }
+
+
+def _mead_cobertura_assunto(texto, assunto):
+    assunto_norm = _mead_norm(assunto)
+    if not assunto_norm:
+        return True
+    if _mead_frase_presente(texto, assunto):
+        return True
+    # Sinônimos são aplicados apenas aos conceitos explicitamente mapeados.
+    aliases = _MEAD_ALIASES_ASSUNTO.get(assunto_norm, [])
+    if aliases and any(_mead_frase_presente(texto, alias) for alias in aliases):
+        return True
+    # Se um conceito conhecido vier acompanhado de qualificadores adicionais
+    # (ex.: "psicólogo infantil"), aceitar a forma sinônima do núcleo exige que
+    # os qualificadores restantes também estejam no texto. Eles não são apagados.
+    for nucleo, aliases_nucleo in sorted(_MEAD_ALIASES_ASSUNTO.items(), key=lambda x: len(x[0]), reverse=True):
+        if assunto_norm.startswith(nucleo + " "):
+            restante = assunto_norm[len(nucleo):].strip()
+            palavras_restantes = [x for x in restante.split() if x not in _MEAD_STOPWORDS_INTENCAO and len(x) >= 3]
+            if any(_mead_frase_presente(texto, alias) for alias in aliases_nucleo) and all(
+                _mead_frase_presente(texto, palavra) for palavra in palavras_restantes
+            ):
+                return True
+    # Para conceitos não mapeados, cada termo útil precisa aparecer. Não apagar
+    # adjetivos/qualificadores desconhecidos para facilitar uma falsa aprovação.
+    palavras = [x for x in assunto_norm.split() if x not in _MEAD_STOPWORDS_INTENCAO and len(x) >= 3]
+    return bool(palavras) and all(_mead_frase_presente(texto, palavra) for palavra in palavras)
+
+
+def _mead_modalidade_associada_ao_assunto(texto, assunto, eixo, distancia_max_tokens=14):
+    """Evita contar uma modalidade citada longe do assunto (ex.: agendamento online)."""
+    texto_norm = _mead_norm(texto)
+    assunto_norm = _mead_norm(assunto)
+    aliases_assunto = [assunto_norm] if assunto_norm else []
+    aliases_assunto.extend(_MEAD_ALIASES_ASSUNTO.get(assunto_norm, []))
+
+    # Em assuntos como "psicólogo infantil", aceita sinônimos do núcleo apenas
+    # depois de a validação principal exigir também o qualificador "infantil".
+    for nucleo, aliases_nucleo in sorted(_MEAD_ALIASES_ASSUNTO.items(), key=lambda x: len(x[0]), reverse=True):
+        if assunto_norm.startswith(nucleo + " "):
+            aliases_assunto.extend(aliases_nucleo)
+
+    aliases_assunto = list(dict.fromkeys(_mead_norm(a) for a in aliases_assunto if _mead_norm(a)))
+    aliases_modo = list(dict.fromkeys(_mead_norm(a) for a in (eixo or {}).get("aliases", []) if _mead_norm(a)))
+    if not texto_norm or not aliases_assunto or not aliases_modo:
+        return False
+
+    def inicios(frase):
+        return [m.start() for m in re.finditer(r"\b" + re.escape(frase) + r"\b", texto_norm)]
+
+    def token_index(pos):
+        return len(texto_norm[:pos].split())
+
+    pos_assunto = [(a, pos) for a in aliases_assunto for pos in inicios(a)]
+    pos_modo = [(a, pos) for a in aliases_modo for pos in inicios(a)]
+    for alias_assunto, pa in pos_assunto:
+        for alias_modo, pm in pos_modo:
+            ia, im = token_index(pa), token_index(pm)
+            largura = max(len(alias_assunto.split()), len(alias_modo.split()))
+            if abs(ia - im) <= distancia_max_tokens + largura:
+                # Evita tratar apenas "agendamento online" / "agenda online" como
+                # prova de que a terapia ou consulta ocorre online, salvo quando há
+                # também uma associação direta entre assunto e modo no trecho.
+                janela = texto_norm[max(0, min(pa, pm) - 100):min(len(texto_norm), max(pa, pm) + 140)]
+                if alias_modo in janela and alias_assunto in janela:
+                    if any(x in janela for x in ("agendamento", "agendar", "marcar consulta", "agenda online")):
+                        entrega_remota = any(x in janela for x in (
+                            "atendimento online", "atendimento remoto", "terapia online", "terapia a distancia",
+                            "psicoterapia online", "psicoterapia a distancia", "sessao online", "sessao remota",
+                            "consulta online", "consulta remota", "consulta por videochamada",
+                            "atendimento por videochamada", "teleatendimento", "teleconsulta",
+                            "online therapy", "remote therapy", "psychotherapy online", "online psychotherapy",
+                            "therapy online", "remote psychological care", "online counseling", "online counselling",
+                            "telehealth session", "video therapy", "therapy by video"
+                        ))
+                        if not entrega_remota:
+                            continue
+                    return True
+    return False
+
+
+def _mead_evidencia_cobre_intencao(texto, tema):
+    """Valida a evidência: núcleo para geo; todas as dimensões para modificadores semânticos."""
+    texto = str(texto or "").strip()
+    tema = str(tema or "").strip()
+    if not texto or not tema:
+        return False
+    analise = _mead_analisar_intencao_tema(tema)
+    # Para temas simples, correspondência literal basta. Se houver modalidade ou
+    # condição detectada, a ocorrência literal não dispensa a checagem das dimensões.
+    if not analise["modificador_semantico"] and _mead_frase_presente(texto, tema):
+        return True
+    if analise["modificador_semantico"]:
+        if not _mead_cobertura_assunto(texto, analise["assunto_central"]):
+            return False
+        for eixo in analise["modalidades"]:
+            if not any(_mead_frase_presente(texto, alias) for alias in eixo["aliases"]):
+                return False
+            if not _mead_modalidade_associada_ao_assunto(texto, analise["assunto_central"], eixo):
+                return False
+        for eixo in analise["condicoes_ou_objetivos"]:
+            if not any(_mead_frase_presente(texto, alias) for alias in eixo["aliases"]):
+                return False
+        return True
+    if analise["geografico"]:
+        # A localidade é um qualificador de busca, não uma exigência de que a fonte
+        # contenha o nome da cidade/UF. O núcleo aceita formas gramaticais/sinônimos
+        # válidos; isso não comprova presença comercial local.
+        return _mead_cobertura_assunto(texto, analise["nucleo_para_busca"])
+    # Para qualificadores que ainda não tenham uma categoria própria (ex.: "alta
+    # vazão", "infantil", "industrial"), nenhum termo pode ser descartado e a
+    # evidência precisa conter todos eles, ainda que a ordem seja diferente.
+    return _mead_cobertura_assunto(texto, tema)
+
+
+def _mead_consultas_semanticas_tema(tema, limite=8):
+    """Gera consultas naturais sem alterar a keyword literal nem afirmar fatos."""
+    analise = _mead_analisar_intencao_tema(tema)
+    original = analise["keyword_literal"]
+    consultas = []
+
+    def add(valor):
+        valor = re.sub(r"\s+", " ", str(valor or "")).strip(" ,-")
+        if valor and _mead_norm(valor) not in {_mead_norm(x) for x in consultas}:
+            consultas.append(valor)
+
+    add(original)
+    if analise["geografico"]:
+        add(analise["nucleo_para_busca"])
+        # A localidade é usada como pista de busca, não como prova de atendimento.
+        if analise["localidade"]:
+            add(f"{analise['nucleo_para_busca']} {analise['localidade']}")
+            if _mead_norm(analise["localidade"]) in {"sp", "sao paulo"}:
+                add(f"{analise['nucleo_para_busca']} São Paulo")
+                add(f"{analise['nucleo_para_busca']} SP")
+
+    assunto = analise["assunto_central"]
+    assunto_norm = _mead_norm(assunto)
+    assuntos_consulta = [assunto]
+    if assunto_norm in _MEAD_ALIASES_ASSUNTO:
+        assuntos_consulta = list(_MEAD_ALIASES_ASSUNTO[assunto_norm])
+    assuntos_consulta = assuntos_consulta[:4]
+
+    if analise["modificador_semantico"]:
+        modos_consulta = []
+        for eixo in analise["modalidades"]:
+            modos_consulta.extend(eixo.get("consultas", []))
+        modos_consulta = list(dict.fromkeys(modos_consulta)) or [""]
+        alvos_consulta = []
+        for eixo in analise["condicoes_ou_objetivos"]:
+            alvos_consulta.extend(eixo.get("consultas", []))
+        alvos_consulta = list(dict.fromkeys(alvos_consulta)) or [""]
+
+        # Pesquisar dimensões em conjunto: assunto + modalidade + condição.
+        # A frase original é mantida na primeira posição; as variantes apenas
+        # ajudam os buscadores a encontrar redações naturais/sinônimos.
+        for assunto_alt in assuntos_consulta:
+            for modo in modos_consulta:
+                for alvo in alvos_consulta:
+                    if modo and alvo:
+                        add(f"{assunto_alt} {modo} para {alvo}")
+                    elif modo:
+                        add(f"{assunto_alt} {modo}")
+                    elif alvo:
+                        add(f"{assunto_alt} para {alvo}")
+                    if len(consultas) >= max(1, int(limite)):
+                        return consultas[:limite]
+    return consultas[:max(1, int(limite))]
+
+
+def _mead_resumo_intencao_para_prompt(tema):
+    analise = _mead_analisar_intencao_tema(tema)
+    linhas = [f"Assunto central para orientar a busca: {analise['assunto_central']}."]
+    if analise["geografico"]:
+        linhas.append(
+            f"Qualificador geográfico: {analise['localidade']}. Pode-se reutilizar evidência do núcleo "
+            "temático, mas NÃO afirmar sede, atendimento, estoque ou disponibilidade local sem prova."
+        )
+    for eixo in analise["modalidades"]:
+        linhas.append(
+            f"Modalidade relevante: {eixo['id']}. Não a trate como mero sufixo SEO; o conteúdo precisa refletir essa modalidade."
+        )
+    for eixo in analise["condicoes_ou_objetivos"]:
+        linhas.append(
+            f"Necessidade/condição relevante: {eixo['id']}. Não inventar diagnóstico, tratamento, eficácia ou resultado; "
+            "usar somente o que as evidências autorizarem."
+        )
+    if analise["modificador_semantico"]:
+        linhas.append(
+            "A evidência de cada reserva precisa sustentar o assunto central e todos os modificadores semânticos detectados. "
+            "A palavra-chave SEO completa, com os modificadores na ordem original, continua obrigatória exatamente uma vez em cada parágrafo final. "
+            "Não transforme esses modificadores em alegações adicionais sem prova; se a keyword for uma frase de busca comprimida, encaixe-a "
+            "numa construção natural sem alterar, pluralizar ou inserir palavras dentro da expressão literal."
+        )
+    return "\n".join(linhas)
+
 
 def gerar_entendimento_produto(
     tema,
@@ -3472,18 +3957,44 @@ def gerar_entendimento_produto(
             )
 
     # --------------------------------------------------------
-    # TERMOS DE PESQUISA — SOMENTE CHECKBOXES ATIVOS
+    # TERMOS DE PESQUISA — EIXOS GERAIS, SEM FILTROS DE INTERFACE
     # --------------------------------------------------------
-
-    estrutura = normalizar_checkboxes_editoriais(estrutura_editorial)
-    assuntos_ativos = assuntos_editoriais_ativos(estrutura)
-
-    termos_base = []
-    for assunto in assuntos_ativos:
-        for termo in TERMOS_PESQUISA_CHECKBOX.get(assunto, []):
-            termos_base.append(f"{termo} de {tema}")
-
-    termos_base = list(dict.fromkeys(termos_base))
+    analise_intencao = _mead_analisar_intencao_tema(tema)
+    nucleo_tema = (
+        analise_intencao["assunto_central"]
+        if analise_intencao["modificador_semantico"]
+        else analise_intencao["nucleo_para_busca"]
+    )
+    # Consultas semânticas vêm primeiro; os eixos gerais complementam a pesquisa,
+    # mas não substituem modalidade, condição ou finalidade presentes na keyword.
+    termos_base = _mead_consultas_semanticas_tema(tema, limite=8)
+    _assunto_norm_pesquisa = _mead_norm(analise_intencao.get("assunto_central", ""))
+    _servico_psicologico = _assunto_norm_pesquisa in {"terapia", "psicoterapia", "psicologo", "psicologa", "psicologia"}
+    if _servico_psicologico:
+        _alvo_pesquisa = analise_intencao.get("condicoes_ou_objetivos", [])
+        _modo_pesquisa = analise_intencao.get("modalidades", [])
+        _alvo_rotulo = _alvo_pesquisa[0].get("rotulo", "") if _alvo_pesquisa else ""
+        _modo_rotulo = _modo_pesquisa[0].get("rotulo", "") if _modo_pesquisa else ""
+        termos_base.extend([
+            f"como funciona {nucleo_tema} { _modo_rotulo } para {_alvo_rotulo}".strip() if _modo_rotulo and _alvo_rotulo else f"como funciona {nucleo_tema}",
+            f"orientações sobre {nucleo_tema} { _modo_rotulo } para {_alvo_rotulo}".strip() if _modo_rotulo and _alvo_rotulo else f"orientações sobre {nucleo_tema}",
+            f"organização das sessões de {nucleo_tema} { _modo_rotulo }".strip(),
+            f"critérios para escolher {nucleo_tema} { _modo_rotulo }".strip(),
+            f"limites e cuidados do atendimento psicológico { _modo_rotulo }".strip() if _modo_rotulo else "cuidados na escolha de atendimento psicológico",
+        ])
+    else:
+        termos_base.extend([
+            f"definição de {nucleo_tema}",
+            f"conceito de {nucleo_tema}",
+            f"como funciona {nucleo_tema}",
+            f"características de {nucleo_tema}",
+            f"aplicações e contextos de uso de {nucleo_tema}",
+            f"critérios de seleção de {nucleo_tema}",
+            f"parâmetros técnicos de {nucleo_tema}",
+            f"instalação e manutenção de {nucleo_tema}",
+            f"fornecimento de {nucleo_tema}",
+        ])
+    termos_base = list(dict.fromkeys(t for t in termos_base if t.strip()))
 
     # --------------------------------------------------------
     # ORIENTAÇÃO DE PESQUISA
@@ -3500,6 +4011,8 @@ def gerar_entendimento_produto(
         "palavras_tema":
             palavras_tema_unicas,
 
+        "interpretacao_semantica": analise_intencao,
+
         "objetivo":
             (
                 "Localizar informações técnicas "
@@ -3507,8 +4020,11 @@ def gerar_entendimento_produto(
             ),
 
         "focos_pesquisa": [
-            assunto.replace("_", " ")
-            for assunto in assuntos_ativos
+            "apresentação e características",
+            "funcionamento e aplicações",
+            "critérios e parâmetros técnicos",
+            "seleção, instalação e manutenção",
+            "fornecimento e orientação ao cliente",
         ],
 
         "termos_pesquisa":
@@ -3747,21 +4263,16 @@ def coletar_pagina(
             return None
 
         content_type = resposta.headers.get(
-
             "Content-Type",
             ""
-
         ).lower()
 
-        eh_pdf = (
-
-            "pdf" in content_type
-
-            or
-
-            url.lower().split("?")[0].endswith(".pdf")
-
-        )
+        # Não classificar um endpoint como PDF apenas pelo nome da URL ou
+        # Content-Type: vários sites redirecionam links de catálogo/manual
+        # para páginas HTML. A assinatura binária é a confirmação principal.
+        eh_pdf = bytes(resposta.content or b"").startswith(b"%PDF-")
+        if ("pdf" in content_type or url.lower().split("?")[0].endswith(".pdf")) and not eh_pdf:
+            print("⚠️ URL/Content-Type indicava PDF, mas a assinatura %PDF- não foi encontrada; tratando a resposta como HTML.")
 
     # ========================================================
     # 01. FUNÇÃO INTERNA PARA EXTRAIR PDF
@@ -4006,15 +4517,19 @@ def coletar_pagina(
 
                     continue
 
-                resultado = extrair_pdf(
+                # Os links recolhidos por palavras como "manual", "catálogo"
+                # ou "download" nem sempre apontam para um ficheiro PDF.
+                # Só processar como PDF quando a resposta contém a assinatura real.
+                if not bytes(r.content or b"").startswith(b"%PDF-"):
+                    print("LINK DE RECURSO NÃO É PDF REAL — ignorado como PDF:", getattr(r, "url", pdf))
+                    continue
 
+                resultado = extrair_pdf(
                     r.content,
                     pdf
-
                 )
 
                 if resultado:
-
                     return resultado
 
             except:
@@ -5937,6 +6452,35 @@ def avaliar_patrimonio_existente(
         tema
     )
 
+    # Se a keyword inclui localidade, modalidade ou condição, procurar também
+    # o arquivo bruto do assunto central antes de considerar a internet. Isso
+    # reaproveita a base técnica/temática, sem tratar a base por si só como prova
+    # de cada modificador (a suficiência semântica é calculada mais abaixo).
+    try:
+        _analise_bruto = _mead_analisar_intencao_tema(tema)
+        _bases_brutas = []
+        _nucleo_bruto = str(_analise_bruto.get("nucleo_para_busca", "") or "").strip()
+        _assunto_bruto = str(_analise_bruto.get("assunto_central", "") or "").strip()
+        if _analise_bruto.get("geografico") and _nucleo_bruto:
+            _bases_brutas.append(_nucleo_bruto)
+        elif _analise_bruto.get("modificador_semantico") and _assunto_bruto:
+            _bases_brutas.append(_assunto_bruto)
+            _aliases_brutos = _MEAD_ALIASES_ASSUNTO.get(_mead_norm(_assunto_bruto), [])
+            _bases_brutas.extend(str(x).strip() for x in _aliases_brutos[:2] if str(x).strip())
+        for _base_bruta in list(dict.fromkeys(_bases_brutas)):
+            if _mead_norm(_base_bruta) == _mead_norm(tema):
+                continue
+            try:
+                _fontes_nucleo = carregar_bruto(_base_bruta)
+            except Exception:
+                _fontes_nucleo = []
+            _antes_nucleo = len(patrimonio)
+            _novas_nucleo = adicionar_fontes(_fontes_nucleo, _base_bruta)
+            if _novas_nucleo:
+                print(f"♻️ DADOS BRUTOS REAPROVEITADOS PELO NÚCLEO: '{_base_bruta}' — {_novas_nucleo} fontes novas, sem pesquisa web.")
+    except Exception as _erro_nucleo_bruto:
+        print("⚠️ Busca local pelo núcleo sem correspondência direta:", repr(_erro_nucleo_bruto)[:180])
+
     print()
     print(
         "PATRIMÔNIO DO TEMA:",
@@ -5980,8 +6524,8 @@ def avaliar_patrimonio_existente(
     if patrimonio_suficiente:
 
         print()
-        print("🟢 PATRIMÔNIO INICIAL SUFICIENTE")
-        print("Ainda será feita uma varredura contextual local; isso não dispara pesquisa web adicional.")
+        print("🟢 VOLUME INICIAL DO ACERVO SUFICIENTE")
+        print("A suficiência final ainda depende da cobertura semântica e comercial; primeiro será feita a varredura local.")
 
     # ========================================================
     # 04. PROCURAR PATRIMÔNIO DE TEMAS RELACIONADOS
@@ -6165,10 +6709,45 @@ def avaliar_patrimonio_existente(
         for item in patrimonio
     )
 
-    patrimonio_suficiente = (
+    # A quantidade total de fontes/caracteres não prova que exista acervo suficiente
+    # para o bloco 1, cujo foco precisa ser comercial. Estimamos a cobertura comercial
+    # por grupos de sinais no próprio conteúdo; se faltar essa camada, autorizamos a
+    # pesquisa complementar inicial em vez de tratar acervo técnico como suficiente.
+    grupos_sinais_comerciais = {
+        "oferta_fornecimento": ("fornecedor", "fornecimento", "fornece", "fornecemos", "distribuidor", "distribuição", "oferece", "oferecemos"),
+        "transacao_disponibilidade": ("orçamento", "orcamento", "cotação", "cotacao", "comprar", "compra", "venda", "vendas", "estoque", "disponibilidade", "pedido", "proposta comercial"),
+        "prestador_atendimento": ("empresa", "fabricante", "prestador", "profissional", "clínica", "clinica", "equipe", "atendimento", "suporte", "agendamento", "contratação", "serviço", "servico", "entre em contato", "fale conosco", "solicite", "agende"),
+    }
+    fontes_comerciais = 0
+    for _fonte in patrimonio:
+        _texto_fonte = str(_fonte.get("texto", "") or "")
+        _url_fonte = str(_fonte.get("url", "") or "")
+        _tema_fonte = str(_fonte.get("tema_origem", "") or "")
+        _corpo_norm = _normalizar_busca_contextual(_texto_fonte + " " + _url_fonte + " " + _tema_fonte)
+        _grupos_encontrados = 0
+        for _grupo_sinais in grupos_sinais_comerciais.values():
+            if any(_normalizar_busca_contextual(_sinal) in _corpo_norm for _sinal in _grupo_sinais):
+                _grupos_encontrados += 1
+        if _grupos_encontrados >= 2:
+            fontes_comerciais += 1
+
+    minimo_fontes_comerciais = 18
+    patrimonio_geral_suficiente = (
         len(patrimonio) >= minimo_fontes
-        and
-        caracteres >= minimo_caracteres
+        and caracteres >= minimo_caracteres
+    )
+    cobertura_comercial_suficiente = fontes_comerciais >= minimo_fontes_comerciais
+    _analise_intencao_acervo = _mead_analisar_intencao_tema(tema)
+    fontes_intencao_compativel = sum(
+        1 for _item_intencao in patrimonio
+        if _mead_evidencia_cobre_intencao(str(_item_intencao.get("texto", "") or ""), tema)
+    )
+    minimo_fontes_intencao = min(18, max(1, int(minimo_fontes)))
+    cobertura_intencao_suficiente = fontes_intencao_compativel >= minimo_fontes_intencao
+    patrimonio_suficiente = (
+        patrimonio_geral_suficiente
+        and cobertura_comercial_suficiente
+        and cobertura_intencao_suficiente
     )
 
     print()
@@ -6191,6 +6770,11 @@ def avaliar_patrimonio_existente(
         len(relacionados_validos)
     )
 
+    print("FONTES COM INTENÇÃO SEMÂNTICA COMPATÍVEL:", fontes_intencao_compativel, "/ mínimo", minimo_fontes_intencao)
+    print("FONTES COM EVIDÊNCIA COMERCIAL POTENCIAL:", fontes_comerciais, "/ mínimo", minimo_fontes_comerciais)
+    print("ACERVO GERAL SUFICIENTE:", patrimonio_geral_suficiente)
+    print("COBERTURA SEMÂNTICA SUFICIENTE:", cobertura_intencao_suficiente)
+    print("COBERTURA COMERCIAL SUFICIENTE:", cobertura_comercial_suficiente)
     print(
         "PATRIMÔNIO SUFICIENTE:",
         patrimonio_suficiente
@@ -6204,13 +6788,12 @@ def avaliar_patrimonio_existente(
 
     else:
 
-        print(
-            "🟡 PATRIMÔNIO INSUFICIENTE."
-        )
-
-        print(
-            "PESQUISA COMPLEMENTAR SERÁ PERMITIDA."
-        )
+        print("🟡 PATRIMÔNIO INSUFICIENTE PARA A PÁGINA COMPLETA.")
+        if patrimonio_geral_suficiente and not cobertura_comercial_suficiente:
+            print("⚠️ O acervo geral é volumoso, mas a evidência comercial do bloco 1 é insuficiente.")
+        if patrimonio_geral_suficiente and not cobertura_intencao_suficiente:
+            print("⚠️ Há volume local, mas faltam fontes que sustentem todos os modificadores da palavra-chave.")
+        print("PESQUISA COMPLEMENTAR INICIAL SERÁ PERMITIDA; os dados brutos locais já foram consultados primeiro.")
 
     print(
         "=================================================="
@@ -6226,6 +6809,13 @@ def avaliar_patrimonio_existente(
 
         "quantidade_fontes":
             len(patrimonio),
+
+        "fontes_comerciais_potenciais": fontes_comerciais,
+        "minimo_fontes_comerciais": minimo_fontes_comerciais,
+        "cobertura_comercial_suficiente": cobertura_comercial_suficiente,
+        "fontes_intencao_compativel": fontes_intencao_compativel,
+        "minimo_fontes_intencao": minimo_fontes_intencao,
+        "cobertura_intencao_suficiente": cobertura_intencao_suficiente,
 
         "caracteres":
             caracteres,
@@ -6261,197 +6851,97 @@ def avaliar_patrimonio_existente(
 #
 # ============================================================
 
-def gerar_mapa_mead(
-    tema,
-    textos,
-    estrutura_editorial=None
-):
-
-    tema = str(
-        tema or ""
-    ).strip()
-
+def gerar_mapa_mead(tema, textos, estrutura_editorial=None):
+    """Gera mapa MEAD sem herdar filtros editoriais legados da interface."""
+    tema = str(tema or "").strip()
     if not tema:
-
         return ""
-
-    if not isinstance(
-        textos,
-        list
-    ):
-
+    if not isinstance(textos, list):
         textos = []
 
-    print()
-    print("==============================")
-    print("GERANDO MAPA MEAD — PYTHON")
-    print("==============================")
-
-    print(
-        "TEMA:",
-        tema
-    )
-
-    print(
-        "FONTES:",
-        len(textos)
-    )
-
-    # --------------------------------------------------------
-    # TIPO
-    # --------------------------------------------------------
-
-    tipo = identificar_tipo_tema(
-        tema
-    )
-
-    # --------------------------------------------------------
-    # GRUPO
-    # --------------------------------------------------------
-
-    grupo = identificar_grupo_tema(
-        tema
-    )
-
-    # --------------------------------------------------------
-    # CONTEXTO DOS BLOCOS — FILTRADO PELOS CHECKBOXES
-    # --------------------------------------------------------
-
-    estrutura = normalizar_checkboxes_editoriais(estrutura_editorial)
-    ativos = assuntos_editoriais_ativos(estrutura)
-    blocos_autorizados = blocos_autorizados_pelos_checkboxes(estrutura)
-
-    contexto_base = {}
-
-    try:
-        if isinstance(MEAD, dict):
-            contexto_base = MEAD.get("contexto_blocos", {})
-    except Exception:
-        contexto_base = {}
-
-    if not isinstance(contexto_base, dict):
-        contexto_base = {}
-
+    tipo = identificar_tipo_tema(tema)
+    grupo = identificar_grupo_tema(tema)
+    politicas = {
+        "bloco_1": {
+            "nome": "Comercial — obrigatório",
+            "objetivo": (
+                "Manter o conteúdo estritamente comercial: decisão de compra ou contratação, "
+                "fornecimento, escopo e necessidades do cliente, somente quando sustentados por evidências. "
+                "Não substituir falta de evidência comercial por explicação técnica e não inventar a identidade, "
+                "a oferta, a disponibilidade ou as condições comerciais da empresa. Se faltar base comercial, "
+                "registrar insuficiência e procurar evidência autorizada adicional."
+            ),
+        },
+        "bloco_2": {
+            "nome": "Descrição do produto ou serviço — preferencial",
+            "objetivo": (
+                "Priorizar finalidade, características, componentes, materiais e funcionamento. "
+                "Se o acervo não sustentar esse foco, escolher outro assunto relevante, coerente e comprovado, "
+                "sem tratar a preferência como filtro eliminatório."
+            ),
+        },
+        "bloco_3": {
+            "nome": "Funcionamento e aplicações — preferencial",
+            "objetivo": (
+                "Priorizar funcionamento, relações entre componentes, aplicações e situações de uso. "
+                "Se houver pouca evidência para esse foco, desenvolver outro aspecto útil sustentado pelo acervo."
+            ),
+        },
+        "bloco_4": {
+            "nome": "Dados técnicos — preferencial",
+            "objetivo": (
+                "Priorizar parâmetros, materiais, especificações, dimensionamento, limites e cuidados documentados. "
+                "Na falta desses dados, usar outro assunto relevante confirmado pelas fontes; nunca completar lacunas por suposição."
+            ),
+        },
+        "bloco_5": {
+            "nome": "Orientação ao cliente humanizada — preferencial",
+            "objetivo": (
+                "Priorizar necessidades, dúvidas, cuidados práticos e critérios úteis para a decisão do leitor, "
+                "com linguagem clara e natural, sem inventar experiências, emoções ou promessas. "
+                "Se faltar evidência para esse foco, usar outro tema útil e sustentado."
+            ),
+        },
+    }
     contexto_blocos = {}
-    for numero_bloco in range(1, 6):
-        chave = f"bloco_{numero_bloco}"
-        assuntos_bloco = sorted(blocos_autorizados.get(chave, set()))
-        base = contexto_base.get(chave, {})
-        if not assuntos_bloco:
-            contexto_blocos[chave] = {
-                "ativo": False,
-                "assuntos_autorizados": [],
-                "objetivo": "Bloco não autorizado pelos checkboxes.",
-                "funcao": "Não utilizar este bloco para criar ou exigir conteúdo.",
-                "contexto": ""
-            }
-            continue
-        # Não reaproveitar objetivo/função/contexto do MEAD legado
-        # quando esses campos podem carregar assuntos desmarcados.
-        # O bloco passa a ser reconstruído somente com os checkboxes ativos.
-        contexto_blocos[chave] = {}
-        contexto_blocos[chave]["ativo"] = True
-        contexto_blocos[chave]["assuntos_autorizados"] = assuntos_bloco
-        direcao_preferencial = direcao_editorial_preferencial(chave)
-        contexto_blocos[chave]["direcao_editorial_preferencial"] = direcao_preferencial["nome"]
-        contexto_blocos[chave]["objetivo"] = (
-            f"Direção preferencial dos parágrafos: {direcao_preferencial['nome']}. "
-            f"{direcao_preferencial['descricao']}. "
-            f"Preferências indicadas pelos checkboxes: {', '.join(a.replace('_', ' ') for a in assuntos_bloco)}. "
-            "A direção é flexível, não é função narrativa obrigatória nem motivo isolado para rejeitar um trecho relevante."
-        )
-        contexto_blocos[chave]["funcao"] = (
-            "Preferência para orientar a seleção e a redação dos parágrafos, "
-            "subordinada à relevância, às evidências e às preferências dos checkboxes, sem obrigação de cobrir todos os tópicos."
-        )
-        contexto_blocos[chave]["contexto"] = (
-            "Esta preferência vale somente para os parágrafos gerados pelo Ollama. "
-            "Títulos, subtítulos, tags, segmentos e listas continuam sob responsabilidade do Python. "
-            "Não exigir nem inventar conteúdo ausente das fontes."
-        )
-
-    print("ASSUNTOS AUTORIZADOS NO MEAD:", ativos)
-    print("BLOCOS AUTORIZADOS:", {k: sorted(v) for k, v in blocos_autorizados.items()})
-
-    # --------------------------------------------------------
-    # MONTAR OBJETO
-    # --------------------------------------------------------
+    for chave, politica in politicas.items():
+        contexto_blocos[chave] = {
+            "ativo": True,
+            "direcao_editorial_preferencial": politica["nome"],
+            "objetivo": politica["objetivo"],
+            "funcao": (
+                "Preferência editorial; exceto o caráter comercial obrigatório do bloco 1, "
+                "não funciona como filtro eliminatório nem exige uma categoria literal."
+            ),
+            "contexto": (
+                "Usar apenas fatos autorizados pelos fragmentos selecionados. Priorizar naturalidade, "
+                "progressão, clareza, diversidade e ausência de repetição. Não inventar dados ausentes."
+            ),
+        }
 
     mapa = {
-
-        "tipo":
-            "MAPA_MEAD_PYTHON",
-
-        "tema":
-            tema,
-
-        "protagonista":
-            tema,
-
-        "tipo_pagina":
-            tipo,
-
-        "grupo":
-            grupo,
-
-        "assuntos_autorizados":
-            ativos,
-
-        "checkboxes_editoriais":
-            estrutura,
-
-        "intencao_comercial":
-            (
-                "Os checkboxes são preferências para orientar a abordagem, não exigências de cobertura por bloco. "
-                "A dimensão comercial deve ser factual e proporcional às evidências disponíveis; "
-                "não forçar conteúdo comercial quando as fontes não o sustentarem."
-            ),
-
-        "regra_factual":
-            (
-                "Nenhuma informação factual deve ser "
-                "criada a partir deste mapa. "
-                "Os fatos autorizados são somente os "
-                "presentes nos fragmentos selecionados "
-                "pelo Python."
-            ),
-
-        "contexto_blocos":
-            contexto_blocos,
-
-        "fontes_disponiveis":
-            len(textos),
-
-        "lacunas":
-            (
-                "Informações não presentes nos fragmentos "
-                "selecionados devem permanecer ausentes."
-            )
-
+        "tipo": "MAPA_MEAD_PYTHON",
+        "tema": tema,
+        "protagonista": tema,
+        "tipo_pagina": tipo,
+        "grupo": grupo,
+        "interpretacao_semantica": _mead_analisar_intencao_tema(tema),
+        "regra_factual": (
+            "Nenhuma informação factual deve ser criada a partir deste mapa. "
+            "Os fatos autorizados são somente os presentes nos fragmentos selecionados pelo Python."
+        ),
+        "contexto_blocos": contexto_blocos,
+        "fontes_disponiveis": len(textos),
+        "lacunas": "Informações não presentes nos fragmentos selecionados devem permanecer ausentes.",
     }
-
-    resultado = json.dumps(
-        mapa,
-        ensure_ascii=False,
-        indent=2
-    )
-
-    print()
+    resultado = json.dumps(mapa, ensure_ascii=False, indent=2)
+    print("\n==============================")
+    print("MAPA MEAD PYTHON GERADO — SEM FILTROS EDITORIAIS LEGADOS")
+    print("TEMA:", tema, "| FONTES:", len(textos), "| CARACTERES:", len(resultado))
+    print("REGRA: bloco 1 comercial estrito; blocos 2–5 flexíveis e orientados pelas evidências.")
     print("==============================")
-    print("MAPA MEAD PYTHON GERADO")
-    print("==============================")
-
-    print(
-        "CARACTERES:",
-        len(resultado)
-    )
-
     return resultado
-    
 
-# ============================================================
-# VALIDAR E RECUPERAR MAPA MEAD
-# ============================================================
 
 def validar_e_recuperar_mapa_mead(
     tema,
@@ -6485,6 +6975,9 @@ def validar_e_recuperar_mapa_mead(
 
 
     mapa_mead = mapa_mead.strip()
+    if mapa_mead and not validar_mapa_mead(mapa_mead):
+        print("MAPA MEAD RECEBIDO É LEGADO/INCOMPATÍVEL; não será reutilizado.")
+        mapa_mead = ""
 
 
     # ========================================================
@@ -6582,6 +7075,9 @@ def validar_e_recuperar_mapa_mead(
         mapa_recuperado = str(
             mapa_recuperado
         ).strip()
+        if not validar_mapa_mead(mapa_recuperado):
+            print("MAPA MEAD RECUPERADO É LEGADO/INCOMPATÍVEL; não será reutilizado.")
+            mapa_recuperado = ""
 
 
     # ========================================================
@@ -9865,7 +10361,7 @@ def selecionar_conteudo_editorial(
         Dicionário com as informações classificadas pelo Python.
 
     estrutura_editorial:
-        Dicionário com os checkboxes selecionados em
+        Dicionário com os eixos editoriais disponíveis em
         ESTRUTURA_EDITORIAL.
 
     Retorna:
@@ -9883,7 +10379,7 @@ def selecionar_conteudo_editorial(
 
     for bloco_editorial, ativo in estrutura_editorial.items():
 
-        # Checkbox desmarcado: não participa da seleção
+        # Eixos editoriais são referências amplas; não funcionam como filtros eliminatórios.
         if not ativo:
             continue
 
@@ -9929,9 +10425,9 @@ def selecionar_conteudo_editorial(
 # ============================================================
 
 # ============================================================
-# AUTORIDADE EDITORIAL — CHECKBOXES DO USUÁRIO
+# Eixos editoriais são referências amplas; não funcionam como filtros eliminatórios.
 # ============================================================
-# Os oito checkboxes abaixo são a única autoridade sobre quais
+# Eixos editoriais são referências amplas; não funcionam como filtros eliminatórios.
 # assuntos podem ser pesquisados, entrar no MEAD ou ser usados
 # para selecionar fragmentos.
 #
@@ -9965,13 +10461,13 @@ MAPEAMENTO_ASSUNTO_BLOCOS = {
 # DIREÇÕES EDITORIAIS PREFERENCIAIS — SOMENTE PARÁGRAFOS
 # ============================================================
 # São preferências suaves, não funções narrativas obrigatórias.
-# Checkboxes ativos autorizam os assuntos da página inteira.
+# Eixos editoriais são referências amplas; não funcionam como filtros eliminatórios.
 # Títulos, subtítulos, tags, segmentos e listas continuam sob
 # responsabilidade do Python e não recebem estas regras.
 DIRECOES_EDITORIAIS_PREFERENCIAIS = {
     "bloco_1": {
-        "nome": "Comercial e decisão de contratação",
-        "descricao": "necessidade atendida, escopo, fornecimento, critérios de escolha ou contratação, quando sustentados pelas fontes",
+        "nome": "Comercial — obrigatório",
+        "descricao": "decisão de compra ou contratação, escopo, fornecimento e necessidades do cliente, somente quando sustentados pelas evidências; se faltar evidência comercial, não substituir por texto técnico nem inventar oferta",
         "termos": ["fornecedor", "fornecimento", "contratação", "contratar", "orçamento", "cotação", "compra", "escolha", "escopo", "atendimento", "disponibilidade", "custo"]
     },
     "bloco_2": {
@@ -9980,18 +10476,18 @@ DIRECOES_EDITORIAIS_PREFERENCIAIS = {
         "termos": ["produto", "serviço", "características", "componente", "componentes", "material", "materiais", "tipo", "modelo", "finalidade", "estrutura", "funcionamento"]
     },
     "bloco_3": {
-        "nome": "Conteúdo técnico e critérios",
-        "descricao": "parâmetros, dimensionamento, especificações, critérios de seleção, cuidados, limites e manutenção documentados",
+        "nome": "Funcionamento e aplicações — preferencial",
+        "descricao": "funcionamento, relações entre componentes, aplicações e situações de uso sustentadas pelas fontes; outros assuntos relevantes são permitidos quando houver pouca evidência",
         "termos": ["técnico", "especificação", "dimensionamento", "pressão", "vazão", "potência", "eficiência", "parâmetro", "parâmetros", "critério", "critérios", "manutenção", "instalação", "tolerância", "norma"]
     },
     "bloco_4": {
-        "nome": "Aplicações e contextos de uso",
-        "descricao": "ambientes, setores, sistemas, processos e situações de aplicação sustentados pelas fontes",
+        "nome": "Dados técnicos — preferencial",
+        "descricao": "parâmetros, materiais, especificações, dimensionamento, limites e cuidados documentados; se faltarem, usar outro assunto relevante comprovado",
         "termos": ["aplicação", "aplicações", "utilização", "utilizado", "uso", "ambiente", "setor", "indústria", "sistema", "processo", "operação", "instalação", "cenário"]
     },
     "bloco_5": {
-        "nome": "Orientação ao cliente e abordagem humanizada",
-        "descricao": "necessidades, dúvidas, dificuldades, cuidados práticos e critérios úteis ao leitor, sem inventar experiências ou emoções",
+        "nome": "Orientação ao cliente humanizada — preferencial",
+        "descricao": "necessidades, dúvidas, cuidados práticos e critérios úteis ao leitor em linguagem clara, sem inventar experiências, emoções ou promessas",
         "termos": ["necessidade", "dúvida", "dúvidas", "problema", "escolha", "orientação", "cuidado", "cuidados", "erro", "suporte", "decisão", "adequação", "dificuldade", "equipe", "usuário"]
     }
 }
@@ -10001,7 +10497,7 @@ def direcao_editorial_preferencial(chave_bloco):
     """Retorna uma preferência suave; não altera componentes gerados pelo Python."""
     return DIRECOES_EDITORIAIS_PREFERENCIAIS.get(
         str(chave_bloco or ""),
-        {"nome": "Direção flexível", "descricao": "seguir as evidências e os checkboxes ativos", "termos": []}
+        {"nome": "Direção flexível", "descricao": "seguir o tema e as evidências disponíveis", "termos": []}
     )
 
 MAPEAMENTO_ASSUNTO_FUNCOES = {
@@ -10015,7 +10511,7 @@ MAPEAMENTO_ASSUNTO_FUNCOES = {
     "beneficios": {"tecnico", "conhecimento"},
 }
 
-TERMOS_PESQUISA_CHECKBOX = {
+TERMOS_PESQUISA_EDITORIAL = {
     "apresentacao": [
         "definição", "conceito", "o que é", "contexto", "finalidade", "importância"
     ],
@@ -10044,35 +10540,26 @@ TERMOS_PESQUISA_CHECKBOX = {
 }
 
 
-def normalizar_checkboxes_editoriais(estrutura_editorial=None):
-    """Retorna somente os oito checkboxes oficiais, sem criar assuntos."""
-    if not isinstance(estrutura_editorial, dict):
-        estrutura_editorial = globals().get("ESTRUTURA_EDITORIAL", {})
-
-    return {
-        chave: bool(estrutura_editorial.get(chave, False))
-        for chave in ASSUNTOS_EDITORIAIS_OFICIAIS
-    }
+def normalizar_eixos_editoriais(estrutura_editorial=None):
+    """Adaptador legado: todos os eixos ficam disponíveis; nenhum filtro de interface é aplicado."""
+    return {chave: True for chave in ASSUNTOS_EDITORIAIS_OFICIAIS}
 
 
 def assuntos_editoriais_ativos(estrutura_editorial=None):
-    estrutura = normalizar_checkboxes_editoriais(estrutura_editorial)
-    return [chave for chave, ativo in estrutura.items() if ativo]
+    """Retorna os eixos editoriais disponíveis, sem seleção obrigatória do usuário."""
+    return list(ASSUNTOS_EDITORIAIS_OFICIAIS)
 
 
-def blocos_autorizados_pelos_checkboxes(estrutura_editorial=None):
-    """Checkboxes ativos autorizam assuntos na página inteira; bloco é preferência, não veto."""
-    ativos = set(assuntos_editoriais_ativos(estrutura_editorial))
-    return {f"bloco_{i}": set(ativos) for i in range(1, 6)}
+def blocos_com_eixos_disponiveis(estrutura_editorial=None):
+    """Adaptador legado permissivo; o conteúdo não é vetado por eixo editorial."""
+    disponiveis = set(ASSUNTOS_EDITORIAIS_OFICIAIS)
+    return {f"bloco_{i}": set(disponiveis) for i in range(1, 6)}
 
 
-def funcoes_autorizadas_pelos_checkboxes(estrutura_editorial=None):
-    """Funções decorrentes dos checkboxes ativos ficam disponíveis a todos os blocos."""
-    ativos = assuntos_editoriais_ativos(estrutura_editorial)
-    funcoes_ativas = set()
-    for assunto in ativos:
-        funcoes_ativas.update(MAPEAMENTO_ASSUNTO_FUNCOES.get(assunto, set()))
-    return {f"bloco_{i}": set(funcoes_ativas) for i in range(1, 6)}
+def funcoes_editoriais_disponiveis(estrutura_editorial=None):
+    """Adaptador legado permissivo; só o filtro comercial próprio do bloco 1 é rígido."""
+    funcoes = set().union(*MAPEAMENTO_ASSUNTO_FUNCOES.values())
+    return {f"bloco_{i}": set(funcoes) for i in range(1, 6)}
 
 MAPEAMENTO_EDITORIAL = {
 
@@ -10507,33 +10994,13 @@ def selecionar_informacoes_relevantes(
 
         estrutura_editorial = {}
 
-    assuntos = [
-
-        str(chave).replace(
-            "_",
-            " "
-        )
-
-        for chave, valor
-        in estrutura_editorial.items()
-
-        if valor
-
-    ]
-
     print()
     print("==============================")
-    print("CHECKBOXES RECEBIDOS")
+    print("ORIENTAÇÃO EDITORIAL MEAD")
     print("==============================")
-
-    print(
-        "ASSUNTOS:",
-        assuntos
-    )
-
-    print("CHECKBOXES: preferências editoriais; não são obrigação por bloco.")
-    if not assuntos:
-        print("NENHUM CHECKBOX ATIVO — seguir o tema, a relevância e as evidências das fontes.")
+    print("O tema é orientado pela intenção e pelas evidências; sem lista fixa de assuntos obrigatórios.")
+    print("Somente o Bloco 1 exige suporte comercial específico.")
+    print("==============================")
 
 
       
@@ -10541,6 +11008,30 @@ def selecionar_informacoes_relevantes(
     # ========================================================
     # 03. PREPARAR MAPA MEAD
     # ========================================================
+
+    # Extrair o contexto dos blocos do mapa MEAD recebido. Esta variável era
+    # utilizada mais abaixo sem definição, interrompendo a seleção com NameError.
+    _mapa_mead_obj_selecao = mapa_mead if isinstance(mapa_mead, dict) else None
+    if _mapa_mead_obj_selecao is None:
+        try:
+            _mapa_mead_obj_selecao = json.loads(str(mapa_mead or ""))
+        except Exception:
+            _mapa_mead_obj_selecao = {}
+    if not isinstance(_mapa_mead_obj_selecao, dict):
+        _mapa_mead_obj_selecao = {}
+    if not isinstance(_mapa_mead_obj_selecao.get("contexto_blocos"), dict):
+        # Aceitar um mapa serializado dentro do campo texto, se a chamada
+        # trouxer o envelope do banco em vez do mapa diretamente.
+        _texto_interno_mapa = _mapa_mead_obj_selecao.get("texto", "")
+        try:
+            _mapa_interno_obj = json.loads(str(_texto_interno_mapa or ""))
+        except Exception:
+            _mapa_interno_obj = {}
+        if isinstance(_mapa_interno_obj, dict):
+            _mapa_mead_obj_selecao = _mapa_interno_obj
+    contexto_blocos_mead = _mapa_mead_obj_selecao.get("contexto_blocos", {})
+    if not isinstance(contexto_blocos_mead, dict):
+        contexto_blocos_mead = {}
 
     mapa_texto = str(
         mapa_mead or ""
@@ -11276,38 +11767,18 @@ def selecionar_informacoes_relevantes(
         # ========================================================
 
         def fragmento_pertence_ao_tema(texto, tema):
-            """Relevância ampla: o tema orienta a busca, sem impor subcategoria fixa."""
-            texto = str(texto or "").strip()
-            tema = str(tema or "").strip()
-            if not texto or not tema:
-                return False
-            texto_norm = normalizar_assunto_texto(texto)
-            tema_norm = normalizar_assunto_texto(tema)
-            ignoradas = {"de", "da", "das", "do", "dos", "em", "na", "nas", "no", "nos", "para", "por", "com", "sem", "e", "a", "o", "as", "os"}
-            palavras_tema = [p for p in re.findall(r"\b[a-z0-9]{3,}\b", tema_norm) if p not in ignoradas]
-            if palavras_tema and all(re.search(r"\b" + re.escape(p.rstrip('s')) + r"[a-z0-9]*\b", texto_norm) for p in palavras_tema):
-                return True
-            # Usa o mapa de relações do próprio projeto para permitir trechos complementares
-            # que tratem de conceitos associados, mesmo sem repetir a palavra-chave literal.
-            relacionados = set()
+            """Valida núcleo + modificadores sem exigir a keyword literal inteira na fonte.
+
+            Localidades podem ser qualificadores geográficos que entram na keyword final;
+            modalidade, condição, finalidade e demais modificadores semânticos precisam
+            continuar cobertos pela evidência.
+            """
             try:
-                for chave_rel, valores_rel in _RELACOES_TECNICAS_BUSCA.items():
-                    chave_norm = normalizar_assunto_texto(chave_rel)
-                    partes_chave = [x for x in chave_norm.split() if x not in ignoradas]
-                    if chave_norm in tema_norm or (partes_chave and all(x in tema_norm.split() for x in partes_chave)):
-                        relacionados.add(chave_norm)
-                        relacionados.update(normalizar_assunto_texto(x) for x in valores_rel if x)
+                return bool(_mead_evidencia_cobre_intencao(str(texto or ""), str(tema or "")))
             except Exception:
-                pass
-            # Termos técnicos gerais são um fallback, não uma taxonomia obrigatória.
-            relacionados.update({
-                "funcionamento", "aplicacao", "dimensionamento", "instalacao", "manutencao",
-                "seguranca", "eficiencia", "rendimento", "potencia", "pressao", "vazao",
-                "temperatura", "material", "componente", "sistema", "processo", "operacao",
-                "especificacao", "desempenho", "criterio", "selecao", "fluido", "energia"
-            })
-            return any(termo and termo in texto_norm for termo in relacionados)
-        
+                # Fail closed: não autorizar evidência se o analisador semântico falhar.
+                return False
+
         
         # ----------------------------------------------------
         # CRIAR CANDIDATO A PARTIR DA POSIÇÃO ORIGINAL
@@ -11891,1808 +12362,11 @@ def selecionar_informacoes_relevantes(
     print("==============================")
     
     
-    # ========================================================
-    # 06. PRIORIZAR PELOS ASSUNTOS DOS CHECKBOXES
-    #     + CONTEXTO EDITORIAL DOS 5 BLOCOS DO MEAD
-    # ========================================================
+    if not candidatos:
+        print("🔴 SELEÇÃO BLOQUEADA: nenhum fragmento passou pela extração e validação temática/editorial.")
+        print("🔴 Não chamar o Ollama nem declarar estoque disponível sem candidatos utilizáveis.")
+        return resultado_vazio
 
-    if not isinstance(
-        estrutura_editorial,
-        dict
-    ):
-
-        estrutura_editorial = {}
-
-    # --------------------------------------------------------
-    # CHECKBOXES ATIVOS
-    # --------------------------------------------------------
-
-    assuntos = [
-
-        str(chave).replace(
-            "_",
-            " "
-        )
-
-        for chave, valor
-        in estrutura_editorial.items()
-
-        if valor
-
-    ]
-    
-    # ============================================================
-    # CATEGORIAS — ORIENTAÇÃO ADICIONAL PARA SELEÇÃO
-    # As categorias apenas ajudam a pontuar os candidatos.
-    # Não alteram a quantidade nem a lógica de seleção dos 15
-    # fragmentos.
-    # ============================================================
-
-    categorias_editoriais_ativas = []
-
-    try:
-        if isinstance(estrutura_editorial, dict):
-            for bloco_editorial, ativo in estrutura_editorial.items():
-
-                if not ativo:
-                    continue
-
-                categorias_do_bloco = MAPEAMENTO_EDITORIAL.get(
-                    bloco_editorial,
-                    []
-                )
-
-                for categoria in categorias_do_bloco:
-                    if categoria not in categorias_editoriais_ativas:
-                        categorias_editoriais_ativas.append(categoria)
-
-    except Exception:
-        categorias_editoriais_ativas = []
-
-    print(
-        "CATEGORIAS EDITORIAIS ATIVAS:",
-        categorias_editoriais_ativas
-    )
-
-    # Termos associados às categorias.
-    # Servem exclusivamente como sinal adicional de relevância.
-    termos_categorias = {
-
-        "definicao": [
-            "definição", "definicao", "conceito",
-            "descrição", "descricao", "característica",
-            "caracteristicas"
-        ],
-
-        "beneficios": [
-            "benefício", "beneficio", "benefícios",
-            "beneficios", "desempenho", "confiabilidade",
-            "durabilidade", "eficiência", "eficiencia",
-            "economia", "produtividade"
-        ],
-
-        "vantagens": [
-            "vantagem", "vantagens", "diferencial",
-            "diferenciais", "eficiência", "eficiencia",
-            "desempenho", "confiabilidade"
-        ],
-
-        "materia_prima": [
-            "material", "materiais", "matéria-prima",
-            "materia-prima", "composição", "composicao",
-            "aço", "aco", "ferro", "alumínio", "aluminio"
-        ],
-
-        "aplicacoes": [
-            "aplicação", "aplicacao", "aplicações",
-            "aplicacoes", "utilização", "utilizacao",
-            "uso", "empregado", "empregada"
-        ],
-
-        "fabricacao": [
-            "fabricação", "fabricacao", "produção",
-            "producao", "processo", "montagem",
-            "construção", "construcao"
-        ],
-
-        "manutencao": [
-            "manutenção", "manutencao", "inspeção",
-            "inspecao", "reparo", "ajuste",
-            "lubrificação", "lubrificacao"
-        ],
-
-        "ativos_narrativos": [
-            "empresa", "fabricante", "fornecedor",
-            "produto", "solução", "solucao",
-            "serviço", "servico", "suporte",
-            "atendimento"
-        ],
-
-        "duvidas_frequentes": [
-            "dúvida", "duvida", "dúvidas", "duvidas",
-            "pergunta", "perguntas", "problema",
-            "problemas", "como", "quando", "por que"
-        ]
-    }
-
-    assuntos_normalizados = []
-
-    for assunto in assuntos:
-
-        assunto_normalizado = (
-            normalizar_assunto_texto(
-                assunto
-            ).strip()
-        )
-
-        if assunto_normalizado:
-
-            assuntos_normalizados.append(
-                assunto_normalizado
-            )
-
-    # ========================================================
-    # TERMOS DOS CHECKBOXES
-    # ========================================================
-
-    termos_assuntos = {
-
-        "apresentacao": [
-
-            "contexto",
-            "finalidade",
-            "importância",
-            "importancia",
-            "necessidade",
-            "conceito",
-            "definição",
-            "definicao",
-            "introdução",
-            "introducao",
-            "característica",
-            "caracteristicas"
-
-        ],
-
-        "funcionamento": [
-
-            "funcionamento",
-            "funciona",
-            "operação",
-            "operacao",
-            "processo",
-            "mecanismo",
-            "acionamento",
-            "desempenho",
-            "movimento",
-            "pressão",
-            "pressao",
-            "vazão",
-            "vazao"
-
-        ],
-
-        "aplicacoes": [
-
-            "aplicação",
-            "aplicacao",
-            "aplicações",
-            "aplicacoes",
-            "utilização",
-            "utilizacao",
-            "uso",
-            "empregado",
-            "empregada",
-            "atende",
-            "atendimento",
-            "sistema",
-            "processo"
-
-        ],
-
-        "criterios": [
-
-            "critério",
-            "criterio",
-            "critérios",
-            "criterios",
-            "seleção",
-            "selecao",
-            "dimensionamento",
-            "especificação",
-            "especificacao",
-            "escolha",
-            "avaliação",
-            "avaliacao"
-
-        ],
-
-        "comercial": [
-
-            "empresa",
-            "fabricante",
-            "fornecedor",
-            "produto",
-            "solução",
-            "solucao",
-            "serviço",
-            "servico",
-            "atendimento",
-            "suporte",
-            "equipe",
-            "experiência",
-            "experiencia"
-
-        ],
-
-        "informacao_tecnica": [
-
-            "informação técnica",
-            "informacao tecnica",
-            "especificação",
-            "especificacao",
-            "característica técnica",
-            "caracteristica tecnica",
-            "material",
-            "dimensão",
-            "dimensao",
-            "capacidade",
-            "potência",
-            "potencia",
-            "pressão",
-            "pressao",
-            "vazão",
-            "vazao",
-            "temperatura",
-            "rendimento",
-            "eficiência",
-            "eficiencia"
-
-        ],
-
-        "instalacao_execucao": [
-
-            "instalação",
-            "instalacao",
-            "montagem",
-            "execução",
-            "execucao",
-            "implantação",
-            "implantacao",
-            "operação",
-            "operacao",
-            "manutenção",
-            "manutencao",
-            "segurança",
-            "seguranca",
-            "ajuste",
-            "inspeção",
-            "inspecao"
-
-        ],
-
-        "beneficios": [
-
-            "benefício",
-            "beneficio",
-            "benefícios",
-            "beneficios",
-            "vantagem",
-            "vantagens",
-            "redução",
-            "reducao",
-            "economia",
-            "desempenho",
-            "confiabilidade",
-            "durabilidade",
-            "eficiência",
-            "eficiencia",
-            "produtividade"
-
-        ]
-
-    }
-
-    # ========================================================
-    # 06.1 CONTEXTO EDITORIAL DO MEAD
-    # ========================================================
-    # AUTORIDADE ÚNICA: CHECKBOXES DO USUÁRIO.
-    # O MEAD global/legado não pode reintroduzir assuntos.
-    # --------------------------------------------------------
-
-    contexto_blocos_mead = {}
-    blocos_check_editorial = blocos_autorizados_pelos_checkboxes(
-        estrutura_editorial
-    )
-    funcoes_check_editorial = funcoes_autorizadas_pelos_checkboxes(
-        estrutura_editorial
-    )
-
-    # Preferências editoriais suaves: os checkboxes orientam, mas não obrigam
-    # nem impedem assuntos de aparecerem em qualquer bloco.
-    prioridades_assuntos_bloco = {
-        "bloco_1": ["comercial"],
-        "bloco_2": ["apresentacao"],
-        "bloco_3": ["aplicacoes", "beneficios", "funcionamento", "informacao_tecnica"],
-        "bloco_4": ["criterios", "instalacao_execucao", "informacao_tecnica", "aplicacoes"],
-        "bloco_5": ["informacao_tecnica", "criterios", "comercial", "beneficios", "aplicacoes"],
-    }
-    prioridades_funcoes_bloco = {
-        "bloco_1": ["comercial", "institucional", "suporte", "solucao", "contexto"],
-        "bloco_2": ["contexto", "funcionamento", "tecnico", "conhecimento"],
-        "bloco_3": ["aplicacao", "tecnico", "conhecimento", "funcionamento", "solucao"],
-        "bloco_4": ["instalacao", "manutencao", "seguranca", "tecnico", "conhecimento"],
-        "bloco_5": ["tecnico", "conhecimento", "suporte", "solucao", "comercial", "institucional"],
-    }
-    objetivos_editoriais_bloco = {
-        "bloco_1": "Prioridade preferencial: dimensão comercial autorizada, fornecimento e atendimento, quando sustentados pelas fontes",
-        "bloco_2": "Prioridade preferencial: apresentação do produto ou serviço, finalidade e características",
-        "bloco_3": "Direção flexível: aplicações, benefícios, funcionamento ou informação técnica conforme a evidência",
-        "bloco_4": "Direção flexível: critérios, instalação, execução ou outros assuntos relevantes conforme a evidência",
-        "bloco_5": "Síntese técnica e apoio à decisão comercial autorizada, sem obrigação de incluir todos esses elementos",
-    }
-
-    descricoes_assunto = {
-        "apresentacao": "apresentação e contextualização",
-        "funcionamento": "funcionamento",
-        "aplicacoes": "aplicações",
-        "criterios": "critérios",
-        "comercial": "dimensão comercial autorizada",
-        "informacao_tecnica": "informação técnica",
-        "instalacao_execucao": "instalação e execução",
-        "beneficios": "benefícios",
-    }
-
-    for numero_bloco in range(1, 6):
-        chave = f"bloco_{numero_bloco}"
-        assuntos_ativos = sorted(assuntos_editoriais_ativos(estrutura_editorial))
-        assuntos_prioritarios = prioridades_assuntos_bloco.get(chave, [])
-        prioridades_ativas = [a for a in assuntos_prioritarios if a in assuntos_ativos]
-        funcoes_ativas = set(funcoes_check_editorial.get(chave, set()))
-        funcoes_prioritarias = [f for f in prioridades_funcoes_bloco.get(chave, []) if f in funcoes_ativas]
-        nomes = [descricoes_assunto.get(a, a.replace('_', ' ')) for a in assuntos_ativos]
-        contexto_blocos_mead[chave] = {
-            "ativo": True,
-            "assuntos_preferenciais": assuntos_ativos,
-            "assuntos_autorizados": assuntos_ativos,
-            "funcoes_preferenciais": funcoes_prioritarias,
-            "funcoes_autorizadas": sorted(funcoes_ativas),
-            "prioridades_suaves": prioridades_ativas,
-            "objetivo": (
-                objetivos_editoriais_bloco.get(chave, "Direção editorial flexível") + ". "
-                "Esta é uma preferência, não uma obrigação nem um filtro eliminatório. "
-                "Os assuntos sinalizados nos checkboxes podem aparecer em qualquer bloco, "
-                "conforme relevância, evidência disponível e coerência do texto. "
-                "Não é necessário incluir todos os assuntos marcados."
-                + (" Preferências indicadas pelo usuário: " + ", ".join(nomes) + "." if nomes else
-                   " Nenhuma preferência específica foi marcada; seguir o tema e as fontes.")
-            ),
-            "funcao": (
-                "Orientação editorial flexível. Não exigir uma palavra, assunto ou função literal; "
-                "não rejeitar conteúdo relevante apenas por pertencer a outra direção editorial."
-            ),
-            "contexto": (
-                "Priorizar qualidade factual, relevância para o tema, diversidade entre os blocos "
-                "e ausência de repetição. Os checkboxes são preferências globais e não restrições por bloco. "
-                "Não inventar fatos ausentes das fontes."
-            ),
-        }
-
-    # --------------------------------------------------------
-    # OBJETIVOS DOS CINCO BLOCOS
-    #
-    # Estes termos traduzem os objetivos editoriais do MEAD
-    # em critérios de seleção.
-    #
-    # O texto original do MEAD continua sendo a autoridade.
-    # Estes termos apenas permitem ao Python localizar
-    # fragmentos compatíveis com aquela finalidade.
-    # --------------------------------------------------------
-
-    termos_blocos = {
-
-        # ========================================================
-        # BLOCO 1
-        # O QUE É / CONTEXTO / FUNCIONAMENTO
-        # ========================================================
-    
-        "bloco_1": [
-    
-            "contextualização",
-            "contextualizacao",
-            "contexto",
-    
-            "conceito",
-            "definição",
-            "definicao",
-    
-            "descrição",
-            "descricao",
-    
-            "finalidade",
-    
-            "funcionamento",
-            "funciona",
-    
-            "princípio",
-            "principio",
-    
-            "mecanismo",
-    
-            "operação",
-            "operacao",
-    
-            "movimento",
-            "movimentação",
-            "movimentacao",
-    
-            "processo",
-    
-            "pressão",
-            "pressao",
-    
-            "vazão",
-            "vazao",
-    
-            "fluido",
-            "liquido",
-            "líquido"
-    
-        ],
-    
-    
-        # ========================================================
-        # BLOCO 2
-        # CARACTERÍSTICAS / APLICAÇÕES
-        # ========================================================
-    
-        "bloco_2": [
-    
-            "característica",
-            "caracteristicas",
-    
-            "características",
-            "caracteristicas",
-    
-            "especificação",
-            "especificacao",
-    
-            "capacidade",
-    
-            "vazão",
-            "vazao",
-    
-            "pressão",
-            "pressao",
-    
-            "temperatura",
-    
-            "potência",
-            "potencia",
-    
-            "rotação",
-            "rotacao",
-    
-            "material",
-            "materiais",
-    
-            "configuração",
-            "configuracao",
-    
-            "aplicação",
-            "aplicacao",
-    
-            "aplicações",
-            "aplicacoes",
-    
-            "utilização",
-            "utilizacao",
-    
-            "uso",
-    
-            "empregado",
-            "empregada",
-    
-            "setor",
-            "processo",
-    
-            "sistema",
-    
-            "desempenho"
-    
-        ],
-    
-    
-        # ========================================================
-        # BLOCO 3
-        # VANTAGENS / DIFERENCIAIS
-        # ========================================================
-    
-        "bloco_3": [
-    
-            "vantagem",
-            "vantagens",
-    
-            "benefício",
-            "beneficio",
-    
-            "benefícios",
-            "beneficios",
-    
-            "diferencial",
-            "diferenciais",
-    
-            "eficiência",
-            "eficiencia",
-    
-            "rendimento",
-    
-            "desempenho",
-    
-            "confiabilidade",
-    
-            "durabilidade",
-    
-            "resistência",
-            "resistencia",
-    
-            "segurança",
-            "seguranca",
-    
-            "produtividade",
-    
-            "economia",
-    
-            "redução",
-            "reducao",
-    
-            "otimização",
-            "otimizacao",
-    
-            "flexibilidade",
-    
-            "continuidade",
-    
-            "estabilidade"
-    
-        ],
-    
-    
-        # ========================================================
-        # BLOCO 4
-        # ASPECTOS TÉCNICOS / CUIDADOS
-        # ========================================================
-    
-        "bloco_4": [
-    
-            "aspecto técnico",
-            "aspecto tecnico",
-    
-            "aspectos técnicos",
-            "aspectos tecnicos",
-    
-            "especificação",
-            "especificacao",
-    
-            "dimensionamento",
-    
-            "instalação",
-            "instalacao",
-    
-            "montagem",
-    
-            "operação",
-            "operacao",
-    
-            "manutenção",
-            "manutencao",
-    
-            "inspeção",
-            "inspecao",
-    
-            "reparo",
-    
-            "ajuste",
-    
-            "lubrificação",
-            "lubrificacao",
-    
-            "vedação",
-            "vedacao",
-    
-            "segurança",
-            "seguranca",
-    
-            "cuidado",
-            "cuidados",
-    
-            "pressão",
-            "pressao",
-    
-            "vazão",
-            "vazao",
-    
-            "temperatura",
-    
-            "desgaste",
-    
-            "corrosão",
-            "corrosao",
-    
-            "vibração",
-            "vibracao",
-    
-            "cavitação",
-            "cavitacao",
-    
-            "material",
-            "materiais"
-    
-        ],
-    
-    
-        # ========================================================
-        # BLOCO 5
-        # ESCOLHA / FORNECIMENTO / SUPORTE
-        # ========================================================
-    
-        "bloco_5": [
-    
-            "seleção",
-            "selecao",
-    
-            "escolha",
-    
-            "dimensionamento",
-    
-            "especificação",
-            "especificacao",
-    
-            "necessidade",
-            "necessidades",
-    
-            "aplicação",
-            "aplicacao",
-    
-            "aplicações",
-            "aplicacoes",
-    
-            "fornecimento",
-    
-            "fornecedor",
-    
-            "fornecedores",
-    
-            "fabricante",
-    
-            "fabricantes",
-    
-            "distribuidor",
-            "distribuidores",
-    
-            "suporte",
-    
-            "assistência",
-            "assistencia",
-    
-            "atendimento",
-    
-            "atendimento especializado",
-    
-            "prazo",
-    
-            "confiabilidade",
-    
-            "conhecimento técnico",
-            "conhecimento tecnico",
-    
-            "orientação",
-            "orientacao",
-    
-            "especificações",
-            "especificacoes"
-    
-        ]
-    
-    }
-
-    # --------------------------------------------------------
-    # MEAD COMO AUTORIDADE OPERACIONAL
-    # --------------------------------------------------------
-    termos_mead_prioritarios = {}
-    palavras_ruido_mead = {"bloco","objetivo","funcao","função","contexto","deve","devem","pagina","página","conteudo","conteúdo","tecnico","técnico","tecnica","técnica","somente","apenas","quando","caso","forma","sem","com","para","sobre","entre","pelos","pelas","este","esta","esse","essa","como","uma","uns","umas","dos","das","que","não","nao","uso","usar"}
-    for numero_bloco in range(1,6):
-        chave_bloco=f"bloco_{numero_bloco}"; dados_mead=contexto_blocos_mead.get(chave_bloco,{})
-        if not isinstance(dados_mead,dict): continue
-        base_mead=" ".join(str(dados_mead.get(k,"") or "") for k in ("objetivo","funcao","função","contexto"))
-        tokens=[]
-        for termo in re.findall(r"\b[a-záàãâéêíóôõúç]{4,}\b",base_mead.casefold()):
-            termo_n=normalizar_assunto_texto(termo)
-            if termo_n and termo_n not in palavras_ruido_mead and termo_n not in tokens: tokens.append(termo_n)
-        termos_mead_prioritarios[chave_bloco]=tokens
-    termos_blocos_mead_fallback={
-        "bloco_1":["definição","funcionamento","contexto","necessidade","importância","cenário"],
-        "bloco_2":["funcionamento","aplicações","características","uso","desempenho"],
-        "bloco_3":["critérios","cuidados","instalação","operação","manutenção","segurança","especificação","dimensionamento"],
-        "bloco_4":["empresa","conhecimento","serviço","suporte","produto","solução","experiência","atendimento"],
-        "bloco_5":["necessidade","aplicação","conhecimento","solução","seleção","fornecimento","suporte"],
-    }
-    for chave_bloco, termos in termos_blocos_mead_fallback.items():
-        termos_blocos[chave_bloco]=(termos_mead_prioritarios.get(chave_bloco,[])*3)+termos+termos_blocos.get(chave_bloco,[])
-
-    # ========================================================
-    # CHECKBOXES COMO PREFERÊNCIAS GLOBAIS, NÃO COMO VETO POR BLOCO
-    # ========================================================
-    # O dicionário legado acima continua existindo por compatibilidade,
-    # Os termos ativos recebem preferência, mas não excluem outros conteúdos
-    # factuais e relevantes encontrados nas fontes.
-    # ========================================================
-
-    blocos_check = blocos_autorizados_pelos_checkboxes(estrutura_editorial)
-    termos_globais_checkboxes = []
-    for assunto in assuntos_editoriais_ativos(estrutura_editorial):
-        termos_globais_checkboxes.extend(TERMOS_PESQUISA_CHECKBOX.get(assunto, []))
-    termos_globais_checkboxes = list(dict.fromkeys(
-        normalizar_assunto_texto(t) for t in termos_globais_checkboxes if str(t).strip()
-    ))
-    termos_blocos = {f"bloco_{i}": list(termos_globais_checkboxes) for i in range(1, 6)}
-
-    # Bônus leve para a prioridade de cada bloco: apenas ordena candidatos,
-    # não veta conteúdos pertinentes de outros assuntos.
-    for _chave_bloco, _assuntos_prioritarios in prioridades_assuntos_bloco.items():
-        _termos_prioritarios = []
-        for _assunto in _assuntos_prioritarios:
-            _termos_prioritarios.extend(TERMOS_PESQUISA_CHECKBOX.get(_assunto, []))
-        _normalizados_prioritarios = [
-            normalizar_assunto_texto(_termo)
-            for _termo in _termos_prioritarios if str(_termo).strip()
-        ]
-        termos_blocos[_chave_bloco] = list(dict.fromkeys(
-            _normalizados_prioritarios + termos_blocos.get(_chave_bloco, [])
-        ))
-
-    print("TERMOS PREFERENCIAIS DOS CHECKBOXES (NÃO EXCLUSIVOS):")
-    for _bloco, _termos in termos_blocos.items():
-        print(_bloco, "=>", _termos[:30])
-
-    # --------------------------------------------------------
-    # TAMBÉM LÊ O TEXTO REAL DO MEAD
-    #
-    # Isso mantém a seleção vinculada ao MEAD carregado,
-    # sem enviar o MEAD inteiro para o Ollama.
-    # --------------------------------------------------------
-
-    # ========================================================
-    # SELEÇÃO COM DIVERSIDADE DE FONTES
-    # ========================================================
-    # Em cada bloco, a primeira preferência é por uma fonte
-    # ainda não utilizada. Só reutilizamos uma fonte quando não
-    # houver alternativa válida. Isso evita que uma única página
-    # domine os 15 fragmentos quando o patrimônio contém dezenas
-    # de fontes relevantes.
-
-    for numero_bloco in range(
-        1,
-        6
-    ):
-
-        chave_bloco = (
-            f"bloco_{numero_bloco}"
-        )
-
-        dados_bloco_mead = (
-            contexto_blocos_mead.get(
-                chave_bloco,
-                {}
-            )
-        )
-
-        if not isinstance(
-            dados_bloco_mead,
-            dict
-        ):
-
-            continue
-
-        objetivo_mead = normalizar_assunto_texto(
-            dados_bloco_mead.get(
-                "objetivo",
-                ""
-            )
-        )
-
-        funcao_mead = normalizar_assunto_texto(
-            dados_bloco_mead.get(
-                "funcao",
-                ""
-            )
-        )
-
-        texto_mead = (
-            f"{objetivo_mead} "
-            f"{funcao_mead}"
-        ).strip()
-
-        if texto_mead:
-
-            termos_existentes = (
-                termos_blocos.get(
-                    chave_bloco,
-                    []
-                )
-            )
-
-            termos_blocos[
-                chave_bloco
-            ] = (
-
-                termos_existentes
-                +
-                [
-                    termo
-                    for termo in texto_mead.split()
-                    if len(termo) > 4
-                ]
-
-            )
-
-    # --------------------------------------------------------
-    # NORMALIZAR TERMOS DOS BLOCOS
-    # --------------------------------------------------------
-
-    termos_blocos_normalizados = {}
-
-    for chave_bloco, termos in termos_blocos.items():
-
-        termos_normalizados = []
-
-        for termo in termos:
-
-            termo_normalizado = (
-                normalizar_assunto_texto(
-                    termo
-                ).strip()
-            )
-
-            if termo_normalizado:
-
-                termos_normalizados.append(
-                    termo_normalizado
-                )
-
-        termos_blocos_normalizados[
-            chave_bloco
-        ] = termos_normalizados
-
-    # ========================================================
-    # 06.2 PONTUAÇÃO DOS CHECKBOXES
-    # ========================================================
-
-    def calcular_pontuacao_checkbox(
-        texto_normalizado
-    ):
-
-        pontuacao = 0
-
-        for assunto in assuntos_normalizados:
-
-            termos = termos_assuntos.get(
-                assunto,
-                []
-            )
-
-            for termo in termos:
-
-                termo_normalizado = (
-                    normalizar_assunto_texto(
-                        termo
-                    )
-                )
-
-                if (
-                    termo_normalizado
-                    and
-                    termo_normalizado
-                    in texto_normalizado
-                ):
-
-                    pontuacao += 1
-
-        return pontuacao
-        
-    # ========================================================
-    # 06.2.1 PONTUAÇÃO DOS CHECKBOXES
-    # ========================================================   
-
-    def calcular_pontuacao_categorias(texto_normalizado):
-        """
-        Usa as categorias editoriais ativas apenas como
-        sinal adicional de relevância para os fragmentos.
-
-        Não realiza seleção própria.
-        Não altera quantidade.
-        Não altera distribuição.
-        """
-
-        pontuacao = 0
-
-        for categoria in categorias_editoriais_ativas:
-
-            termos = termos_categorias.get(
-                categoria,
-                []
-            )
-
-            termos_vistos = set()
-
-            for termo in termos:
-
-                termo_normalizado = (
-                    normalizar_assunto_texto(
-                        termo
-                    )
-                )
-
-                if (
-                    not termo_normalizado
-                    or
-                    termo_normalizado
-                    in termos_vistos
-                ):
-                    continue
-
-                termos_vistos.add(
-                    termo_normalizado
-                )
-
-                if (
-                    termo_normalizado
-                    in texto_normalizado
-                ):
-                    pontuacao += 1
-
-        return pontuacao    
-
-
-    
-
-    # ========================================================
-    # 06.3 PONTUAÇÃO ESPECÍFICA DE CADA BLOCO
-    # ========================================================
-
-    def calcular_pontuacao_bloco(
-        candidato,
-        chave_bloco
-    ):
-
-        texto_normalizado = (
-            normalizar_assunto_texto(
-                candidato.get(
-                    "texto",
-                    ""
-                )
-            )
-        )
-
-        if not texto_normalizado:
-
-            return 0
-
-        pontuacao = 0
-
-        # ----------------------------------------------------
-        # A. COMPATIBILIDADE COM O OBJETIVO DO BLOCO
-        # ----------------------------------------------------
-
-        termos_bloco = termos_blocos_normalizados.get(
-            chave_bloco,
-            []
-        )
-
-        termos_vistos = set()
-
-        for termo in termos_bloco:
-
-            if termo in termos_vistos:
-
-                continue
-
-            termos_vistos.add(
-                termo
-            )
-
-            if (
-                termo
-                and
-                termo
-                in texto_normalizado
-            ):
-
-                pontuacao += 2
-
-        # ----------------------------------------------------
-        # B. COMPATIBILIDADE COM OS CHECKBOXES
-        # ----------------------------------------------------
-
-        pontuacao_checkbox = (
-            calcular_pontuacao_checkbox(
-                texto_normalizado
-            )
-        )
-
-        pontuacao += (
-            pontuacao_checkbox
-        )
-        
-        # ----------------------------------------------------
-        # B.1 COMPATIBILIDADE COM AS CATEGORIAS
-        #
-        # As categorias servem somente como reforço na
-        # pontuação do candidato.
-        #
-        # NÃO fazem uma nova seleção.
-        # NÃO alteram a quantidade de fragmentos.
-        # NÃO alteram a distribuição dos blocos.
-        # ----------------------------------------------------
-
-        pontuacao_categorias = (
-            calcular_pontuacao_categorias(
-                texto_normalizado
-            )
-        )
-
-        pontuacao += (
-            pontuacao_categorias
-        )
-
-        # ----------------------------------------------------
-        # C. PRIORIDADE TÉCNICA
-        #
-        # PDFs continuam tendo vantagem, mas somente como
-        # critério complementar.
-        # ----------------------------------------------------
-
-        if candidato.get(
-            "pdf"
-        ):
-
-            pontuacao += 1
-
-        # ----------------------------------------------------
-        # D. RELEVÂNCIA DIRETA PARA O TEMA
-        # ----------------------------------------------------
-
-        tema_normalizado = (
-            normalizar_assunto_texto(
-                tema
-            )
-        )
-
-        palavras_tema = [
-            palavra
-            for palavra
-            in tema_normalizado.split()
-            if len(palavra) > 2
-        ]
-
-        for palavra in palavras_tema:
-
-            if palavra in texto_normalizado:
-
-                pontuacao += 2
-
-        # ----------------------------------------------------
-        # D.1 DIREÇÃO EDITORIAL PREFERENCIAL — SINAL SUAVE
-        # Somente para seleção de trechos usados nos parágrafos.
-        # Não governa títulos, subtítulos, tags, segmentos ou listas.
-        # Bônus limitado para não superar relevância e evidência factual.
-        # ----------------------------------------------------
-        direcao = direcao_editorial_preferencial(chave_bloco)
-        correspondencias_preferenciais = 0
-        termos_preferenciais_vistos = set()
-        for termo_preferencial in direcao.get("termos", []):
-            termo_n = normalizar_assunto_texto(termo_preferencial)
-            if not termo_n or termo_n in termos_preferenciais_vistos:
-                continue
-            termos_preferenciais_vistos.add(termo_n)
-            if termo_n in texto_normalizado:
-                correspondencias_preferenciais += 1
-        pontuacao += min(correspondencias_preferenciais, 4)
-
-        # ----------------------------------------------------
-        # E. QUALIDADE EDITORIAL DO FRAGMENTO
-        #
-        # Mede se o trecho realmente possui conteúdo útil
-        # para desenvolvimento de um parágrafo técnico.
-        #
-        # Não substitui:
-        # - bloco
-        # - checkbox
-        # - categoria
-        # - PDF
-        # - tema
-        #
-        # Apenas melhora a classificação dos candidatos.
-        # ----------------------------------------------------
-
-        qualidade = 0
-
-        texto_original = str(
-            candidato.get(
-                "texto",
-                ""
-            )
-        ).strip()
-
-        quantidade_palavras = len(
-            texto_normalizado.split()
-        )
-
-        # ----------------------------------------------------
-        # E.1 TAMANHO ADEQUADO
-        #
-        # Os fragmentos oficiais da v8.2 trabalham entre 70 e 100
-        # palavras. A faixa central recebe o maior reforço.
-        # ----------------------------------------------------
-
-        if 70 <= quantidade_palavras <= 100:
-
-            qualidade += 3
-
-        elif 60 <= quantidade_palavras <= 110:
-
-            qualidade += 1
-
-        # ----------------------------------------------------
-        # E.2 FRASES COMPLETAS
-        #
-        # Fragmentos com pontuação e várias frases tendem
-        # a possuir conteúdo explicativo real.
-        # ----------------------------------------------------
-
-        quantidade_frases = len(
-            re.findall(
-                r"[.!?]",
-                texto_original
-            )
-        )
-
-        if quantidade_frases >= 2:
-
-            qualidade += 2
-
-        elif quantidade_frases == 1:
-
-            qualidade += 1
-
-        # ----------------------------------------------------
-        # E.3 DENSIDADE TÉCNICA
-        #
-        # Termos que normalmente indicam explicação técnica.
-        # ----------------------------------------------------
-
-        termos_tecnicos = [
-
-            "funcionamento",
-            "operacao",
-            "operação",
-            "aplicacao",
-            "aplicação",
-            "processo",
-            "sistema",
-            "equipamento",
-            "componente",
-            "pressao",
-            "pressão",
-            "vazao",
-            "vazão",
-            "temperatura",
-            "desempenho",
-            "eficiencia",
-            "eficiência",
-            "rendimento",
-            "manutencao",
-            "manutenção",
-            "instalacao",
-            "instalação",
-            "dimensionamento",
-            "especificacao",
-            "especificação",
-            "material",
-            "materiais",
-            "confiabilidade",
-            "durabilidade",
-            "seguranca",
-            "segurança"
-        ]
-
-        termos_tecnicos_encontrados = 0
-
-        for termo in termos_tecnicos:
-
-            if termo in texto_normalizado:
-
-                termos_tecnicos_encontrados += 1
-
-        if termos_tecnicos_encontrados >= 4:
-
-            qualidade += 4
-
-        elif termos_tecnicos_encontrados >= 2:
-
-            qualidade += 2
-
-        elif termos_tecnicos_encontrados == 1:
-
-            qualidade += 1
-
-        # ----------------------------------------------------
-        # E.4 ESTRUTURA EXPLICATIVA
-        #
-        # Reforça trechos que apresentam relação entre
-        # causa, funcionamento, aplicação, resultado etc.
-        # ----------------------------------------------------
-
-        termos_explicativos = [
-
-            "porque",
-            "quando",
-            "como",
-            "permite",
-            "possibilita",
-            "utilizado",
-            "utilizada",
-            "responsavel",
-            "responsável",
-            "garante",
-            "evita",
-            "reduz",
-            "aumenta",
-            "proporciona",
-            "contribui",
-            "depende",
-            "necessario",
-            "necessário",
-            "indicado",
-            "indicada"
-        ]
-
-        explicativos_encontrados = 0
-
-        for termo in termos_explicativos:
-
-            if termo in texto_normalizado:
-
-                explicativos_encontrados += 1
-
-        if explicativos_encontrados >= 3:
-
-            qualidade += 3
-
-        elif explicativos_encontrados >= 1:
-
-            qualidade += 1
-
-        # ----------------------------------------------------
-        # E.5 PENALIZAR ÍNDICE / SUMÁRIO
-        # ----------------------------------------------------
-
-        marcadores_indice = [
-
-            "sumario",
-            "sumário",
-            "indice",
-            "índice",
-            "conteudo",
-            "conteúdo",
-            "capitulo",
-            "capítulo",
-            "secao",
-            "seção",
-            "2.1",
-            "2.2",
-            "2.3",
-            "3.1",
-            "3.2",
-            "3.3"
-        ]
-
-        ocorrencias_indice = 0
-
-        for marcador in marcadores_indice:
-
-            if marcador in texto_normalizado:
-
-                ocorrencias_indice += 1
-
-        if ocorrencias_indice >= 2:
-
-            qualidade -= 8
-
-        elif ocorrencias_indice == 1:
-
-            qualidade -= 4
-
-        # ----------------------------------------------------
-        # E.6 PENALIZAR MENU / NAVEGAÇÃO
-        # ----------------------------------------------------
-
-        marcadores_navegacao = [
-
-            "home",
-            "inicio",
-            "menu",
-            "contato",
-            "login",
-            "cadastro",
-            "entrar",
-            "politica de privacidade",
-            "política de privacidade",
-            "cookies",
-            "siga-nos",
-            "compartilhe"
-        ]
-
-        navegacao_encontrada = 0
-
-        for marcador in marcadores_navegacao:
-
-            if marcador in texto_normalizado:
-
-                navegacao_encontrada += 1
-
-        if navegacao_encontrada >= 2:
-
-            qualidade -= 8
-
-        elif navegacao_encontrada == 1:
-
-            qualidade -= 3
-
-        # ----------------------------------------------------
-        # E.7 PENALIZAR COMENTÁRIOS / REDES SOCIAIS
-        # ----------------------------------------------------
-
-        marcadores_comentario = [
-
-            "curtir",
-            "comentar",
-            "responder",
-            "comentarios",
-            "comentários",
-            "seguidores",
-            "linkedin",
-            "facebook",
-            "instagram",
-            "twitter",
-            "postado por"
-        ]
-
-        comentario_encontrado = 0
-
-        for marcador in marcadores_comentario:
-
-            if marcador in texto_normalizado:
-
-                comentario_encontrado += 1
-
-        if comentario_encontrado >= 2:
-
-            qualidade -= 8
-
-        elif comentario_encontrado == 1:
-
-            qualidade -= 4
-
-        # ----------------------------------------------------
-        # E.8 PENALIZAR TEXTO CORROMPIDO
-        # ----------------------------------------------------
-
-        caracteres_corrompidos = (
-
-            texto_original.count("\x00")
-            +
-            texto_original.count("\x03")
-            +
-            texto_original.count("\ufffd")
-
-        )
-
-        if caracteres_corrompidos > 0:
-
-            qualidade -= 10
-
-        # ----------------------------------------------------
-        # E.9 PENALIZAR EXCESSO DE FRAGMENTAÇÃO
-        #
-        # Muitos separadores, números isolados e símbolos
-        # indicam frequentemente índice, tabela ou conteúdo
-        # extraído de PDF de forma inadequada.
-        # ----------------------------------------------------
-
-        quantidade_numeros = len(
-            re.findall(
-                r"\b\d+(?:[.,]\d+)?\b",
-                texto_original
-            )
-        )
-
-        if quantidade_numeros >= 8:
-
-            qualidade -= 5
-
-        elif quantidade_numeros >= 5:
-
-            qualidade -= 2
-
-        # ----------------------------------------------------
-        # E.10 APLICAR QUALIDADE À NOTA FINAL
-        # ----------------------------------------------------
-
-        pontuacao += qualidade        
-
-        return pontuacao
-
-
-
-        # ========================================================
-        # ADERÊNCIA TEMÁTICA PREDOMINANTE
-        # ========================================================
-        #
-        # Regra geral do MEAD:
-        #
-        # Um fragmento não é considerado adequado apenas porque
-        # contém os termos da palavra-chave.
-        #
-        # O conteúdo precisa demonstrar que o tema é um dos
-        # assuntos predominantes do fragmento.
-        #
-        # Esta função é genérica.
-        #
-        # NÃO conhece produtos.
-        # NÃO conhece serviços.
-        # NÃO possui lista de concorrentes.
-        # NÃO possui exceções por palavra-chave.
-        #
-        # Ela analisa somente a relação entre:
-        #
-        #     TEMA <-> CONTEÚDO DO FRAGMENTO
-        #
-        # ========================================================
-    
-        def fragmento_tem_aderencia_tematica(
-            texto,
-            tema
-        ):
-    
-            texto = str(
-                texto or ""
-            ).strip()
-    
-            tema = str(
-                tema or ""
-            ).strip()
-    
-            if not texto or not tema:
-                return False
-    
-    
-            # ----------------------------------------------------
-            # PRIMEIRO FILTRO:
-            # o fragmento precisa pertencer ao tema.
-            # ----------------------------------------------------
-    
-            if not fragmento_pertence_ao_tema(
-                texto,
-                tema
-            ):
-                return False
-    
-    
-            # ----------------------------------------------------
-            # NORMALIZAÇÃO
-            # ----------------------------------------------------
-    
-            texto_normalizado = (
-                normalizar_assunto_texto(
-                    texto
-                )
-            )
-    
-            tema_normalizado = (
-                normalizar_assunto_texto(
-                    tema
-                )
-            )
-    
-    
-            # ----------------------------------------------------
-            # TERMOS SIGNIFICATIVOS DO TEMA
-            # ----------------------------------------------------
-    
-            palavras_ignoradas = {
-    
-                "de",
-                "da",
-                "das",
-                "do",
-                "dos",
-                "em",
-                "na",
-                "nas",
-                "no",
-                "nos",
-                "para",
-                "por",
-                "com",
-                "sem",
-                "e",
-                "a",
-                "o",
-                "as",
-                "os"
-    
-            }
-    
-    
-            palavras_tema = [
-    
-                palavra
-    
-                for palavra in re.findall(
-                    r"\b[a-z0-9]{3,}\b",
-                    tema_normalizado
-                )
-    
-                if palavra
-                not in palavras_ignoradas
-    
-            ]
-    
-    
-            if not palavras_tema:
-                return False
-    
-    
-            # ----------------------------------------------------
-            # DIVIDIR O FRAGMENTO EM FRASES
-            # ----------------------------------------------------
-    
-            frases = re.split(
-                r"(?<=[.!?])\s+",
-                texto_normalizado
-            )
-    
-            frases = [
-    
-                frase.strip()
-    
-                for frase in frases
-    
-                if frase.strip()
-    
-            ]
-    
-    
-            if not frases:
-                return False
-    
-    
-            # ----------------------------------------------------
-            # RADICAIS DO TEMA
-            # ----------------------------------------------------
-    
-            radicais_tema = []
-    
-            for palavra in palavras_tema:
-    
-                radical = palavra
-    
-                if len(radical) >= 5:
-    
-                    if radical.endswith("es"):
-                        radical = radical[:-2]
-    
-                    elif radical.endswith("s"):
-                        radical = radical[:-1]
-    
-                    elif radical.endswith("a"):
-                        radical = radical[:-1]
-    
-                    elif radical.endswith("o"):
-                        radical = radical[:-1]
-    
-                radicais_tema.append(
-                    radical
-                )
-    
-    
-            # ----------------------------------------------------
-            # ANALISAR CADA FRASE
-            # ----------------------------------------------------
-    
-            frases_relevantes = 0
-    
-            maior_aderencia_frase = 0
-    
-            encontrou_proximidade = False
-    
-    
-            for frase in frases:
-    
-                palavras_frase = re.findall(
-                    r"\b[a-z0-9]{3,}\b",
-                    frase
-                )
-    
-                if not palavras_frase:
-                    continue
-    
-    
-                encontrados = 0
-    
-                posicoes = []
-    
-    
-                for radical in radicais_tema:
-    
-                    encontrou = False
-    
-                    for indice, palavra in enumerate(
-                        palavras_frase
-                    ):
-    
-                        if palavra.startswith(
-                            radical
-                        ):
-    
-                            encontrou = True
-    
-                            posicoes.append(
-                                indice
-                            )
-    
-                            break
-    
-    
-                    if encontrou:
-                        encontrados += 1
-    
-    
-                # ------------------------------------------------
-                # ADERÊNCIA DA FRASE
-                # ------------------------------------------------
-    
-                if encontrados > 0:
-    
-                    aderencia_frase = (
-                        encontrados
-                        /
-                        len(radicais_tema)
-                    )
-    
-                    if aderencia_frase > maior_aderencia_frase:
-    
-                        maior_aderencia_frase = (
-                            aderencia_frase
-                        )
-    
-    
-                # ------------------------------------------------
-                # FRASE COM TODOS OS TERMOS DO TEMA
-                # ------------------------------------------------
-    
-                if encontrados == len(
-                    radicais_tema
-                ):
-    
-                    frases_relevantes += 1
-    
-                    # --------------------------------------------
-                    # PROXIMIDADE DOS TERMOS
-                    #
-                    # Quanto mais próximos os termos do tema,
-                    # maior a evidência de que formam um assunto
-                    # único dentro da frase.
-                    # --------------------------------------------
-    
-                    if len(posicoes) >= 2:
-    
-                        distancia = (
-                            max(posicoes)
-                            -
-                            min(posicoes)
-                        )
-    
-                        if distancia <= 8:
-    
-                            encontrou_proximidade = True
-    
-                elif encontrados > 0:
-    
-                    # --------------------------------------------
-                    # Frase parcialmente relacionada.
-                    #
-                    # Só recebe peso se houver uma quantidade
-                    # relevante dos termos do tema.
-                    # --------------------------------------------
-    
-                    if (
-                        encontrados
-                        /
-                        len(radicais_tema)
-                    ) >= 0.5:
-    
-                        frases_relevantes += 1
-    
-    
-            # ----------------------------------------------------
-            # PROPORÇÃO DE FRASES RELACIONADAS
-            # ----------------------------------------------------
-    
-            proporcao_relevante = (
-                frases_relevantes
-                /
-                len(frases)
-            )
-    
-    
-            # ----------------------------------------------------
-            # REGRA PARA TEMAS COMPOSTOS
-            #
-            # Exemplo:
-            #
-            # "bomba centrífuga"
-            #
-            # Os dois termos precisam aparecer juntos em pelo
-            # menos uma frase quando isso for possível.
-            # ----------------------------------------------------
-    
-            if len(radicais_tema) >= 2:
-    
-                if not encontrou_proximidade:
-    
-                    return False
-    
-    
-            # ----------------------------------------------------
-            # REGRA DE PREDOMINÂNCIA
-            #
-            # Fragmentos muito curtos podem ter somente uma frase.
-            # Nesse caso, a presença contextual é suficiente.
-            #
-            # Em fragmentos com várias frases, o tema precisa
-            # aparecer em uma parcela relevante do conteúdo.
-            # ----------------------------------------------------
-    
-            if len(frases) == 1:
-    
-                return (
-                    maior_aderencia_frase >= 0.5
-                )
-    
-    
-            if len(frases) == 2:
-    
-                return (
-                    proporcao_relevante >= 0.5
-                )
-    
-    
-            if len(frases) >= 3:
-    
-                return (
-                    proporcao_relevante >= 0.5
-                    or
-                    (
-                        maior_aderencia_frase >= 1.0
-                        and
-                        proporcao_relevante >= 0.34
-                    )
-                )
-    
-    
-            return False        
     # ========================================================
     # 06.3A — FUNÇÃO EDITORIAL REAL DO FRAGMENTO
     # ========================================================
@@ -13796,9 +12470,15 @@ def selecionar_informacoes_relevantes(
                 "cuidados na operacao", "cuidados na operação"
             ],
             "comercial": [
-                "preco", "preço", "promocao", "promoção", "comprar",
-                "venda", "oferta", "orcamento", "orçamento", "desconto",
-                "parcelamento", "entrega", "frete"
+                "fornecedor", "fornecedores", "fornecimento", "fornece", "fornecemos",
+                "distribuidor", "distribuidora", "distribuicao", "distribuição",
+                "comercializacao", "comercialização", "comercializa", "comercializamos",
+                "preco", "preço", "promocao", "promoção", "comprar", "compra",
+                "venda", "vendas", "oferta", "orcamento", "orçamento", "cotacao",
+                "cotação", "pedido comercial", "proposta comercial", "desconto",
+                "parcelamento", "estoque", "disponibilidade", "prazo de entrega",
+                "entrega", "frete", "solicitar orçamento", "solicite orçamento",
+                "entre em contato", "fale conosco", "pos venda", "pós-venda", "contratacao", "contratação"
             ]
         }
 
@@ -13919,7 +12599,7 @@ def selecionar_informacoes_relevantes(
             )
 
         # "comercial" é uma função editorial válida quando o
-        # checkbox comercial está ativo. A limpeza comercial continua
+        # a dimensão comercial é permitida. A limpeza comercial continua
         # sendo um gate separado; aqui apenas classificamos a função.
         pontuacoes_validas = dict(pontuacoes)
 
@@ -13943,24 +12623,17 @@ def selecionar_informacoes_relevantes(
         }
 
     # ========================================================
-    # AUTORIDADE REAL DOS CHECKBOXES SOBRE AS FUNÇÕES
+    # Eixos editoriais são referências amplas; não funcionam como filtros eliminatórios.
     # ========================================================
     # Não existe mais uma segunda lista legada capaz de excluir uma
     # função que o usuário marcou. O mapeamento oficial é a única
     # autorização. Isso é especialmente importante para "comercial".
-    funcoes_permitidas_bloco = funcoes_autorizadas_pelos_checkboxes(
+    funcoes_permitidas_bloco = funcoes_editoriais_disponiveis(
         estrutura_editorial
     )
-    # A autorização global dos checkboxes é restringida pela prioridade do bloco.
-    _funcoes_ativas_globais = set().union(*funcoes_permitidas_bloco.values()) if funcoes_permitidas_bloco else set()
-    for _chave_bloco, _prioridades in prioridades_funcoes_bloco.items():
-        _especificas = set(_prioridades) & _funcoes_ativas_globais
-        if _especificas:
-            funcoes_permitidas_bloco[_chave_bloco] = _especificas
-
-    print("FUNÇÕES DE BLOCO AUTORIZADAS PELOS CHECKBOXES:")
-    for _bloco, _funcoes in funcoes_permitidas_bloco.items():
-        print(_bloco, "=>", sorted(_funcoes))
+    # As funções detectadas servem para diagnóstico e para o filtro comercial
+    # específico do Bloco 1. Não são listas de autorização para os demais blocos.
+    print("FUNÇÕES EDITORIAIS: diagnóstico sem restrição temática nos blocos 2–5.")
 
     def fragmento_compativel_com_funcao_do_bloco(candidato, chave_bloco):
         """Bloco 1 preserva a direção comercial; blocos 2–5 têm construção temática livre."""
@@ -13973,12 +12646,51 @@ def selecionar_informacoes_relevantes(
             return True
         classificacao = (candidato or {}).get("_funcao_editorial", {}) or {}
         norm = normalizar_assunto_texto(texto)
-        sinais_comerciais = {
-            "fornecedor", "fornecimento", "empresa", "solucao", "cliente", "orcamento",
-            "disponibilidade", "atendimento", "comercial", "custo", "cotacao", "compra",
-            "suporte", "projeto", "necessidade", "equipamento", "fornecer", "assistencia"
+        # O Bloco 1 exige sinais comerciais explícitos. Palavras soltas como
+        # "fornecimento" podem falar de fornecimento de água, e "atendimento"
+        # pode descrever a modalidade de um serviço; nenhuma delas basta sozinha.
+        sinais_transacionais = {
+            "venda", "vendas", "comprar", "compra", "orcamento", "cotacao",
+            "preco", "desconto", "parcelamento", "estoque", "disponibilidade",
+            "prazo de entrega", "frete", "pedido comercial", "proposta comercial",
+            "solicite orçamento", "solicitar orçamento", "entre em contato", "fale conosco",
+            "pos venda", "pós-venda", "contratacao", "contratação", "consulta particular",
+            "valores da consulta", "valor da consulta", "valor da sessão", "custo da sessão",
+            "agende uma consulta", "agendar atendimento", "solicite atendimento",
+            "marque uma consulta", "agendamento de consultas", "disponibilidade de horários",
+            "horários disponíveis", "planos de atendimento", "contratação do atendimento",
+            "decisão de compra", "decisao de compra", "critério de compra", "criterio de compra",
+            "critérios de compra", "criterios de compra", "escolha do fornecedor",
+            "seleção do fornecedor", "selecao do fornecedor", "avaliar fornecedores",
+            "condições comerciais", "condicoes comerciais", "contratação do serviço", "contratacao do servico"
         }
-        return bool(int(classificacao.get("comercial", 0) or 0) >= 1 or any(x in norm for x in sinais_comerciais))
+        if any(x in norm for x in sinais_transacionais):
+            return True
+
+        # Prova de fornecimento/provedor precisa relacionar a oferta ao assunto,
+        # não apenas mencionar uma palavra comercial em contexto técnico separado.
+        try:
+            _intencao_bloco1 = _mead_analisar_intencao_tema(tema)
+            _assunto_bloco1 = _mead_norm(_intencao_bloco1.get("assunto_central", ""))
+            _aliases_bloco1 = list(_MEAD_ALIASES_ASSUNTO.get(_assunto_bloco1, []))
+            _aliases_bloco1.append(_assunto_bloco1)
+            for _nucleo_alias, _lista_alias in sorted(_MEAD_ALIASES_ASSUNTO.items(), key=lambda x: len(x[0]), reverse=True):
+                if _assunto_bloco1.startswith(_nucleo_alias + " "):
+                    _sufixo_alias = _assunto_bloco1[len(_nucleo_alias):].strip()
+                    _aliases_bloco1.extend(f"{_a} {_sufixo_alias}".strip() for _a in _lista_alias)
+            _cabecalhos_oferta = (
+                "fornecedor de ", "fornecimento de ", "distribuidor de ",
+                "distribuidora de ", "venda de ", "compra de ", "comprar "
+            )
+            for _alias_bloco1 in _aliases_bloco1:
+                _alias_norm_bloco1 = _mead_norm(_alias_bloco1)
+                if not _alias_norm_bloco1:
+                    continue
+                if any((_cab + _alias_norm_bloco1) in norm for _cab in _cabecalhos_oferta):
+                    return True
+        except Exception:
+            pass
+        return False
 
     # ========================================================
     # 06.3B — CLASSIFICAÇÃO ANTES DA ALOCAÇÃO
@@ -14631,24 +13343,25 @@ def selecionar_informacoes_relevantes(
         if not texto:
             return False
 
+        # VALIDADOR SEM EFEITOS COLATERAIS: não registrar nem atribuir uma hash
+        # ao catálogo global antes de passar pelos gates editoriais/qualidade.
+        # Se a hash já tiver proprietário exclusivo, respeitar esse proprietário.
         hash_existente = str(candidato.get("hash", "") or "").strip()
+        bloco_candidato_global = str(candidato.get("bloco_mead", "") or "").strip()
         if hash_existente:
-            registrar_hash_global(
-                texto,
-                hash_existente,
-                origem="candidato_existente",
-                metadados={
-                    "bloco_mead": str(candidato.get("bloco_mead", "") or ""),
-                    "url": str(candidato.get("url", "") or ""),
-                    "fonte": str(candidato.get("fonte", "") or ""),
-                    "identidade_fonte": candidato.get("identidade_fonte", {}) if isinstance(candidato.get("identidade_fonte", {}), dict) else {},
-                },
-            )
-            atualizar_metadados_hash_global(
-                hash_existente,
-                palavra_chave=tema,
-                bloco=candidato.get("bloco_mead", ""),
-            )
+            try:
+                _catalogo_leitura = _carregar_hash_global()
+                _registro_leitura = (_catalogo_leitura.get("hashes", {}) or {}).get(hash_existente, {})
+                _dist_leitura = _registro_leitura.get("distribuicao_exclusiva", {}) if isinstance(_registro_leitura, dict) else {}
+                _bloco_dono_leitura = str(
+                    (_dist_leitura.get("bloco", "") if isinstance(_dist_leitura, dict) else "")
+                    or (_registro_leitura.get("metadados", {}).get("bloco_exclusivo", "") if isinstance(_registro_leitura, dict) and isinstance(_registro_leitura.get("metadados", {}), dict) else "")
+                ).strip()
+                if _bloco_dono_leitura and bloco_candidato_global and _bloco_dono_leitura != bloco_candidato_global:
+                    candidato["motivo_rejeicao_editorial"] = f"HASH_EXCLUSIVA_DE_{_bloco_dono_leitura.upper()}"
+                    return False
+            except Exception as _erro_leitura_hash_global:
+                print("⚠️ HASH GLOBAL: falha na verificação somente-leitura:", repr(_erro_leitura_hash_global)[:180])
 
         # ----------------------------------------------------
         # GATE EDITORIAL ABSOLUTO — ANTES DA PONTUAÇÃO
@@ -15736,10 +14449,10 @@ TRECHO:
                     trecho = " ".join(frases[inicio:inicio + tamanho]).strip()
                     if not trecho or not re.search(r"[.!?][\"'”’»\)\]}]*$", trecho):
                         continue
-                    # O estoque local precisa conter as duas classes: trechos
-                    # com a palavra-chave (reserva SEO) e trechos complementares
-                    # sem ela. A exigência de palavra-chave é aplicada na
-                    # distribuição do estoque, não na coleta de complementos.
+                    # O estoque local coleta evidências semânticas compatíveis;
+                    # a expressão SEO literal completa é exigida no parágrafo final.
+                    # Assim, uma localidade não bloqueia a reutilização do núcleo,
+                    # mas modalidade/condição que altere o significado permanece obrigatória.
                     h = gerar_hash_trecho(trecho)
                     if not h or h in existentes:
                         continue
@@ -16942,14 +15655,43 @@ TRECHO:
                 print("A seleção precisa substituir a evidência conflitante antes de gerar os parágrafos.")
                 return resultado_vazio
 
+    _falha_atribuicao_global_selecao = None
     for numero_bloco in range(1, 6):
         chave_bloco = f'bloco_{numero_bloco}'
         for escolhido in conjuntos_por_bloco[chave_bloco]:
             escolhido['bloco_mead'] = chave_bloco
+            _hash_escolhido_global = str(escolhido.get('hash') or gerar_hash_trecho(escolhido.get('texto', '')) or '').strip()
+            if not _hash_escolhido_global:
+                _falha_atribuicao_global_selecao = f"{chave_bloco}: hash ausente no fragmento aprovado"
+                break
+            registrar_hash_global(
+                escolhido.get('texto', ''), _hash_escolhido_global,
+                origem="fragmento_selecionado_validado",
+                metadados={
+                    "bloco_mead": chave_bloco,
+                    "fonte": str(escolhido.get('fonte', '') or ''),
+                    "url": str(escolhido.get('url', '') or ''),
+                    "identidade_fonte": escolhido.get('identidade_fonte', {}) if isinstance(escolhido.get('identidade_fonte', {}), dict) else {},
+                },
+            )
+            _atribuiu_hash_selecionada = atualizar_metadados_hash_global(
+                _hash_escolhido_global, palavra_chave=tema, bloco=chave_bloco,
+                status="SELECIONADA", metadados={"origem_distribuicao": "SELECAO_FINAL_VALIDADA"},
+            )
+            if not _atribuiu_hash_selecionada:
+                _falha_atribuicao_global_selecao = f"{chave_bloco}: exclusividade global recusou {_hash_escolhido_global[:16]}"
+                break
+            escolhido['hash'] = _hash_escolhido_global
             fragmentos_selecionados.append(escolhido)
-            hashes_selecionados.add(escolhido.get('hash'))
+            hashes_selecionados.add(_hash_escolhido_global)
             fonte = escolhido.get('fonte')
             fontes_utilizadas[fonte] = fontes_utilizadas.get(fonte, 0) + 1
+        if _falha_atribuicao_global_selecao:
+            break
+    if _falha_atribuicao_global_selecao:
+        print("🔴 SELEÇÃO INTERROMPIDA — falha de atribuição exclusiva após validação:", _falha_atribuicao_global_selecao)
+        print("Ollama não será iniciado com uma seleção cuja exclusividade global não foi confirmada.")
+        return resultado_vazio
 
     print('CRITÉRIO v35: ranking prioriza trechos desenvolvidos, equilíbrio do bloco e diversidade semântica pré-Ollama')
     print('REGRA: nenhuma faixa individual é obrigatória; tamanho individual é apenas preferência de ranking')
@@ -16967,21 +15709,22 @@ TRECHO:
     # Uma reserva por bloco; só será consumida se houver
     # uma re-seleção necessária após rejeição real.
     # --------------------------------------------------------
-    # RESERVAS EM MEMÓRIA — 10 POR BLOCO, TODAS COM A PALAVRA-CHAVE
-    # Mantém as 15 hashes principais e os demais estágios inalterados.
-    # São 10 reservas finais exclusivas por bloco (50 no total), distintas
-    # das hashes principais. A coleta temporária usa 13 por bloco para cobrir
-    # até três promoções SEO (uma por parágrafo) antes da normalização final.
-    # A distribuição final por parágrafo é 4, 3 e 3, para manter uma fila
-    # independente de substituição em cada um dos três parágrafos.
+    # RESERVAS EM MEMÓRIA — 10 EXCLUSIVAS POR PARÁGRAFO
+    # 3 parágrafos × 10 reservas = 30 por bloco; 5 blocos = 150 hashes.
+    # A coleta temporária usa 11 por parágrafo (33 por bloco), permitindo
+    # uma promoção SEO por parágrafo e preservando 10 reservas finais em cada fila.
+    # Todas as reservas são distintas entre si e das 15 hashes principais.
+    # O Ollama recebe apenas as evidências ativas, nunca o catálogo completo.
     # --------------------------------------------------------
-    RESERVAS_POR_BLOCO = 10
-    RESERVAS_TEMPORARIAS_POR_BLOCO = RESERVAS_POR_BLOCO + 3
+    RESERVAS_POR_PARAGRAFO = 10
     PARAGRAFOS_POR_BLOCO = 3
+    RESERVAS_POR_BLOCO = RESERVAS_POR_PARAGRAFO * PARAGRAFOS_POR_BLOCO
+    RESERVAS_TEMPORARIAS_POR_PARAGRAFO = RESERVAS_POR_PARAGRAFO + 1
+    RESERVAS_TEMPORARIAS_POR_BLOCO = RESERVAS_TEMPORARIAS_POR_PARAGRAFO * PARAGRAFOS_POR_BLOCO
     META_RESERVAS_POR_BLOCO = RESERVAS_POR_BLOCO
     META_RESERVAS_TEMPORARIAS_POR_BLOCO = RESERVAS_TEMPORARIAS_POR_BLOCO
-    RESERVAS_FINAIS_POR_PARAGRAFO = (4, 3, 3)
-    MIN_RESERVAS_POR_PARAGRAFO = 1
+    RESERVAS_FINAIS_POR_PARAGRAFO = (10, 10, 10)
+    MIN_RESERVAS_POR_PARAGRAFO = RESERVAS_POR_PARAGRAFO
     MIN_RESERVAS_POR_BLOCO = META_RESERVAS_POR_BLOCO
 
     ORDEM_PRIORIDADE_ESTOQUE = (1, 2, 3, 4, 5)
@@ -17058,24 +15801,10 @@ TRECHO:
                 continue
             if not fragmento_compativel_com_funcao_do_bloco(_candidato_catalogo, _bloco_catalogo):
                 continue
-            # Migração gradual do catálogo legado: se ainda não tinha bloco
-            # exclusivo, fixa a hash no primeiro bloco em que passou pela
-            # compatibilidade. A partir daqui ela não pode abastecer outro bloco.
-            if not _bloco_exclusivo_catalogo:
-                _classe_catalogo = (
-                    "COM_PALAVRA_CHAVE"
-                    if str(tema or "").strip() and str(tema).casefold() in _texto_catalogo.casefold()
-                    else "SEM_PALAVRA_CHAVE"
-                )
-                _atribuiu_exclusivo = atualizar_metadados_hash_global(
-                    str(_hash_catalogo), palavra_chave=tema, bloco=_bloco_catalogo,
-                    metadados={"classe_distribuicao": _classe_catalogo, "origem_distribuicao": "MIGRACAO_HASH_GLOBAL"},
-                )
-                if not _atribuiu_exclusivo:
-                    continue
-                _bloco_exclusivo_catalogo = _bloco_catalogo
-                _candidato_catalogo["bloco_mead"] = _bloco_catalogo
-            elif _bloco_exclusivo_catalogo != _bloco_catalogo:
+            # A hidratação do catálogo é somente leitura quanto à propriedade:
+            # hash sem dono pode ser avaliada por todos os blocos compatíveis,
+            # mas só recebe bloco exclusivo depois de entrar na seleção final.
+            if _bloco_exclusivo_catalogo and _bloco_exclusivo_catalogo != _bloco_catalogo:
                 continue
             _ja_existe_pool = any(
                 isinstance(_item_pool, dict)
@@ -17085,14 +15814,15 @@ TRECHO:
             )
             if _ja_existe_pool:
                 continue
+            _candidato_para_bloco = dict(_candidato_catalogo)
+            _candidato_para_bloco["bloco_mead"] = _bloco_catalogo
             try:
-                _pontuacao_catalogo = calcular_pontuacao_bloco(_candidato_catalogo, _bloco_catalogo)
+                _pontuacao_catalogo = calcular_pontuacao_bloco(_candidato_para_bloco, _bloco_catalogo)
             except Exception:
                 _pontuacao_catalogo = 0
-            candidatos_por_bloco.setdefault(_bloco_catalogo, []).append({"candidato": dict(_candidato_catalogo), "pontuacao": _pontuacao_catalogo})
+            candidatos_por_bloco.setdefault(_bloco_catalogo, []).append({"candidato": _candidato_para_bloco, "pontuacao": _pontuacao_catalogo})
             _hashes_globais_reaproveitados += 1
-            # Uma hash global é inserida em apenas um pool de bloco.
-            break
+            # Sem proprietário prévio, testar também os demais blocos compatíveis.
     print(f"♻️ HASH GLOBAL: {_hashes_globais_reaproveitados} hashes recuperadas do catálogo; cada hash foi atribuída a no máximo um bloco exclusivo e será revalidada antes do uso.")
     try:
         # Consolida as distribuições novas antes do resumo e garante que as
@@ -17101,7 +15831,7 @@ TRECHO:
         _catalogo_resumo = _carregar_hash_global()
         _indices_resumo = _catalogo_resumo.get("indices", {})
         _por_bloco_resumo = _indices_resumo.get("por_bloco_exclusivo", {}) if isinstance(_indices_resumo, dict) else {}
-        print("================ DISTRIBUIÇÃO PERSISTENTE HASH GLOBAL ================")
+        print("================ CATÁLOGO PERSISTENTE HASH GLOBAL (NÃO É O ESTOQUE DE RESERVAS) ================")
         for _nb_resumo in range(1, 6):
             _b_resumo = f"bloco_{_nb_resumo}"
             _dados_b_resumo = _por_bloco_resumo.get(_b_resumo, {}) if isinstance(_por_bloco_resumo, dict) else {}
@@ -17110,9 +15840,10 @@ TRECHO:
             _n_kw_resumo = sum(len(_kw_resumo.get(f"P{_p_resumo}", [])) for _p_resumo in range(1, 4)) + len(_dados_b_resumo.get("sem_paragrafo", {}).get("com_palavra_chave", []))
             _n_sem_resumo = sum(len(_sem_resumo.get(f"P{_p_resumo}", [])) for _p_resumo in range(1, 4)) + len(_dados_b_resumo.get("sem_paragrafo", {}).get("sem_palavra_chave", []))
             _n_nao_resumo = sum(len(_dados_b_resumo.get("nao_classificada", {}).get(f"P{_p_resumo}", [])) for _p_resumo in range(1, 4)) + len(_dados_b_resumo.get("sem_paragrafo", {}).get("nao_classificada", []))
-            print(f"{_b_resumo} | COM PALAVRA-CHAVE: {_n_kw_resumo} | SEM PALAVRA-CHAVE: {_n_sem_resumo} | NÃO CLASSIFICADAS: {_n_nao_resumo} | EXCLUSIVAS: {_n_kw_resumo + _n_sem_resumo + _n_nao_resumo}")
+            print(f"{_b_resumo} | COM PALAVRA-CHAVE: {_n_kw_resumo} | SEM PALAVRA-CHAVE: {_n_sem_resumo} | NÃO CLASSIFICADAS: {_n_nao_resumo} | HASHES ATRIBUÍDAS AO BLOCO NO CATÁLOGO: {_n_kw_resumo + _n_sem_resumo + _n_nao_resumo}")
         _sem_bloco_resumo = _indices_resumo.get("sem_bloco_definido", {}) if isinstance(_indices_resumo, dict) else {}
         print("SEM BLOCO DEFINIDO | COM PALAVRA-CHAVE:", len(_sem_bloco_resumo.get("com_palavra_chave", [])), "| SEM PALAVRA-CHAVE:", len(_sem_bloco_resumo.get("sem_palavra_chave", [])), "| NÃO CLASSIFICADAS:", len(_sem_bloco_resumo.get("nao_classificada", [])))
+        print("NOTA: este resumo descreve o catálogo persistente; as 150 reservas atuais são contadas separadamente na barreira de estoque.")
         print("=======================================================================")
     except Exception as _erro_resumo_hash:
         print("⚠️ Não foi possível imprimir o resumo de distribuição do hash-global.json:", repr(_erro_resumo_hash)[:180])
@@ -17127,20 +15858,24 @@ TRECHO:
         ciclos_sem_reserva = 0
         hashes_bloqueio_reserva = set(hashes_reservados_globalmente)
         chave_literal_reserva = str(tema or "").strip()
+        chave_nucleo_reserva = _mead_nucleo_tema(chave_literal_reserva).strip()
+        analise_reserva = _mead_analisar_intencao_tema(chave_literal_reserva)
+        chave_reserva_geografica = bool(analise_reserva["geografico"])
 
         def _texto_contem_palavra_chave_reserva(item):
-            # O pool de candidatos usa {"candidato": ...}, mas a função
-            # selecionar_melhor_candidato retorna o candidato interno direto.
-            # Aceitar os dois formatos evita contar zero hashes SEO no estoque.
+            # Esta fila exige evidência compatível com a intenção da keyword.
+            # Correspondência literal é válida; localidade pode ser resolvida pelo
+            # núcleo; modalidade/condição exigem suporte para cada dimensão.
             cand = item.get("candidato") if isinstance(item, dict) and isinstance(item.get("candidato"), dict) else item
             if not isinstance(cand, dict):
                 return False
-            texto_cand = str(cand.get("texto", "") or "")
-            return bool(chave_literal_reserva and chave_literal_reserva.casefold() in texto_cand.casefold())
+            return _mead_evidencia_cobre_intencao(str(cand.get("texto", "") or ""), chave_literal_reserva)
 
-        # Só entram reservas que contenham literalmente a palavra-chave.
-        # Coletamos 13 por bloco para que até três possam ser promovidas a
-        # evidências principais SEO; depois ficam exatamente 10 reservas.
+        # A reserva não precisa repetir a frase exata da busca, mas precisa sustentar
+        # o núcleo e todos os modificadores semânticos. O texto final segue exigindo
+        # a keyword SEO literal exatamente como foi digitada.
+        # Coletamos 11 por parágrafo para que uma reserva possa ser promovida
+        # e ainda restem 10 alternativas independentes.
         while len(reservas_bloco) < META_RESERVAS_TEMPORARIAS_POR_BLOCO:
             pool_reservas_bloco = candidatos_por_bloco.get(chave_bloco, [])
             pool_prioritario = [
@@ -17213,9 +15948,9 @@ TRECHO:
                 hash_reserva,
                 palavra_chave=chave_literal_reserva,
                 bloco=chave_bloco,
-                paragrafo=f"P{1 if len(reservas_bloco) < 5 else 2 if len(reservas_bloco) < 9 else 3}",
+                paragrafo=f"P{1 if len(reservas_bloco) < RESERVAS_TEMPORARIAS_POR_PARAGRAFO else 2 if len(reservas_bloco) < RESERVAS_TEMPORARIAS_POR_PARAGRAFO * 2 else 3}",
                 status="RESERVADA",
-                metadados={"papel": "RESERVA", "classe_reserva": "COM_PALAVRA_CHAVE" if _texto_contem_palavra_chave_reserva(escolhido_reserva) else "SEM_PALAVRA_CHAVE"},
+                metadados={"papel": "RESERVA", "classe_reserva": ("COM_KEYWORD_LITERAL" if _mead_frase_presente(escolhido_reserva.get("texto", ""), chave_literal_reserva) else "COM_EVIDENCIA_SEMANTICA" if analise_reserva["modificador_semantico"] else "COM_NUCLEO_GEOGRAFICO" if chave_reserva_geografica else "SEM_KEYWORD"), "keyword_completa": chave_literal_reserva, "nucleo_tema": chave_nucleo_reserva, "dimensoes_semanticas": {"modalidades": [x["id"] for x in analise_reserva["modalidades"]], "condicoes_ou_objetivos": [x["id"] for x in analise_reserva["condicoes_ou_objetivos"]]}},
             )
             reservas_bloco.append(escolhido_reserva)
             hashes_bloqueio_reserva.add(hash_reserva)
@@ -17226,17 +15961,17 @@ TRECHO:
             print("\n" + "=" * 68)
             print(
                 f"❌ BLOCO NÃO COMPLETO: {chave_bloco} — {len(reservas_bloco)}/"
-                f"{META_RESERVAS_TEMPORARIAS_POR_BLOCO} reservas temporárias com palavra-chave."
+                f"{META_RESERVAS_TEMPORARIAS_POR_BLOCO} reservas temporárias tematicamente relacionadas."
             )
-            print("São obrigatórias 10 reservas finais por bloco, todas com palavra-chave; não será usada uma meta reduzida.")
+            print("São obrigatórias 10 reservas exclusivas por parágrafo (30 por bloco). Em variações geográficas, pode-se usar o núcleo; em temas com modalidade/condição, cada reserva precisa cobrir todas as dimensões detectadas. A redação final exige a keyword literal completa.")
             print("A geração do Ollama NÃO será iniciada com estoque incompleto.")
             print("=" * 68)
             return resultado_vazio
 
-        # Distribuição temporária por parágrafo: 5, 4 e 4. Após eventuais
-        # promoções SEO, a normalização final manterá 4, 3 e 3 (10 por bloco).
+        # Distribuição temporária: 11 reservas por parágrafo. Se uma reserva
+        # for promovida a evidência principal SEO, permanecem 10 alternativas.
         _filas_paragrafo = [[] for _ in range(PARAGRAFOS_POR_BLOCO)]
-        _limites_temporarios = (5, 4, 4)
+        _limites_temporarios = (11, 11, 11)
         _indice_fila = 0
         for _reserva in reservas_bloco:
             while _indice_fila < PARAGRAFOS_POR_BLOCO and len(_filas_paragrafo[_indice_fila]) >= _limites_temporarios[_indice_fila]:
@@ -17257,19 +15992,22 @@ TRECHO:
             fragmentos_reserva_por_bloco[f"{chave_bloco}:P{_indice_paragrafo + 1}"] = _fila_exclusiva
 
         total_bloco = len(reservas_bloco)
-        total_reservas_com_chave = sum(1 for _r in reservas_bloco if bool(_r.get("_reserva_contem_palavra_chave")))
+        total_reservas_compativeis = sum(1 for _r in reservas_bloco if bool(_r.get("_reserva_contem_palavra_chave")))
+        total_reservas_literais = sum(1 for _r in reservas_bloco if _mead_frase_presente(_r.get("texto", ""), chave_literal_reserva))
         print(
-            f"✅ ESTOQUE TEMPORÁRIO {chave_bloco}: {total_bloco}/13 reservas com palavra-chave; "
-            f"{total_reservas_com_chave} com palavra-chave; filas temporárias por parágrafo: "
+            f"✅ ESTOQUE TEMPORÁRIO {chave_bloco}: {total_bloco}/33 reservas com evidência compatível; "
+            f"{total_reservas_literais}/33 contêm a keyword literal; filas temporárias por parágrafo: "
             + ", ".join(f"P{i+1}={len(f)}" for i, f in enumerate(_filas_paragrafo))
         )
 
-    # GARANTIA SEO NA SELEÇÃO ATIVA: cada parágrafo começa com uma hash
-    # cujo texto contém literalmente a palavra-chave, quando existe uma
-    # reserva elegível na fila exclusiva daquele parágrafo.
+    # GARANTIA SEO NA SELEÇÃO ATIVA: cada parágrafo começa com uma evidência
+    # compatível com a intenção. A keyword literal completa é obrigação do texto
+    # final; a fonte pode usar uma redação equivalente aprovada semanticamente.
     # Os candidatos substituídos continuam bloqueados globalmente para não
     # reaparecerem em outro bloco; as reservas promovidas saem do estoque.
     _chave_seo_literal = str(tema or "").strip().casefold()
+    _chave_seo_nucleo = _mead_nucleo_tema(tema).strip().casefold()
+    _chave_seo_tem_residuo_local = _chave_seo_nucleo != _chave_seo_literal
     if _chave_seo_literal:
         for _n_bloco_seo in range(1, 6):
             _chave_bloco_seo = f"bloco_{_n_bloco_seo}"
@@ -17279,18 +16017,18 @@ TRECHO:
             for _idx_seo in range(3):
                 _ativo_seo = _grupo_seo[_idx_seo]
                 _texto_ativo_seo = str(_ativo_seo.get("texto", "") or "") if isinstance(_ativo_seo, dict) else ""
-                if _chave_seo_literal in _texto_ativo_seo.casefold():
+                if _mead_evidencia_cobre_intencao(_texto_ativo_seo, tema):
                     continue
                 _fila_seo_key = f"{_chave_bloco_seo}:P{_idx_seo + 1}"
                 _fila_seo = fragmentos_reserva_por_bloco.get(_fila_seo_key, [])
                 _pos_reserva_seo = next((
                     _j for _j, _r in enumerate(_fila_seo)
                     if isinstance(_r, dict)
-                    and _chave_seo_literal in str(_r.get("texto", "") or "").casefold()
+                    and _mead_evidencia_cobre_intencao(str(_r.get("texto", "") or ""), tema)
                     and str(_r.get("hash") or gerar_hash_trecho(_r.get("texto", ""))) not in hashes_selecionados
                 ), None)
                 if _pos_reserva_seo is None:
-                    print(f"🔴 SEO { _chave_bloco_seo } P{_idx_seo + 1}: não existe reserva válida com palavra-chave; bloqueando a geração.")
+                    print(f"🔴 SEO {_chave_bloco_seo} P{_idx_seo + 1}: não existe reserva válida que cubra a intenção da keyword; bloqueando a geração.")
                     return resultado_vazio
                 _novo_ativo_seo = dict(_fila_seo.pop(_pos_reserva_seo))
                 _hash_novo_ativo_seo = str(_novo_ativo_seo.get("hash") or gerar_hash_trecho(_novo_ativo_seo.get("texto", "")))
@@ -17309,7 +16047,7 @@ TRECHO:
                 _novo_ativo_seo["hash"] = _hash_novo_ativo_seo
                 _novo_ativo_seo["bloco_mead"] = _chave_bloco_seo
                 _novo_ativo_seo.pop("_reserva_memoria", None)
-                _novo_ativo_seo["papel_evidencia"] = "PRINCIPAL_COM_PALAVRA_CHAVE"
+                _novo_ativo_seo["papel_evidencia"] = "PRINCIPAL_EVIDENCIA_SEMANTICA"
                 _grupo_seo[_idx_seo] = _novo_ativo_seo
                 hashes_selecionados.add(_hash_novo_ativo_seo)
                 fragmentos_selecionados.append(_novo_ativo_seo)
@@ -17319,11 +16057,13 @@ TRECHO:
                     _r for _r in fragmentos_reserva_por_bloco.get(_chave_bloco_seo, [])
                     if str(_r.get("hash") or gerar_hash_trecho(_r.get("texto", ""))) != _hash_novo_ativo_seo
                 ]
-                print(f"🔑 SEO SELECIONADO: {_chave_bloco_seo} P{_idx_seo + 1} — hash principal contém a palavra-chave: {_hash_novo_ativo_seo}")
+                print(f"🔑 EVIDÊNCIA PRINCIPAL SELECIONADA: {_chave_bloco_seo} P{_idx_seo + 1} — compatibilidade temática verificada; keyword literal será exigida no texto final: {_hash_novo_ativo_seo}")
 
-    # Após eventuais promoções SEO, manter exatamente 10 reservas por bloco,
-    # distribuídas em filas independentes de 4, 3 e 3 para P1, P2 e P3.
-    # Todas as reservas devem conter literalmente a palavra-chave.
+    # Após eventuais promoções SEO, manter 10 reservas em cada parágrafo:
+    # P1=10, P2=10, P3=10; 30 por bloco e 150 no total.
+    # As reservas precisam sustentar o tema e todos os modificadores detectados.
+    # A ocorrência literal na fonte é contabilizada separadamente; a keyword
+    # literal completa continua obrigatória na redação final.
     for _n_norm in range(1, 6):
         _bloco_norm = f"bloco_{_n_norm}"
         _filas_norm = []
@@ -17336,10 +16076,10 @@ TRECHO:
             _meta_fila_norm = RESERVAS_FINAIS_POR_PARAGRAFO[_p_norm - 1]
             _fila_norm = [
                 _r for _r in _fila_norm
-                if _chave_seo_literal and _chave_seo_literal in str(_r.get("texto", "") or "").casefold()
+                if _mead_evidencia_cobre_intencao(str(_r.get("texto", "") or ""), tema)
             ][:_meta_fila_norm]
             if len(_fila_norm) != _meta_fila_norm:
-                print(f"🔴 ESTOQUE FINAL INVÁLIDO: {_bloco_norm} P{_p_norm} — reservas com palavra-chave={len(_fila_norm)}/{_meta_fila_norm}.")
+                print(f"🔴 ESTOQUE FINAL INVÁLIDO: {_bloco_norm} P{_p_norm} — reservas com evidência compatível={len(_fila_norm)}/{_meta_fila_norm}; necessário 10/10.")
                 return resultado_vazio
             fragmentos_reserva_por_bloco[_key_fila_norm] = _fila_norm
             _filas_norm.extend(dict(_r) for _r in _fila_norm)
@@ -17347,7 +16087,7 @@ TRECHO:
             print(f"🔴 ESTOQUE FINAL INVÁLIDO: {_bloco_norm} — {len(_filas_norm)}/{META_RESERVAS_POR_BLOCO} reservas.")
             return resultado_vazio
         fragmentos_reserva_por_bloco[_bloco_norm] = _filas_norm
-        print(f"✅ ESTOQUE FINAL {_bloco_norm}: {len(_filas_norm)}/10 — todas com palavra-chave; filas P1/P2/P3 = 4/3/3.")
+        print(f"✅ ESTOQUE FINAL {_bloco_norm}: {len(_filas_norm)}/30 — evidência temática e modificadores validados; keyword literal completa será exigida na redação final; filas P1/P2/P3 = 10/10/10.")
 
     # Contar somente as 15 filas exclusivas; as listas-mãe por bloco são
     # espelhos de armazenamento e não podem ser somadas novamente ao total.
@@ -17360,22 +16100,24 @@ TRECHO:
     print(
         "RESERVAS EXCLUSIVAS EM MEMÓRIA:",
         total_reservas_memoria,
-        f"/ {RESERVAS_POR_BLOCO * 5} (meta obrigatória: 10 por bloco; todas com palavra-chave)"
+        f"/ {RESERVAS_POR_BLOCO * 5} (meta obrigatória: 10 reservas temáticas por parágrafo; a keyword completa é validada na redação final)"
     )
     print("ORDEM DE ABASTECIMENTO DO ESTOQUE:", "bloco_1 → bloco_2 → bloco_3 → bloco_4 → bloco_5")
     for _n_reserva in ORDEM_PRIORIDADE_ESTOQUE:
         _chave_estoque = f"bloco_{_n_reserva}"
-        print(f"ESTOQUE {_chave_estoque}: {len(fragmentos_reserva_por_bloco.get(_chave_estoque, []))}/10 reservas aprovadas em memória (obrigatório 10)")
+        print(f"ESTOQUE {_chave_estoque}: {len(fragmentos_reserva_por_bloco.get(_chave_estoque, []))}/30 reservas aprovadas em memória (10 por parágrafo)")
         for _p_reserva in range(1, 4):
             _fila_log_reserva = fragmentos_reserva_por_bloco.get(f'{_chave_estoque}:P{_p_reserva}', [])
-            _q_kw_log_reserva = sum(1 for _r in _fila_log_reserva if _chave_seo_literal and _chave_seo_literal in str(_r.get('texto', '') or '').casefold())
-            print(f"  {_chave_estoque} P{_p_reserva}: {len(_fila_log_reserva)}/{RESERVAS_FINAIS_POR_PARAGRAFO[_p_reserva - 1]} reservas exclusivas; {_q_kw_log_reserva} com palavra-chave")
+            _q_evidencia_reserva = sum(1 for _r in _fila_log_reserva if _mead_evidencia_cobre_intencao(str(_r.get('texto', '') or ''), tema))
+            _q_literal_reserva = sum(1 for _r in _fila_log_reserva if _mead_frase_presente(str(_r.get('texto', '') or ''), tema))
+            print(f"  {_chave_estoque} P{_p_reserva}: {len(_fila_log_reserva)}/{RESERVAS_FINAIS_POR_PARAGRAFO[_p_reserva - 1]} reservas exclusivas; evidência compatível={_q_evidencia_reserva}/10; keyword literal na fonte={_q_literal_reserva}/10")
 
     # ========================================================
-    # BARREIRA OBRIGATÓRIA — 10 RESERVAS POR BLOCO
+    # BARREIRA OBRIGATÓRIA — 10 RESERVAS POR PARÁGRAFO
     # ========================================================
-    # São obrigatórias 50 hashes exclusivas, distintas das hashes principais;
-    # cada uma deve conter a palavra-chave literal.
+    # São obrigatórias 150 hashes exclusivas, distintas das hashes principais;
+    # cada uma deve ter evidência compatível com a intenção; o texto final tem
+    # sua própria validação de ocorrência literal da keyword completa.
     _erros_estoque = []
     _hashes_reserva_global = []
     for _n_bloco in range(1, 6):
@@ -17383,7 +16125,7 @@ TRECHO:
         _fila_bloco = fragmentos_reserva_por_bloco.get(_chave_b, [])
         _total_b = len(_fila_bloco)
         if _total_b != META_RESERVAS_POR_BLOCO:
-            _erros_estoque.append(f"{_chave_b}: {_total_b}/10 reservas; são obrigatórias exatamente 10")
+            _erros_estoque.append(f"{_chave_b}: {_total_b}/30 reservas; são obrigatórias 10 por parágrafo")
         for _p in range(1, 4):
             _chave_fila = f"{_chave_b}:P{_p}"
             _fila = fragmentos_reserva_por_bloco.get(_chave_fila, [])
@@ -17394,13 +16136,12 @@ TRECHO:
             ]
             if len(_fila) != _meta_fila:
                 _erros_estoque.append(f"{_chave_fila}: {len(_fila)}/{_meta_fila} reservas")
-            _kw_barreira = str(tema or "").strip()
             _reservas_com_chave_barreira = sum(
-                1 for _r in _fila if isinstance(_r, dict) and _kw_barreira
-                and _kw_barreira.casefold() in str(_r.get("texto", "") or "").casefold()
+                1 for _r in _fila if isinstance(_r, dict)
+                and _mead_evidencia_cobre_intencao(str(_r.get("texto", "") or ""), tema)
             )
             if _reservas_com_chave_barreira != len(_fila):
-                _erros_estoque.append(f"{_chave_fila}: nem todas as reservas contêm a palavra-chave literal")
+                _erros_estoque.append(f"{_chave_fila}: nem todas as reservas sustentam o núcleo/modificadores exigidos")
             if len(_hashes_fila) != len(_fila) or any(not _h for _h in _hashes_fila):
                 _erros_estoque.append(f"{_chave_fila}: hash ausente ou registro inválido")
             if len(set(_hashes_fila)) != len(_hashes_fila):
@@ -17428,11 +16169,11 @@ TRECHO:
         print("O Ollama e a geração dos parágrafos NÃO serão iniciados.")
         for _erro_estoque in _erros_estoque:
             print("  -", _erro_estoque)
-        print("Cada bloco precisa de exatamente 10 reservas exclusivas, todas com palavra-chave; a distribuição por parágrafo é 4/3/3.")
+        print("Cada bloco precisa de 30 reservas exclusivas com evidência compatível (10 por parágrafo); a keyword SEO literal completa será exigida no texto redigido.")
         print("=" * 68)
         return resultado_vazio
 
-    print(f"✅ BARREIRA DE RESERVAS APROVADA: 5 blocos × 10 reservas = {total_reservas_memoria} hashes exclusivas; todas contêm a palavra-chave.")
+    print(f"✅ BARREIRA DE RESERVAS APROVADA: 5 blocos × 3 parágrafos × 10 reservas = {total_reservas_memoria} hashes exclusivas; evidências e modificadores validados, keyword literal completa exigida no texto final.")
     print("📦 HASH GLOBAL: reservas exclusivas por bloco; não são reutilizadas entre blocos nem entre reservas e hashes principais.")
     print("📤 REGRA OLLAMA: enviar somente os fragmentos ativos necessários ao parágrafo/bloco atual; nunca enviar o catálogo global nem todas as reservas.")
 
@@ -21183,7 +19924,7 @@ def validar_conjunto_final_python(fragmentos, quantidade_esperada=15):
 # - O Python substitui [TEMA].
 # - O Python sorteia exatamente 12 segmentos.
 # - Não pode haver repetição dentro da mesma página.
-# - Os checkboxes NÃO participam da criação dos segmentos.
+# Eixos editoriais são referências amplas; não funcionam como filtros eliminatórios.
 # - O Ollama NÃO participa da criação dos segmentos.
 #
 # ============================================================
@@ -21838,6 +20579,35 @@ def avaliar_qualidade_final_python(
             falhas_criticas.append(f"PARAGRAFO_{i}_INICIO_TRUNCADO")
 
     # ------------------------------------------------------------
+    # 3B. RESÍDUOS DE PÁGINA, TEXTO TRUNCADO E REDAÇÃO DE BAIXA QUALIDADE
+    # ------------------------------------------------------------
+    residuos_web = [
+        r"\brelated posts?\b", r"\bsearch about\b", r"\bguia completo\b",
+        r"\bobrigado\b", r"\beste site foi fundado\b", r"\bsolicite agora\b",
+        r"\bcomo funciona\s*[-–:]\s*defini[cç][aã]o\b", r"\(port\.\)",
+        r"\bleia tamb[eé]m\b", r"\bpesquise?\b"
+    ]
+    if any(re.search(p, texto_n, re.I) for p in residuos_web):
+        falhas_criticas.append("RESIDUO_DE_PAGINA_OU_NAVEGACAO")
+
+    defeitos_redacao = [
+        r"\bantes para\b", r"\brotore fechado\b", r"\bcon\.\s*(?:ela|ele|a|o|e|\Z)",
+        r"\bind[uú]strias reais\b", r"\balto espectro de setores\b",
+        r"\bbaixa m[eé]dia press[aã]o\b", r"\bprocessos industriais con\.?\b"
+    ]
+    if any(re.search(p, texto_n, re.I) for p in defeitos_redacao):
+        falhas_criticas.append("DEFEITO_DE_REDACAO_OU_TRECHO_TRUNCADO")
+
+    for i, p in enumerate(paragrafos, 1):
+        palavras_p = len(re.findall(r"\b[\wÀ-ÿ'-]+\b", p))
+        if palavras_p < 25:
+            falhas_criticas.append(f"PARAGRAFO_{i}_MUITO_CURTO_OU_INCOMPLETO:{palavras_p}")
+        elif palavras_p < 35:
+            descontos += 8
+        if re.search(r"(?:^|[.!?]\s)(?:guia completo|vantagens da|descri[cç][aã]o geral|princ[ií]pios de design)\s*[:.]?\s*(?:$|[A-Z])", p, re.I):
+            descontos += 5
+
+    # ------------------------------------------------------------
     # 3A. PALAVRA-CHAVE LITERAL: EXATAMENTE UMA VEZ POR PARÁGRAFO
     # ------------------------------------------------------------
     # A contagem usa a expressão completa, sem diferenciar maiúsculas/minúsculas
@@ -21928,27 +20698,22 @@ def avaliar_qualidade_final_python(
     # ------------------------------------------------------------
     # 6. COMPATIBILIDADE MEAD
     # ------------------------------------------------------------
-    papeis = {
-        "bloco_1": ["context", "import", "necess", "cenar", "demanda", "abastec", "relev"],
-        "bloco_2": ["funcion", "aplic", "vazao", "press", "impuls", "rotor", "compon", "caracter"],
-        "bloco_3": ["manuten", "instal", "operac", "segur", "dimension", "corros", "cuidad", "criter"],
-        # B4 também pode cumprir a função de CONHECIMENTO TÉCNICO.
-        # Não exigir a palavra literal "conhecimento" no texto final.
-        "bloco_4": ["empresa", "suport", "atend", "servic", "soluc", "conhec", "fornec", "equipe", "especific", "dimension", "selec", "caracter", "compon", "operac", "desempen", "confiab", "criter", "cuidad"],
-        "bloco_5": ["selec", "aplic", "necess", "soluc", "decis", "confiab", "operac", "manuten"]
-    }
-    sinais = papeis.get(str(bloco_mead), [])
-    if sinais:
-        encontrados = sum(1 for sinal in sinais if sinal in texto_n)
-        if encontrados == 0:
-            falhas_criticas.append("INCOMPATIBILIDADE_MEAD")
-        elif encontrados == 1:
-            descontos += 6
-
-    # O título também precisa apontar para o papel do bloco.
-    titulo_sinais = sum(1 for sinal in sinais if sinal in titulo_n)
-    if sinais and titulo_sinais == 0:
-        descontos += 5
+    # A arquitetura atual mantém o bloco 1 comercial; os blocos 2–5 são
+    # flexíveis e podem tratar de descrição, técnica, aplicação, benefícios,
+    # instalação ou orientação, conforme a evidência realmente disponível.
+    sinais_comerciais_b1 = [
+        "fornecedor", "fornecimento", "empresa", "cliente", "atendimento",
+        "contratacao", "aquisicao", "compra", "orcamento", "cotacao",
+        "selecao", "necessidade", "dimensionamento", "suporte", "servico"
+    ]
+    if str(bloco_mead) == "bloco_1":
+        encontrados_b1 = sum(1 for sinal in sinais_comerciais_b1 if sinal in texto_n)
+        if encontrados_b1 == 0:
+            falhas_criticas.append("BLOCO_1_SEM_DIRECAO_COMERCIAL")
+        elif encontrados_b1 == 1:
+            descontos += 3
+    # Não rejeitar blocos 2–5 por não conterem palavras de uma taxonomia fixa.
+    # A coerência temática é verificada separadamente pela fidelidade factual.
 
     # ------------------------------------------------------------
     # 7. COERÊNCIA TEMA × CONTEÚDO
@@ -21968,8 +20733,13 @@ def avaliar_qualidade_final_python(
         for a, b in ((0,1),(0,2),(1,2)):
             uniao = conjuntos[a] | conjuntos[b]
             jaccards.append(len(conjuntos[a] & conjuntos[b]) / max(1, len(uniao)))
-        if max(jaccards) >= 0.72:
-            descontos += 7
+        maior_sobreposicao = max(jaccards)
+        if maior_sobreposicao >= 0.82:
+            falhas_criticas.append("PARAGRAFOS_REDUNDANTES")
+        elif maior_sobreposicao >= 0.58:
+            descontos += 10
+        elif maior_sobreposicao >= 0.45:
+            descontos += 4
 
     # ------------------------------------------------------------
     # NOTA
@@ -21980,7 +20750,7 @@ def avaliar_qualidade_final_python(
     if falhas_criticas:
         nota = min(nota, 7.9)
 
-    aprovado = not falhas_criticas and nota >= 7.5
+    aprovado = not falhas_criticas and nota >= 9.0
     return aprovado, round(nota, 2), falhas_criticas, {
         "cobertura_factual_lexical": round(cobertura, 3),
         "generalidades": ocorrencias_generalidade,
@@ -22202,44 +20972,17 @@ def gerar_conteudo_completo(
 
     
     # ========================================================
-    # 02. CHECKBOXES EDITORIAIS
+    # DIRETRIZES EDITORIAIS MEAD — SEM CONTROLES LEGADOS
     # ========================================================
-    
+    # A estrutura_editorial é mantida na assinatura apenas por compatibilidade
+    # com chamadas antigas. Ela não define checkboxes, temas obrigatórios ou filtros.
     print()
     print("======================================")
-    print("CHECKBOXES EDITORIAIS")
+    print("DIRETRIZES EDITORIAIS MEAD")
     print("======================================")
-    
-    if not isinstance(
-        estrutura_editorial,
-        dict
-    ):
-    
-        estrutura_editorial = {}
-    
-    for chave, valor in estrutura_editorial.items():
-    
-        print(
-            f"{chave}: {valor}"
-        )
-    
-    assuntos = [
-        str(chave).replace("_", " ")
-        for chave, valor
-        in estrutura_editorial.items()
-        if valor
-    ]
-    
-    print()
-    print(
-        "ASSUNTOS SELECIONADOS:",
-        assuntos
-    )
-    
-    print(
-        "TOTAL DE ASSUNTOS:",
-        len(assuntos)
-    )
+    print("Bloco 1: comercial estrito, apenas com evidência comercial autorizada.")
+    print("Blocos 2–5: temas preferenciais flexíveis; sem eixos/checkboxes legados.")
+    estrutura_editorial = {}
     
     # ========================================================
     # 03. ESTRUTURA OBRIGATÓRIA
@@ -22379,6 +21122,15 @@ def gerar_conteudo_completo(
     # Os hashes são reconstruídos aqui, no mesmo escopo de
     # gerar_conteudo_completo(), evitando NameError em uma nova tentativa.
     hashes_selecionados = set()
+    # Conjunto transitório da recuperação: criado no mesmo escopo das rotinas
+    # de reseleção para impedir NameError ao registrar hashes promovidas.
+    hashes_reservados_globalmente = {
+        str(_r.get("hash") or gerar_hash_trecho(_r.get("texto", "")))
+        for _fila in (textos_relevantes.get("_fragmentos_reserva_por_bloco", {}) or {}).values()
+        if isinstance(_fila, list)
+        for _r in _fila
+        if isinstance(_r, dict) and (_r.get("hash") or _r.get("texto"))
+    }
 
     # Reconstruir o contador de fontes para a etapa de re-seleção.
     # A seleção inicial já terminou; a etapa Ollama precisa deste estado
@@ -23598,7 +22350,7 @@ def gerar_conteudo_completo(
     )
 
     print(
-        "CHECKBOXES NO PROMPT:",
+        "FILTROS LEGADOS NO PROMPT:",
         "NÃO"
     )
     
@@ -23715,7 +22467,7 @@ def gerar_conteudo_completo(
     # à correção do texto ou à busca de outra evidência validada pelo Python.
     # O processo só termina quando o bloco passa no gate ou por interrupção
     # operacional externa (cancelamento, rede/Ollama indisponível etc.).
-    MAX_TENTATIVAS_CONJUNTO_OLLAMA = None
+    MAX_TENTATIVAS_CONJUNTO_OLLAMA = 8
     MARCADOR_TRECHOS_OLLAMA = "__TRECHOS_AUTORIZADOS_PYTHON__"
 
     # IMPORTANTE: o texto NÃO é compactado antes do Ollama.
@@ -23975,7 +22727,8 @@ def gerar_conteudo_completo(
         antigo["hash"] = h_antigo
         bloqueados.add(h_antigo)  # somente hash transitória para impedir reutilização nesta execução
         # Remover o registro rejeitado de todas as filas/pools reutilizáveis;
-        # não manter o texto rejeitado em estoque nem em histórico de conteúdo.
+        # a substituição, porém, é retirada exclusivamente da fila deste parágrafo.
+        # Não manter o texto rejeitado em estoque nem em histórico de conteúdo.
         for _pool_bloco in (candidatos_por_bloco or {}).values():
             if isinstance(_pool_bloco, list):
                 _pool_bloco[:] = [
@@ -24007,8 +22760,81 @@ def gerar_conteudo_completo(
 
         novo = None
         chave_fila_reserva = f"{chave_bloco}:P{int(indice_fragmento) + 1}"
-        reservas = fragmentos_reserva_por_bloco.get(chave_fila_reserva, [])
+        reservas = fragmentos_reserva_por_bloco.setdefault(chave_fila_reserva, [])
         ciclos_reabastecimento_reserva = 0
+
+        def _reabastecer_reservas_do_banco_bruto():
+            """Reabastece somente a fila do parágrafo atual usando dados-brutos locais."""
+            try:
+                fontes_brutas_locais = buscar_fragmentos_brutos_contextuais(
+                    tema_base, limite=100000, minimo_score=1
+                )
+            except Exception as erro_bruto_local:
+                print(f"⚠️ {chave_bloco} P{int(indice_fragmento) + 1}: leitura de dados-brutos falhou:", repr(erro_bruto_local)[:220])
+                return 0
+
+            palavras_chave = str(tema_base or "").strip()
+            existentes_fila = {
+                str(_r.get("hash") or gerar_hash_trecho(_r.get("texto", "")))
+                for _r in reservas if isinstance(_r, dict)
+            }
+            existentes_outras_filas = {
+                str(_r.get("hash") or gerar_hash_trecho(_r.get("texto", "")))
+                for _nome_fila, _fila in fragmentos_reserva_por_bloco.items()
+                if _nome_fila != chave_fila_reserva and isinstance(_fila, list)
+                for _r in _fila if isinstance(_r, dict)
+            }
+            adicionadas = 0
+            vistos_local = set()
+            for fonte_local in fontes_brutas_locais:
+                if not isinstance(fonte_local, dict):
+                    continue
+                texto_fonte = str(fonte_local.get("texto", "") or "").strip()
+                if not texto_fonte:
+                    continue
+                identidade = fonte_local.get("identidade_fonte", {})
+                if not isinstance(identidade, dict):
+                    identidade = {}
+                frases = [x.strip() for x in re.split(r"(?<=[.!?])\s+", texto_fonte) if x.strip()]
+                for tamanho in (2, 3, 4):
+                    for inicio_frase in range(max(0, len(frases) - tamanho + 1)):
+                        trecho = " ".join(frases[inicio_frase:inicio_frase + tamanho]).strip()
+                        if len(trecho) < 100:
+                            continue
+                        # A reserva deve sustentar a intenção semântica da keyword.
+                        # Para qualificadores geográficos, o nome do local não precisa
+                        # existir na fonte bruta; modalidade/condição semântica, sim.
+                        # A ocorrência literal da keyword completa é validada no texto final.
+                        if not _mead_evidencia_cobre_intencao(trecho, tema_base):
+                            continue
+                        h_local = gerar_hash_trecho(trecho)
+                        if not h_local or h_local in vistos_local or h_local in hashes_selecionados or h_local in bloqueados or h_local in existentes_fila or h_local in existentes_outras_filas or h_local in hashes_reservados_globalmente:
+                            continue
+                        candidato_local = {
+                            "id": "IR_" + h_local[:16], "hash": h_local, "texto": trecho,
+                            "fonte": "DADOS_BRUTOS_LOCAL", "url": str(fonte_local.get("url", "") or ""),
+                            "tipo": str(fonte_local.get("tipo", "texto") or "texto"),
+                            "identidade_fonte": identidade, "bloco_mead": chave_bloco,
+                            "_reserva_memoria": True, "paragrafo_reserva": int(indice_fragmento) + 1,
+                            "arquivo_bruto_origem": fonte_local.get("arquivo_bruto_origem", "")
+                        }
+                        # A mesma bateria de validações da promoção é aplicada antes de reservar.
+                        if not _fragmento_compativel_recuperacao(candidato_local, chave_bloco):
+                            continue
+                        ok_editorial, _motivo_editorial = fragmento_eh_editorialmente_valido(trecho, identidade)
+                        ok_comercial = fragmento_eh_comercialmente_limpo(trecho, identidade)
+                        ok_final_local, _motivo_final_local = auditar_fragmento_final_python(trecho, identidade)
+                        ok_cont_local, _motivo_cont_local = diagnosticar_contaminacao_editorial(trecho, identidade)
+                        if not all((ok_editorial, ok_comercial, ok_final_local, ok_cont_local)):
+                            continue
+                        reservas.append(candidato_local)
+                        existentes_fila.add(h_local)
+                        vistos_local.add(h_local)
+                        hashes_reservados_globalmente.add(h_local)
+                        adicionadas += 1
+                        if adicionadas >= 30:
+                            return adicionadas
+            return adicionadas
         max_ciclos_reabastecimento_reserva = 12
 
         while True:
@@ -24023,14 +22849,9 @@ def gerar_conteudo_completo(
                     if isinstance(((item.get("candidato") if isinstance(item, dict) else None) or item), dict)
                 }
 
-                # As 20 reservas foram consumidas: procurar primeiro no banco bruto.
-                try:
-                    novos_locais = _buscar_reservas_no_bruto_por_bloco(
-                        chave_bloco, forcar_nova_verificacao=True
-                    )
-                except Exception as erro_busca_local_recuperacao:
-                    novos_locais = 0
-                    print(f"⚠️ {chave_bloco} P{int(indice_fragmento) + 1}: falha na busca local de recuperação:", repr(erro_busca_local_recuperacao)[:220])
+                # As reservas em memória foram consumidas: procurar primeiro no
+                # banco bruto, sem depender de função aninhada em outro escopo.
+                novos_locais = _reabastecer_reservas_do_banco_bruto()
 
                 _pool_atual = candidatos_por_bloco.get(chave_bloco, [])
                 _hashes_pool_depois = {
@@ -24046,7 +22867,7 @@ def gerar_conteudo_completo(
                     for _r in _fila
                     if isinstance(_r, dict)
                 }
-                _kw_reabastecimento = str(tema_base or "").strip().casefold()
+                _kw_reabastecimento = str(tema_base or "").strip()
                 for _item_pool in _pool_atual:
                     _cand_pool = (_item_pool.get("candidato") if isinstance(_item_pool, dict) else None) or _item_pool
                     if not isinstance(_cand_pool, dict):
@@ -24054,7 +22875,7 @@ def gerar_conteudo_completo(
                     _h_pool = str(_cand_pool.get("hash") or gerar_hash_trecho(_cand_pool.get("texto", "")))
                     _txt_pool = str(_cand_pool.get("texto", "") or "")
                     _fonte_pool = str(_cand_pool.get("fonte", "") or "").upper()
-                    if (_h_pool not in _novas_hashes_reabastecimento and _fonte_pool != "DADOS_BRUTOS_LOCAL") or not _kw_reabastecimento or _kw_reabastecimento not in _txt_pool.casefold():
+                    if (_h_pool not in _novas_hashes_reabastecimento and _fonte_pool != "DADOS_BRUTOS_LOCAL") or not _mead_evidencia_cobre_intencao(_txt_pool, _kw_reabastecimento):
                         continue
                     if _h_pool in hashes_selecionados or _h_pool in bloqueados or _h_pool in _fila_existente_hashes:
                         continue
@@ -24073,10 +22894,11 @@ def gerar_conteudo_completo(
                 # Se o banco bruto não trouxer nova evidência, encerrar a recuperação sem pesquisa web adicional adicional.
                 _hashes_pool_antes_web = _hashes_pool_depois
                 try:
-                    novos_web = _pesquisar_lacuna_editorial_por_bloco(chave_bloco)
+                    _pesquisador_recuperacao = _pesquisadores_recuperacao_por_bloco.get(chave_bloco)
+                    novos_web = _pesquisador_recuperacao(chave_bloco) if callable(_pesquisador_recuperacao) else 0
                 except Exception as erro_busca_web_recuperacao:
                     novos_web = 0
-                    print(f"⚠️ {chave_bloco} P{int(indice_fragmento) + 1}: falha na reconsulta local de recuperação:", repr(erro_busca_web_recuperacao)[:220])
+                    print(f"⚠️ {chave_bloco} P{int(indice_fragmento) + 1}: falha na pesquisa de recuperação:", repr(erro_busca_web_recuperacao)[:220])
                 _pool_atual = candidatos_por_bloco.get(chave_bloco, [])
                 _hashes_pool_depois_web = {
                     str(((item.get("candidato") if isinstance(item, dict) else None) or item).get("hash") or gerar_hash_trecho(((item.get("candidato") if isinstance(item, dict) else None) or item).get("texto", "")))
@@ -24091,7 +22913,7 @@ def gerar_conteudo_completo(
                     _h_pool = str(_cand_pool.get("hash") or gerar_hash_trecho(_cand_pool.get("texto", "")))
                     _txt_pool = str(_cand_pool.get("texto", "") or "")
                     _fonte_pool = str(_cand_pool.get("fonte", "") or "").upper()
-                    if (_h_pool not in _novas_hashes_web and not _fonte_pool.startswith("LACUNA_")) or not _kw_reabastecimento or _kw_reabastecimento not in _txt_pool.casefold():
+                    if (_h_pool not in _novas_hashes_web and not _fonte_pool.startswith("LACUNA_")) or not _mead_evidencia_cobre_intencao(_txt_pool, _kw_reabastecimento):
                         continue
                     if _h_pool in hashes_selecionados or _h_pool in bloqueados or _h_pool in _fila_existente_hashes:
                         continue
@@ -24119,15 +22941,16 @@ def gerar_conteudo_completo(
             # anterior não dispensa os gates comerciais/editoriais atuais.
             texto_reserva = str(reserva.get("texto", "") or "").strip()
 
-            # Regra MEAD: cada parágrafo precisa ter sua própria evidência
-            # autorizada contendo a palavra-chave literal da página.
+            # A evidência precisa conter a keyword literal ou, quando a keyword
+            # termina em qualificador geográfico, o núcleo temático do produto.
+            # A localização não é inferida da evidência; a keyword completa fica
+            # obrigatória somente na redação SEO final.
             _kw_evidencia = str(tema_base or "").strip()
-            if not _kw_evidencia or not re.search(
-                re.escape(_kw_evidencia), texto_reserva, flags=re.IGNORECASE
-            ):
+            _kw_evidencia_ok = _mead_evidencia_cobre_intencao(texto_reserva, _kw_evidencia)
+            if not _kw_evidencia_ok:
                 bloqueados.add(h)
                 print(
-                    "🧹 RESERVA DESCARTADA: não contém a palavra-chave literal",
+                    "🧹 RESERVA DESCARTADA: evidência não cobre o assunto/modificadores necessários",
                     "| BLOCO:", chave_bloco,
                     "| PARÁGRAFO:", int(indice_fragmento) + 1,
                     "| HASH:", h,
@@ -24651,19 +23474,21 @@ def gerar_conteudo_completo(
             return True
 
 
-        # Regra obrigatória: cada parágrafo deve começar com ao menos uma
-        # evidência/hash aprovada que contenha a palavra-chave literal.
+        # Cada parágrafo usa evidência própria: keyword literal quando disponível,
+        # ou núcleo temático para variantes geográficas. A keyword SEO completa
+        # continua obrigatória exatamente uma vez na redação final.
         _palavra_chave_evidencia = str(tema_base or "").strip()
+        _nucleo_palavra_chave_evidencia = _mead_nucleo_tema(_palavra_chave_evidencia).strip()
+        _variante_geografica_evidencia = _nucleo_palavra_chave_evidencia.casefold() != _palavra_chave_evidencia.casefold()
 
         def _evidencia_contem_palavra_chave(_fragmento):
             _texto = str((_fragmento or {}).get("texto", "") or "")
+            if _palavra_chave_evidencia and re.search(re.escape(_palavra_chave_evidencia), _texto, flags=re.IGNORECASE):
+                return True
             return bool(
-                _palavra_chave_evidencia
-                and re.search(
-                    re.escape(_palavra_chave_evidencia),
-                    _texto,
-                    flags=re.IGNORECASE
-                )
+                _variante_geografica_evidencia
+                and _nucleo_palavra_chave_evidencia
+                and re.search(re.escape(_nucleo_palavra_chave_evidencia), _texto, flags=re.IGNORECASE)
             )
 
         # Corrigir a seleção inicial antes de enviar qualquer evidência ao Ollama.
@@ -24672,7 +23497,7 @@ def gerar_conteudo_completo(
             if not _evidencia_contem_palavra_chave(_frag_kw):
                 ultimo_erro = (
                     f"HASH_SEM_PALAVRA_CHAVE P{_idx_kw + 1}: "
-                    "a evidência autorizada não contém a palavra-chave literal."
+                    "a evidência não contém a keyword nem o núcleo temático permitido."
                 )
                 print(
                     "🔎 VERIFICAÇÃO DE PALAVRA-CHAVE NA EVIDÊNCIA:",
@@ -24683,20 +23508,27 @@ def gerar_conteudo_completo(
                 if not _adaptar_evidencia_apos_rejeicao(ultimo_erro):
                     erro_kw = (
                         f"Bloco {chave_bloco_atual} não aprovado: não existe "
-                        f"reserva exclusiva válida com a palavra-chave literal "
+                        f"reserva exclusiva válida com o núcleo temático "
                         f"para o parágrafo {_idx_kw + 1}."
                     )
                     print("🔴", erro_kw)
                     return None, erro_kw
 
-        # Recuperação contínua: não há teto artificial de tentativas.
-        # O bloco só retorna quando os três parágrafos passam na validação.
-        # Falhas transitórias do Ollama e erros de redação não encerram a geração.
+        # Recuperação controlada. A aprovação continua obrigatória, mas não
+        # repetimos indefinidamente o mesmo pedido/hash quando não há progresso.
+        MAX_TENTATIVAS_BLOCO_OLLAMA = 5
         tentativa_bloco = 0
 
         while True:
             tentativa_bloco += 1
-            print(f"🔁 CICLO DE RECUPERAÇÃO CONTÍNUA: {chave_bloco_atual} — tentativa {tentativa_bloco}")
+            if tentativa_bloco > MAX_TENTATIVAS_BLOCO_OLLAMA:
+                erro_limite = (
+                    f"Bloco {chave_bloco_atual} não aprovado após "
+                    f"{MAX_TENTATIVAS_BLOCO_OLLAMA} tentativas; a página não será salva."
+                )
+                print("🔴 LIMITE DE RECUPERAÇÃO ATINGIDO:", erro_limite)
+                return None, erro_limite
+            print(f"🔁 CICLO DE RECUPERAÇÃO CONTROLADA: {chave_bloco_atual} — tentativa {tentativa_bloco}/{MAX_TENTATIVAS_BLOCO_OLLAMA}")
 
             # Se a tentativa anterior falhou por evidência, editorial ou
             # progressão, substitui somente o trecho responsável antes de
@@ -24833,6 +23665,13 @@ ATENÇÃO:
 - Reorganize as ideias quando isso melhorar a coerência.
 - Ignore títulos, menus, legendas, CTAs, listas e trechos claramente truncados.
 - Use somente fatos presentes nos três trechos deste bloco.
+- QUALIDADE EDITORIAL PRIORITÁRIA: escreva para um leitor real, com frases completas, português natural e termos técnicos consistentes; não faça paráfrase mecânica frase a frase.
+- Cada parágrafo deve ter um foco informativo distinto e acrescentar informação útil; não repita a mesma ideia nos três parágrafos nem use frases genéricas para preencher espaço.
+- Remova resíduos de páginas (por exemplo: "Guia Completo", "Related Posts", "Search About", "Obrigado", menus, chamadas para ação, cabeçalhos soltos e nomes de sites).
+- Não preserve erros, palavras truncadas ou construções sem sentido presentes na fonte; corrija a redação sem mudar os fatos técnicos autorizados.
+- Não use expressões vagas como "indústrias reais", "muitos aspectos da sociedade" ou "alto espectro de setores" quando não acrescentarem um fato concreto.
+- Não comece com um fragmento que dependa de contexto ausente (por exemplo, "esse conceito" sem identificar o conceito).
+- Antes de responder, revise internamente gramática, concordância, repetição, completude e fidelidade factual. Retorne somente os três parágrafos finais.
 
 REGRA DE CORREÇÃO — PRIORIDADE ABSOLUTA NESTA RETENTATIVA:
 - O Python rejeitou a resposta pelo motivo informado acima.
@@ -25301,7 +24140,7 @@ Preserve proporcionalmente o conteúdo deles, sem meta ou limite de palavras.
                 print("❌ VALIDAÇÃO DO BLOCO:", ultimo_erro)
                 continue
 
-            print("🟢 VALIDAÇÃO DO BLOCO: ACEITO — 3 PARÁGRAFOS / SEM LIMITE DE PALAVRAS")
+            print("🟢 VALIDAÇÃO ESTRUTURAL INTERMEDIÁRIA: ACEITA — 3 PARÁGRAFOS; gate factual/editorial final ainda pendente")
 
             # ----------------------------------------------------
             # VALIDAÇÃO FACTUAL
@@ -25758,11 +24597,12 @@ Preserve proporcionalmente o conteúdo deles, sem meta ou limite de palavras.
                 "=" * 60
             )
             print(
-                f"🟢 BLOCO APROVADO — "
+                f"🟢 REDAÇÃO PASSOU NAS VALIDAÇÕES INTERNAS — "
                 f"{chave_bloco_atual.upper()}"
             )
+            print("STATUS: retorno estrutural/editorial intermediário; gate final de qualidade da página ainda será aplicado.")
             print(
-                f"TENTATIVA: {tentativa_bloco} — recuperação contínua"
+                f"TENTATIVA: {tentativa_bloco} — recuperação controlada"
             )
             print(
                 "=" * 60
@@ -26204,7 +25044,7 @@ Preserve proporcionalmente o conteúdo deles, sem meta ou limite de palavras.
         #
         # Agora cada chamada do Ollama recebe:
         # - as regras MEAD preparadas para IA;
-        # - os checkboxes editoriais ativos desta página;
+        # - os eixos editoriais gerais desta página;
         # - o bloco atual;
         # - os 3 fragmentos autorizados pelo Python.
         #
@@ -26281,22 +25121,33 @@ TRECHO {fragmento["numero"]}
         total_entrada_ollama = sum(tamanhos_entrada)
 
         direcao_prompt = direcao_editorial_preferencial(chave_bloco)
-        assuntos_prompt = [
-            NOMES_BLOCOS_EDITORIAIS.get(a, a.replace("_", " "))
-            for a in assuntos_editoriais_ativos(estrutura_editorial)
-        ]
-        assuntos_prompt_txt = ", ".join(assuntos_prompt) if assuntos_prompt else "nenhum checkbox ativo"
+        if chave_bloco == "bloco_1":
+            regra_editorial_prompt = (
+                "REGRA OBRIGATÓRIA: este bloco deve manter foco comercial. Use somente contexto de decisão, "
+                "fornecimento, contratação ou necessidade do cliente sustentado pelas evidências. Não substitua "
+                "falta de evidência comercial por explicação técnica, nem invente empresa, oferta, disponibilidade, "
+                "preço, garantia ou condição comercial. Se o material for insuficiente, sinalize insuficiência."
+            )
+        else:
+            regra_editorial_prompt = (
+                "REGRA FLEXÍVEL: priorize o foco indicado para este bloco quando houver evidência, mas pode usar "
+                "qualquer outro assunto pertinente, coerente e sustentado se o foco preferencial estiver fraco. "
+                "Não encaixe o texto em categorias artificiais nem invente conteúdo para preencher um tema."
+            )
 
-        prompt_bloco = f"""Você é um editor técnico de preservação factual.
+        resumo_intencao_keyword = _mead_resumo_intencao_para_prompt(tema)
+        prompt_bloco = f"""Você é um editor técnico que escreve em português do Brasil com clareza e naturalidade.
 
-ESCOPO: redija APENAS os três parágrafos deste bloco. Estas direções e validações não definem nem alteram títulos, subtítulos, tags, segmentos ou listas; esses componentes são gerados e controlados pelo Python.
+ESCOPO: redija APENAS os três parágrafos deste bloco. Títulos, subtítulos, tags, segmentos e listas são controlados pelo Python.
 
-DIREÇÃO EDITORIAL PREFERENCIAL: {direcao_prompt['nome']}.
-Orientação: {direcao_prompt['descricao']}.
-A direção é uma preferência, NÃO uma obrigação rígida. Siga-a quando houver evidência adequada; se as fontes autorizadas sustentarem melhor outra abordagem marcada pelo usuário, preserve o conteúdo útil e factual em vez de forçar a direção ou inventar material.
+INTERPRETAÇÃO DA INTENÇÃO DA PALAVRA-CHAVE:
+{resumo_intencao_keyword}
+Não trate palavras como modalidade, condição, público, finalidade ou localidade como simples enfeites. Quando mudarem o sentido do que o usuário procura, mantenha essa diferença no conteúdo. Não afirme atendimento local, modalidade, tratamento, disponibilidade ou resultado sem evidência. Se as evidências não sustentarem uma dimensão essencial, o Python deverá bloquear o trecho em vez de inventar.
 
-PREFERÊNCIAS EDITORIAIS INDICADAS PELOS CHECKBOXES: {assuntos_prompt_txt}.
-Use esses sinais para orientar a abordagem, mas não é obrigatório incluir todos os assuntos marcados nem dedicar um bloco específico a cada assunto. Um assunto pode aparecer em qualquer bloco quando fizer sentido. Não force nem invente conteúdo para cobrir preferências; priorize relevância, diversidade entre os blocos e evidências reais das fontes.
+DIREÇÃO EDITORIAL: {direcao_prompt['nome']}.
+Orientação preferencial: {direcao_prompt['descricao']}.
+{regra_editorial_prompt}
+Priorize texto humano, frases claras, transições naturais e uma ideia principal por parágrafo. Não force fórmulas, aberturas mecânicas nem vocabulário promocional. Se os trechos sustentarem melhor outro ângulo relevante nos blocos 2–5, use esse ângulo sem perder coerência.
 
 PALAVRA-CHAVE SEO LITERAL: {tema}
 Em cada um dos três parágrafos, use essa palavra-chave exatamente uma vez, preservando a grafia e a ordem literal. Não precisa abrir o parágrafo. Não a repita uma segunda vez no mesmo parágrafo.
@@ -26311,14 +25162,13 @@ ORIGINALIDADE E QUALIDADE EDITORIAL OBRIGATÓRIAS:
 - Se uma fonte estiver confusa ou tecnicamente duvidosa, use apenas a parte inequívoca; não transforme uma hipótese em certeza.
 - Não use frases genéricas de marketing. Cada frase deve transmitir um fato concreto autorizado ou explicar uma consequência diretamente sustentada.
 
-CONCORDÂNCIA GRAMATICAL DA PALAVRA-CHAVE — OBRIGATÓRIA:
-- A expressão literal da palavra-chave deve aparecer exatamente uma vez em cada parágrafo, mas a frase inteira precisa continuar correta em português do Brasil.
-- Construa a frase em torno da expressão exata; nunca force um artigo, pronome, verbo ou adjetivo incompatível com o número ou gênero da expressão.
-- Se a expressão estiver no singular, não escreva construções como “as {tema}”, “essas {tema}”, “os {tema}” ou “as {tema} são”. Prefira uma estrutura natural como “A {tema} ...”, “O uso de {tema} ...” ou “... da {tema} ...”, escolhendo o artigo conforme a gramática do termo.
-- Não altere a palavra-chave para o plural nem a substitua por sinônimo apenas para corrigir a frase. Reescreva a frase ao redor dela.
-- Antes de responder, conte mentalmente a expressão literal completa em cada parágrafo: deve haver uma ocorrência, nem zero nem duas.
-- A expressão deve ser contada como frase exata, não como parte de uma palavra maior. Não tente corrigir a contagem alterando a grafia, pluralizando ou separando a expressão.
-- Faça uma última leitura individual dos três parágrafos: confirme uma ocorrência literal em cada um, concordância correta em português do Brasil, regência, pontuação e fluidez.
+INTEGRIDADE DA PALAVRA-CHAVE E GRAMÁTICA — OBRIGATÓRIAS:
+- A expressão literal completa deve aparecer exatamente uma vez em cada parágrafo, preservando grafia e ordem, mesmo quando tiver formato de busca comprimido.
+- Se a expressão inteira for gramatical, incorpore-a naturalmente à frase. Se a expressão for comprimida ou ficar estranha com artigo/regência (por exemplo, “terapia online depressão” ou “bomba centrífuga SP”), NÃO force “A {tema}” nem mude a expressão.
+- Nesses casos, preserve a sequência literal como expressão de busca, por exemplo: “A busca por “terapia online depressão” envolve...” ou “Ao pesquisar “bomba centrífuga SP”, ...”. Só use essa moldura se ela couber no contexto e não inventar uma intenção não sustentada.
+- Nunca insira palavras dentro da expressão, troque sua ordem, corrija sua grafia, pluralize-a ou substitua parte dela por sinônimo.
+- Não coloque um determinante incompatível imediatamente antes de uma expressão comprimida. A frase ao redor deve ser gramatical, ainda que a keyword seja citada como consulta de pesquisa.
+- Conte a expressão literal completa: uma ocorrência em cada parágrafo, nem zero nem duas. Faça a conferência final individual dos três parágrafos, incluindo regência, pontuação e fluidez.
 
 DIVERSIDADE REAL ENTRE PARÁGRAFOS:
 - Planeje internamente uma contribuição factual diferente para cada parágrafo antes de redigir; não mostre esse planejamento.
@@ -26470,7 +25320,7 @@ EVIDÊNCIAS AUTORIZADAS PELO PYTHON — USE AS TRÊS EM CONJUNTO:
         
         print()
         print(
-            "🟢 BLOCO APROVADO PELA RETENTATIVA CONTROLADA"
+            "🟢 RESPOSTA RETORNADA PELA RETENTATIVA CONTROLADA — GATE FINAL AINDA PENDENTE"
         )
         
         print(
@@ -26875,13 +25725,20 @@ EVIDÊNCIAS AUTORIZADAS PELO PYTHON — USE AS TRÊS EM CONJUNTO:
             indice_substituicao = 0
             pesquisas_sem_novos = 0
             tentativas_reescrita_editorial_sem_troca = 0
+            ciclos_gate_final = 0
 
             while not aprovado_q:
-                # RECUPERAÇÃO PERSISTENTE: não existe teto artificial de tentativas
-                # nem de tentativas editoriais sem progresso. A recuperação usa
+                # Recuperação limitada para evitar loop infinito/repetições de chamadas.
+                # Se o gate não passar dentro do limite, o bloco fica reprovado e não é salvo.
+                ciclos_gate_final += 1
+                if MAX_TENTATIVAS_CONJUNTO_OLLAMA is not None and ciclos_gate_final > MAX_TENTATIVAS_CONJUNTO_OLLAMA:
+                    qualidade_reprovada = True
+                    print(f"🔴 RECUPERAÇÃO ENCERRADA: {chave_q} após {MAX_TENTATIVAS_CONJUNTO_OLLAMA} ciclos sem aprovação; nada será salvo como final.")
+                    break
+                # A recuperação usa
                 # somente reservas Python já aprovadas; não inicia pesquisa nesta fase.
                 # O bloco nunca é considerado concluído nem salvo enquanto reprovado.
-                motivo_reparo = ", ".join(falhas_q) if falhas_q else f"nota abaixo do mínimo ({nota_q}/10)"
+                motivo_reparo = ", ".join(falhas_q) if falhas_q else f"nota global do bloco abaixo do mínimo ({nota_q}/10); revisar o parágrafo mais fraco sem trocar evidências aprovadas"
                 print("\n🔁 RECUPERAÇÃO DO GATE FINAL:", chave_q)
                 print("MOTIVOS:", motivo_reparo)
 
@@ -27032,9 +25889,11 @@ EVIDÊNCIAS AUTORIZADAS PELO PYTHON — USE AS TRÊS EM CONJUNTO:
                     _instrucao_ed = f"""
 RECUPERAÇÃO EDITORIAL SEM TROCAR EVIDÊNCIAS — {chave_q}
 Falhas editoriais detectadas: {', '.join(str(x) for x in falhas_q)}.
-Use exatamente as mesmas três evidências autorizadas. Não troque, descarte nem solicite novas hashes.
+PALAVRA-CHAVE LITERAL EXATA E OBRIGATÓRIA: {tema!r}
+Copie essa expressão exatamente como está, preservando palavras, acentos e ordem. Ela deve aparecer exatamente uma vez em cada parágrafo reescrito, sem ser substituída pelo núcleo do tema e sem acrescentar a localidade em outro lugar separado.
+Use exatamente as mesmas três evidências autorizadas. Não troque, descarte nem solicite novas hashes nesta correção de redação.
 Reescreva somente os parágrafos de índices {', '.join(str(i + 1) for i in sorted(_indices_editoriais))}.
-Inclua a palavra-chave literal de forma natural, em português do Brasil, na frequência exigida; corrija idioma estrangeiro, repetição ou função MEAD se indicado.
+Corrija também os outros defeitos editoriais indicados, em português do Brasil, sem inventar fatos.
 Não acrescente fatos, números, unidades, marcas ou especificações que não estejam nas evidências.
 Retorne exatamente três parágrafos, sem títulos ou rótulos.
 """
@@ -27064,6 +25923,30 @@ Retorne exatamente três parágrafos, sem títulos ou rótulos.
                     print(f"⚠️ {chave_q}: reescrita editorial não retornou três parágrafos válidos.", str(_erro_ed)[:200])
                     continue
 
+                # Ausência/contagem incorreta da keyword é, por padrão, falha de REDAÇÃO.
+                # Depois das duas correções editoriais já tentadas, não consumir nem
+                # substituir evidências só porque o modelo omitiu a expressão literal.
+                _falha_keyword_literal = bool(re.search(
+                    r"PALAVRA_CHAVE_P[1-3]_OCORRENCIAS",
+                    str(motivo_reparo or ""),
+                    flags=re.IGNORECASE,
+                ))
+                _falha_evidencia_explicita = bool(re.search(
+                    r"(?:EVIDENCIA_INVALIDA|EVIDENCIA_NAO_COBRE|FATO_NAO_SUSTENTADO|"
+                    r"ENTIDADE_TERCEIRO_DETECTADA|CONTAMINACAO_DE_FONTE|HASH_REJEITADA|"
+                    r"INCOMPATIBILIDADE_MEAD_P[1-3])",
+                    str(motivo_reparo or ""),
+                    flags=re.IGNORECASE,
+                ))
+                if _falha_keyword_literal and not _falha_evidencia_explicita:
+                    qualidade_reprovada = True
+                    print(
+                        f"🔴 {chave_q}: a falha restante é de ocorrência literal da palavra-chave. "
+                        "Evidências preservadas; nenhuma hash será trocada por esse motivo. "
+                        "O bloco fica reprovado para evitar recuperação falsa."
+                    )
+                    break
+
                 # A troca é direcionada ao parágrafo apontado pela validação.
                 # Nunca avançar ciclicamente por P1/P2/P3 quando só um deles falhou.
                 _indice_falha = None
@@ -27080,7 +25963,7 @@ Retorne exatamente três parágrafos, sem títulos ou rótulos.
                     if _prompt_sem_troca:
                         try:
                             _resultado_mesmas, _erro_mesmas = _processar_bloco_ollama_com_retentativas(
-                                _prompt_sem_troca + f"\n\nCORRIJA SOMENTE A REDAÇÃO. Motivos de reprovação: {motivo_reparo}. Preserve as três evidências atuais, não invente fatos e retorne exatamente três parágrafos completos.",
+                                _prompt_sem_troca + f"\n\nCORRIJA SOMENTE A REDAÇÃO. Palavra-chave literal exata, copiar sem alterar: {tema!r}. Ela deve aparecer exatamente uma vez em cada parágrafo. Motivos de reprovação: {motivo_reparo}. Preserve as três evidências atuais, não invente fatos e retorne exatamente três parágrafos completos.",
                                 evidencias_atuais, chave_q
                             )
                         except Exception as _exc_mesmas:
@@ -27168,6 +26051,7 @@ Retorne exatamente três parágrafos, sem títulos ou rótulos.
     Foi selecionada uma nova evidência/hash para substituir apenas a evidência de índice {indice + 1}.
 
     CORREÇÃO DIRECIONADA:
+    - Se a falha for PALAVRA_CHAVE_Pn_OCORRENCIAS, mantenha a mesma evidência e corrija somente o parágrafo N; os outros dois parágrafos devem ser devolvidos sem alterações. Não consuma outra hash para corrigir uma contagem que é erro de redação.
     - Se houver FIDELIDADE_LEXICAL_INSUFICIENTE: mantenha os conceitos e termos técnicos efetivamente presentes nas evidências atuais; não acrescente conteúdo externo.
     - Se houver NUMEROS_OU_UNIDADES_NOVOS: remova números, percentuais, medidas e unidades que não estejam explicitamente nas evidências atuais.
     - Se houver METATEXTO_DETECTADO: elimine comentários sobre fontes, trechos, evidências, revisão ou processo de escrita; redija diretamente para o leitor.
@@ -27215,6 +26099,7 @@ Retorne exatamente três parágrafos, sem títulos ou rótulos.
             if falhas_q:
                 print("   FALHAS CRÍTICAS:", ", ".join(falhas_q))
             print("   COBERTURA FACTUAL:", detalhes_q.get("cobertura_factual_lexical"))
+            print("   DESCONTOS DE QUALIDADE:", detalhes_q.get("descontos"))
             if not aprovado_q:
                 qualidade_reprovada = True
                 print(f"   ⚠️ {chave_q}: recuperação não atingiu o critério de aprovação; blocos aprovados foram preservados.")
@@ -27311,9 +26196,8 @@ Retorne exatamente três parágrafos, sem títulos ou rótulos.
 
 
     print()
-    print(
-        "✅ OS 15 PARÁGRAFOS FORAM PROCESSADOS."
-    )
+    print("🟡 ESTRUTURA COMPLETA: os 15 parágrafos foram retornados pelo Ollama.")
+    print("STATUS: isso confirma a quantidade, não a aprovação final; o gate editorial e de qualidade ainda será aplicado.")
 
     print("=" * 60)
 
@@ -27324,19 +26208,23 @@ Retorne exatamente três parágrafos, sem títulos ou rótulos.
     print("=" * 60)
     print(f"QUALIDADE MÍNIMA ENTRE BLOCOS: {nota_pagina:.1f}/10")
     print(f"QUALIDADE MÉDIA DA PÁGINA: {media_pagina:.1f}/10")
-    print("MÍNIMO OBRIGATÓRIO: 7.5/10")
+    MIN_QUALIDADE_EDITORIAL_PAGINA = 9.0
+    META_QUALIDADE_EDITORIAL = 9.5
+    print(f"MÍNIMO OBRIGATÓRIO PARA SALVAR: {MIN_QUALIDADE_EDITORIAL_PAGINA:.1f}/10")
+    print(f"META DE QUALIDADE: {META_QUALIDADE_EDITORIAL:.1f}/10")
 
-    # A nota editorial abaixo da meta não bloqueia mais a gravação.
-    # A página poderá ser gravada para revisão e a nota será melhorada
-    # posteriormente. As validações estruturais e de integridade existentes
-    # no processo de gravação continuam ativas.
-    if qualidade_reprovada or nota_pagina < 7.5:
-        print("🟡 META DE QUALIDADE EDITORIAL NÃO ATINGIDA")
-        print(f"NOTA MÍNIMA ENTRE BLOCOS: {nota_pagina:.1f}/10 | META: 7.5/10")
-        print("A gravação seguirá para as validações estruturais e de integridade.")
-        print("A nota editorial poderá ser melhorada posteriormente.")
+    # Fail closed: texto com falha editorial ou nota abaixo do mínimo não pode
+    # ser gravado como página pronta. Não basta ter 15 parágrafos presentes.
+    if qualidade_reprovada or nota_pagina < MIN_QUALIDADE_EDITORIAL_PAGINA:
+        print("🔴 GRAVAÇÃO BLOQUEADA — QUALIDADE EDITORIAL INSUFICIENTE")
+        print(f"NOTA MÍNIMA ENTRE BLOCOS: {nota_pagina:.1f}/10 | MÍNIMO: {MIN_QUALIDADE_EDITORIAL_PAGINA:.1f}/10")
+        print("Corrija os parágrafos reprovados e execute novamente; nenhum conteúdo incompleto será aprovado como final.")
+        print("=" * 60)
+        return None
+    if nota_pagina < META_QUALIDADE_EDITORIAL:
+        print("🟡 MÍNIMO DE QUALIDADE ATINGIDO, mas a meta editorial de 9,5/10 ainda não foi alcançada.")
     else:
-        print("🟢 QUALIDADE EDITORIAL: META ATINGIDA")
+        print("🟢 META DE QUALIDADE EDITORIAL ATINGIDA")
     print("=" * 60)
 
     # ============================================================
@@ -27507,7 +26395,7 @@ Retorne exatamente três parágrafos, sem títulos ou rótulos.
     # 17. CRIAR SEGMENTOS COM PYTHON
     # ========================================================
     #
-    # Os segmentos NÃO são gerados pelos checkboxes.
+    # Eixos editoriais são referências amplas; não funcionam como filtros eliminatórios.
     #
     # O Python possui um banco fixo com mais de 20
     # possibilidades e sorteia exatamente 12 para a página.
@@ -29270,17 +28158,26 @@ def validar_mapa_mead(texto):
         print("==============================")
         return False
 
+    chaves_legadas = {
+        "checkboxes_editoriais", "assuntos_autorizados", "assuntos_preferenciais",
+        "funcoes_autorizadas", "funcoes_preferenciais", "prioridades_suaves"
+    }
+    def _tem_chave_legada(valor):
+        if isinstance(valor, dict):
+            if any(str(k).casefold() in chaves_legadas for k in valor):
+                return True
+            return any(_tem_chave_legada(v) for v in valor.values())
+        if isinstance(valor, list):
+            return any(_tem_chave_legada(v) for v in valor)
+        return False
+
+    if _tem_chave_legada(mapa):
+        print("🟡 MAPA MEAD LEGADO: estrutura editorial antiga detectada; será reconstruída sem listas de assuntos permitidos.")
+        return False
+
     obrigatorios = [
-        "tipo",
-        "tema",
-        "protagonista",
-        "tipo_pagina",
-        "grupo",
-        "assuntos_autorizados",
-        "checkboxes_editoriais",
-        "intencao_comercial",
-        "regra_factual",
-        "contexto_blocos"
+        "tipo", "tema", "protagonista", "tipo_pagina", "grupo",
+        "interpretacao_semantica", "regra_factual", "contexto_blocos"
     ]
 
     faltando = [
@@ -29310,6 +28207,11 @@ def validar_mapa_mead(texto):
 
     if not str(mapa.get("protagonista", "")).strip():
         print("🔴 MAPA MEAD INVALIDO: protagonista vazio.")
+        return False
+
+    interpretacao = mapa.get("interpretacao_semantica")
+    if not isinstance(interpretacao, dict) or not str(interpretacao.get("keyword_literal", "")).strip():
+        print("🔴 MAPA MEAD INVALIDO: interpretacao_semantica ausente ou incompleta.")
         return False
 
     contexto = mapa.get("contexto_blocos")
@@ -34877,7 +33779,7 @@ def gerar_e_salvar_mapa_mead(
     mapa_mead = gerar_mapa_mead(
         tema,
         textos,
-        normalizar_checkboxes_editoriais()
+        normalizar_eixos_editoriais()
     )
     
     
@@ -35060,9 +33962,26 @@ def buscar_fragmentos_brutos_contextuais(tema, limite=12, minimo_score=3):
     if not pasta.exists() or not pasta.is_dir():
         return []
 
-    consulta = _normalizar_busca_contextual(tema)
+    consulta_original = _normalizar_busca_contextual(tema)
+    analise_semantica = _mead_analisar_intencao_tema(tema)
+    consulta = _normalizar_busca_contextual(analise_semantica["nucleo_para_busca"])
     termos = [t for t in consulta.split() if len(t) >= 3 and t not in _STOPWORDS_BUSCA_CONTEXTUAL]
-    if not termos:
+    # Pontuar sinônimos conhecidos para não perder fontes que usam redação natural
+    # (ex.: "psicoterapia por videochamada para pessoas com depressão").
+    termos_expandidos = list(termos)
+    for eixo in analise_semantica["modalidades"] + analise_semantica["condicoes_ou_objetivos"]:
+        for alias in eixo.get("rotulos", []):
+            termos_expandidos.extend(
+                t for t in _normalizar_busca_contextual(alias).split()
+                if len(t) >= 3 and t not in _STOPWORDS_BUSCA_CONTEXTUAL
+            )
+    for alias in _MEAD_ALIASES_ASSUNTO.get(_mead_norm(analise_semantica["assunto_central"]), []):
+        termos_expandidos.extend(
+            t for t in _normalizar_busca_contextual(alias).split()
+            if len(t) >= 3 and t not in _STOPWORDS_BUSCA_CONTEXTUAL
+        )
+    termos_expandidos = list(dict.fromkeys(termos_expandidos))
+    if not termos_expandidos:
         return []
 
     conceitos = []
@@ -35072,7 +33991,7 @@ def buscar_fragmentos_brutos_contextuais(tema, limite=12, minimo_score=3):
     conceitos = list(dict.fromkeys(_normalizar_busca_contextual(x) for x in conceitos if x))
 
     # Localidade: SP e São Paulo são normalizados para a mesma forma.
-    if " sao paulo " in f" {consulta} ":
+    if " sao paulo " in f" {consulta_original} " or re.search(r"\bsp\b", consulta_original):
         conceitos.extend(["sao paulo", "estado de sao paulo", "cidade de sao paulo", "sp"])
 
     candidatos = []
@@ -35129,9 +34048,9 @@ def buscar_fragmentos_brutos_contextuais(tema, limite=12, minimo_score=3):
             # Contagem por conceito/frase e termos da consulta; pondera o título
             # sem exigir correspondência literal do título completo.
             score = 0
-            termos_presentes = sum(1 for t in termos if re.search(r"\b" + re.escape(t) + r"\b", texto_norm))
+            termos_presentes = sum(1 for t in termos_expandidos if re.search(r"\b" + re.escape(t) + r"\b", texto_norm))
             score += min(termos_presentes, 4)
-            score += min(sum(2 for t in termos if re.search(r"\b" + re.escape(t) + r"\b", titulo_norm)), 4)
+            score += min(sum(2 for t in termos_expandidos if re.search(r"\b" + re.escape(t) + r"\b", titulo_norm)), 4)
             conceitos_presentes = sum(1 for c in conceitos if c and c in texto_norm)
             score += min(conceitos_presentes, 4)
 
@@ -35551,6 +34470,11 @@ def obter_dados_banco(tema):
     # 08. VALIDAR PROTAGONISTA
     # ========================================================
     
+        valido_estrutura = validar_mapa_mead(mapa_texto)
+        if not valido_estrutura:
+            print("MAPA MEAD IGNORADO: estrutura legada/incompatível; gerar mapa atualizado.")
+            return False
+
         valido_protagonista = validar_protagonista_mead(
             mapa_texto,
             tema
@@ -37443,7 +36367,7 @@ def gerar_material_interface():
 
                     urls = pesquisar_completo(
                         tema,
-                        normalizar_checkboxes_editoriais()
+                        normalizar_eixos_editoriais()
                     )
 
                     for url in urls:
@@ -37974,36 +36898,11 @@ def gerar_material_interface():
 
                 print()
                 print("==============================")
-                print("DEBUG CHECKBOXES EDITORIAIS")
+                print("DIRETRIZES EDITORIAIS MEAD")
                 print("==============================")
-
-                for chave, valor in (
-                    estrutura_editorial_atual.items()
-                ):
-
-                    print(
-                        f"{chave}: {valor}"
-                    )
-
-                print("==============================")
-
-                print(
-                    "TOTAL SELECIONADOS:",
-                    sum(
-                        1
-                        for valor
-                        in estrutura_editorial_atual.values()
-                        if valor
-                    )
-                )
-
-                print(
-                    "TOTAL BLOCOS:",
-                    len(
-                        estrutura_editorial_atual
-                    )
-                )
-
+                print("Bloco 1: conteúdo comercial estrito, sustentado por evidências.")
+                print("Blocos 2–5: temas preferenciais flexíveis, sem categorias obrigatórias.")
+                print("Estrutura: 5 blocos × 3 parágrafos; palavra-chave SEO literal uma vez por parágrafo final.")
                 print("==============================")
 
                 # ========================================================
@@ -38756,8 +37655,8 @@ def gerar_docx_interface():
     # 02. ESTRUTURA EDITORIAL
     # ========================================================
 
-# Estado inicial dos oito checkboxes da interface.
-# O usuário pode alterar cada um na GUI.
+# Adaptador interno de compatibilidade: todos os eixos estão disponíveis.
+# Não há opções editoriais do tipo marcar/desmarcar na interface.
 ESTRUTURA_EDITORIAL = {
     "apresentacao": True,
     "funcionamento": True,
@@ -38771,72 +37670,23 @@ ESTRUTURA_EDITORIAL = {
 
 
 def obter_estrutura_editorial():
-
-    variaveis = globals().get("VARIAVEIS_EDITORIAIS", {})
-    estrutura_global = globals().get("ESTRUTURA_EDITORIAL", {})
-
-    # Execução sem interface gráfica: usa a estrutura já disponível e
-    # completa os checkboxes oficiais com o fallback determinístico.
-    if not variaveis:
-        return normalizar_checkboxes_editoriais(estrutura_global)
-
-    estrutura = {
-        chave: bool(valor)
-        for chave, valor
-        in estrutura_global.items()
-    }
-
-    print()
-    print("==============================")
-    print("CHECKBOXES EDITORIAIS")
-    print("==============================")
-
-    for chave, valor in estrutura.items():
-
-        print(
-            f"{chave}: {valor}"
-        )
-
-    print("==============================")
-    print("ESTRUTURA EDITORIAL ENVIADA")
-    print("==============================")
-
-    print(
-        estrutura
-    )
-
-    print("==============================")
-
-    return estrutura
+    """Retorna eixos editoriais amplos para compatibilidade; não lê controles antigos."""
+    return {chave: True for chave in ASSUNTOS_EDITORIAIS_OFICIAIS}
 
 
 def selecionar_todos_blocos_editoriais():
-
-    for variavel in VARIAVEIS_EDITORIAIS.values():
-
-        variavel.set(True)
-
-    atualizar_estrutura_editorial()
+    return obter_estrutura_editorial()
 
 
 def limpar_blocos_editoriais():
-
-    for variavel in VARIAVEIS_EDITORIAIS.values():
-
-        variavel.set(False)
-
-    atualizar_estrutura_editorial()
+    # Compatibilidade com chamadas antigas; nenhum eixo editorial é desativado.
+    return obter_estrutura_editorial()
 
 
 def atualizar_estrutura_editorial():
-
     global ESTRUTURA_EDITORIAL
-
-    for chave, variavel in VARIAVEIS_EDITORIAIS.items():
-
-        ESTRUTURA_EDITORIAL[chave] = bool(
-            variavel.get()
-        )
+    ESTRUTURA_EDITORIAL = obter_estrutura_editorial()
+    return ESTRUTURA_EDITORIAL
 
 
     # ========================================================
@@ -38872,7 +37722,7 @@ NOMES_BLOCOS_EDITORIAIS = {
 
 
     # ========================================================
-    # 02. VARIÁVEIS DOS CHECKBOXES
+    # Eixos editoriais são referências amplas; não funcionam como filtros eliminatórios.
     # ========================================================
 
 VARIAVEIS_EDITORIAIS = {}
@@ -39271,7 +38121,7 @@ def executar():
     entendimento = gerar_entendimento_produto(
         tema,
         grupo,
-        normalizar_checkboxes_editoriais()
+        normalizar_eixos_editoriais()
     )
 
     fim_entendimento = time.time()
@@ -39342,7 +38192,7 @@ def executar():
 
     urls = pesquisar_completo(
         tema,
-        normalizar_checkboxes_editoriais()
+        normalizar_eixos_editoriais()
     )
 
     etapa_atual += 1
