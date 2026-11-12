@@ -20559,7 +20559,14 @@ def _similaridade_textual(a, b):
     nb = normalizar_assunto_texto(b)
     if not na or not nb:
         return 0.0
-    return SequenceMatcher(None, na, nb).ratio()
+
+    # SequenceMatcher.ratio() pode variar conforme a ordem dos argumentos.
+    # Como as rotinas de cache usam pares de textos sem ordem, a métrica
+    # precisa ser simétrica: usamos o MAIOR resultado das duas direções.
+    # Assim, a busca global e o gate final nunca discordam por causa da ordem.
+    similaridade_ab = SequenceMatcher(None, na, nb).ratio()
+    similaridade_ba = SequenceMatcher(None, nb, na).ratio()
+    return max(similaridade_ab, similaridade_ba)
 
 
 def _jaccard_conceitual(a, b):
@@ -25340,8 +25347,78 @@ Retorne somente um parágrafo completo e natural, sem tamanho mínimo artificial
                             print(f"🟢 {chave_bloco_atual} P{_idx_editorial_ind + 1}: correção editorial isolada aprovada | HASH MANTIDA={_hash_ev_editorial_ind[:16]}")
                             break
                     if not _corrigido_editorial_ind:
-                        print(f"🔴 {chave_bloco_atual} P{_idx_editorial_ind + 1}: correção editorial individual não resolveu; hashes preservadas.")
-                        return None, motivo_bloco
+                        # Último recurso determinístico para a falha isolada de
+                        # keyword ausente: não troca a evidência nem inventa dado.
+                        # Acrescenta uma frase neutra de identificação do assunto
+                        # somente se a última redação já passou na auditoria
+                        # editorial e a única pendência restante é keyword=0.
+                        _falha_exata_keyword_ausente = bool(
+                            re.search(
+                                rf"PALAVRA_CHAVE_P{_idx_editorial_ind + 1}_OCORRENCIAS:0",
+                                str(motivo_bloco or ""),
+                                re.I
+                            )
+                        )
+                        _kw_fallback = str(tema_base or "").strip()
+                        _texto_fallback_base = str(_paragrafo_editorial_ind or "").strip()
+                        _kw_fallback_pat = (
+                            re.compile(
+                                r"(?<!\w)" + re.escape(_kw_fallback) + r"(?!\w)",
+                                re.I | re.UNICODE
+                            )
+                            if _kw_fallback else None
+                        )
+                        _kw_fallback_count = (
+                            len(_kw_fallback_pat.findall(_texto_fallback_base))
+                            if _kw_fallback_pat and _texto_fallback_base else 0
+                        )
+                        _ok_fallback_base, _motivo_fallback_base = auditar_saida_ollama_editorial(
+                            _texto_fallback_base, None
+                        ) if _texto_fallback_base else (False, "VAZIO")
+
+                        if (
+                            _falha_exata_keyword_ausente
+                            and _kw_fallback
+                            and _kw_fallback_count == 0
+                            and _ok_fallback_base
+                        ):
+                            _paragrafo_com_keyword_fallback = (
+                                _texto_fallback_base.rstrip()
+                                + f" O assunto tratado é {_kw_fallback}."
+                            )
+                            _kw_fallback_final = len(
+                                _kw_fallback_pat.findall(_paragrafo_com_keyword_fallback)
+                            )
+                            _ok_fallback_final, _motivo_fallback_final = auditar_saida_ollama_editorial(
+                                _paragrafo_com_keyword_fallback, None
+                            )
+                            if _ok_fallback_final and _kw_fallback_final == 1:
+                                _paragrafos_teste_fallback = list(paragrafos_extraidos)
+                                _paragrafos_teste_fallback[_idx_editorial_ind] = _paragrafo_com_keyword_fallback
+                                _ok_bloco_fallback, _motivo_bloco_fallback, _ = validar_bloco_editorial_unico(
+                                    _paragrafos_teste_fallback, tema_base
+                                )
+                                if _ok_bloco_fallback:
+                                    paragrafos_extraidos[_idx_editorial_ind] = _paragrafo_com_keyword_fallback
+                                    _corrigido_editorial_ind = True
+                                    print(
+                                        f"🟢 {chave_bloco_atual} P{_idx_editorial_ind + 1}: "
+                                        "keyword inserida por fallback neutro; "
+                                        f"HASH MANTIDA={_hash_ev_editorial_ind[:16]}."
+                                    )
+                                else:
+                                    print(
+                                        f"🟡 FALLBACK DE KEYWORD NÃO APROVADO NO BLOCO: "
+                                        f"{_motivo_bloco_fallback}"
+                                    )
+                            else:
+                                print(
+                                    f"🟡 FALLBACK DE KEYWORD REPROVADO NA AUDITORIA: "
+                                    f"{_motivo_fallback_final} | ocorrências={_kw_fallback_final}"
+                                )
+                        if not _corrigido_editorial_ind:
+                            print(f"🔴 {chave_bloco_atual} P{_idx_editorial_ind + 1}: correção editorial individual não resolveu; hashes preservadas.")
+                            return None, motivo_bloco
                 else:
                     continue
 
