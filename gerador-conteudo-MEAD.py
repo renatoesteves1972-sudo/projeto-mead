@@ -3751,9 +3751,18 @@ def _mead_norm(texto):
 
 
 def _mead_frase_presente(texto, frase):
+    """Reconhece flexão simples de plural na evidência; a saída final segue literal."""
     t = _mead_norm(texto)
     f = _mead_norm(frase)
-    return bool(t and f and re.search(r"\b" + re.escape(f) + r"\b", t))
+    if not t or not f:
+        return False
+    partes = []
+    for token in f.split():
+        # Substantivos/adjetivos com três ou mais letras podem aparecer no
+        # singular ou plural na fonte (ex.: bomba centrífuga/bombas centrífugas).
+        partes.append(re.escape(token) + (r"s?" if len(token) >= 3 else ""))
+    padrao = r"\b" + r"\s+".join(partes) + r"\b"
+    return bool(re.search(padrao, t))
 
 
 def _mead_analisar_intencao_tema(tema):
@@ -15644,37 +15653,115 @@ TRECHO:
             print('MOTIVO CLASSIFICADO: SEM COMBINAÇÃO EDITORIALMENTE ELEGÍVEL')
             return resultado_vazio
 
+    # Similaridade por shingles usada tanto pela contingência quanto pelo
+    # gate final. Deve existir antes da busca estrita, pois o gate final roda
+    # mesmo quando a alocação estrita encontra solução.
+    def _similaridade_shingles_local(a, b, n=5):
+        tokens_a = re.findall(
+            r"[a-z0-9]+",
+            normalizar_assunto_texto(str(a or "")).lower()
+        )
+        tokens_b = re.findall(
+            r"[a-z0-9]+",
+            normalizar_assunto_texto(str(b or "")).lower()
+        )
+        if len(tokens_a) < n or len(tokens_b) < n:
+            return 0.0
+        shingles_a = {tuple(tokens_a[i:i+n]) for i in range(len(tokens_a)-n+1)}
+        shingles_b = {tuple(tokens_b[i:i+n]) for i in range(len(tokens_b)-n+1)}
+        uniao = shingles_a | shingles_b
+        return len(shingles_a & shingles_b) / max(1, len(uniao))
+
     # Busca global com retrocesso. Em vez de escolher um conjunto por bloco
     # e torcer para não colidir, escolhemos os 5 conjuntos simultaneamente.
     solucao_global = {}
     nos_alocacao_global = 0
     MAX_NOS_ALOCACAO_GLOBAL = 20000
 
-    def _buscar_alocacao_global(indice, usados):
+    _cache_similaridade_alocacao = {}
+
+    def _similaridade_alocacao(a, b):
+        texto_a = str((a or {}).get("texto", "") or "")
+        texto_b = str((b or {}).get("texto", "") or "")
+        chave = (texto_a, texto_b) if texto_a <= texto_b else (texto_b, texto_a)
+        if chave not in _cache_similaridade_alocacao:
+            _cache_similaridade_alocacao[chave] = max(
+                _similaridade_textual(texto_a, texto_b),
+                _similaridade_shingles_local(texto_a, texto_b),
+            )
+        return _cache_similaridade_alocacao[chave]
+
+    def _buscar_alocacao_global(indice, usados, fragmentos_escolhidos=None):
         nonlocal nos_alocacao_global
-        nos_alocacao_global += 1
-        if nos_alocacao_global > MAX_NOS_ALOCACAO_GLOBAL:
-            return False
+        if fragmentos_escolhidos is None:
+            fragmentos_escolhidos = []
         if indice >= len(ordem_blocos):
             return True
 
         numero_bloco = ordem_blocos[indice]
         chave_bloco = f'bloco_{numero_bloco}'
 
-        # Primeiro tenta as melhores combinações; se uma delas consumir um
-        # fragmento necessário por outro bloco, o backtracking testa a próxima.
+        # Primeiro tenta as melhores combinações; o orçamento conta cada
+        # combinação examinada, não apenas a profundidade da recursão.
         for _nota, _total, combinacao in combinacoes_por_bloco.get(chave_bloco, []):
-            hashes = {x.get('hash') for x in combinacao}
-            if hashes & usados:
+            nos_alocacao_global += 1
+            if nos_alocacao_global > MAX_NOS_ALOCACAO_GLOBAL:
+                return False
+
+            hashes = {str(x.get('hash') or '') for x in combinacao}
+            if len(hashes) != 3 or hashes & usados:
                 continue
+
+            # O gate final já exigia esta comparação, mas a busca estrita
+            # ignorava similaridade entre blocos e podia escolher 15 hashes
+            # diferentes que eram quase duplicadas. Rejeitar aqui permite
+            # testar a próxima combinação antes de bloquear toda a seleção.
+            conflito = False
+            for candidato in combinacao:
+                for anterior in fragmentos_escolhidos:
+                    if _similaridade_alocacao(candidato, anterior) >= 0.42:
+                        conflito = True
+                        break
+                if conflito:
+                    break
+            if conflito:
+                continue
+
             solucao_global[chave_bloco] = combinacao
-            if _buscar_alocacao_global(indice + 1, usados | hashes):
+            if _buscar_alocacao_global(
+                indice + 1,
+                usados | hashes,
+                fragmentos_escolhidos + list(combinacao),
+            ):
                 return True
             solucao_global.pop(chave_bloco, None)
 
+            if nos_alocacao_global > MAX_NOS_ALOCACAO_GLOBAL:
+                return False
+
         return False
 
-    if not _buscar_alocacao_global(0, set()):
+    # A busca estrita exige 15 hashes diferentes. Se o universo de hashes
+    # disponível já é menor que 15, essa busca é matematicamente impossível;
+    # pulá-la evita consumir o orçamento tentando provar o impossível.
+    hashes_disponiveis_estritas = {
+        str(cand.get("hash") or gerar_hash_trecho(cand.get("texto", "")) or "").strip()
+        for lista_combinacoes in combinacoes_por_bloco.values()
+        for _nota, _total, combinacao in lista_combinacoes
+        for cand in combinacao
+    }
+    hashes_disponiveis_estritas.discard("")
+    if len(hashes_disponiveis_estritas) < 15:
+        print(
+            "ℹ️ ALOCAÇÃO ESTRITA PULADA:",
+            len(hashes_disponiveis_estritas),
+            "hashes disponíveis para 15 posições únicas."
+        )
+        alocacao_estrita_encontrada = False
+    else:
+        alocacao_estrita_encontrada = _buscar_alocacao_global(0, set(), [])
+
+    if not alocacao_estrita_encontrada:
         print('⚠️ ALOCAÇÃO ESTRITA NÃO ENCONTRADA — ATIVANDO ALOCAÇÃO GLOBAL DE CONTINGÊNCIA')
         print('REGRA: manter todos os gates individuais; relaxar somente a exigência narrativa 100/100 da combinação.')
         print('OBJETIVO: obter 15 fragmentos ÚNICOS sem ressuscitar candidatos rejeitados.')
@@ -15792,143 +15879,238 @@ TRECHO:
             uniao = shingles_a | shingles_b
             return len(shingles_a & shingles_b) / max(1, len(uniao))
 
+        _cache_similaridade_contingencia = {}
+
         def _similaridade_fragmentos_local(a, b):
-            """Usa exatamente a métrica composta do gate final pré-Ollama."""
-            sim_sequencial = _similaridade_textual(a, b)
-            sim_shingles = _similaridade_shingles_local(a, b)
-            return max(sim_sequencial, sim_shingles)
+            """Métrica composta com cache; o mesmo par é comparado muitas vezes."""
+            texto_a = str(a or "")
+            texto_b = str(b or "")
+            chave = (texto_a, texto_b) if texto_a <= texto_b else (texto_b, texto_a)
+            valor_cache = _cache_similaridade_contingencia.get(chave)
+            if valor_cache is not None:
+                return valor_cache
+            sim_sequencial = _similaridade_textual(texto_a, texto_b)
+            sim_shingles = _similaridade_shingles_local(texto_a, texto_b)
+            resultado = max(sim_sequencial, sim_shingles)
+            _cache_similaridade_contingencia[chave] = resultado
+            return resultado
 
         def _buscar_contingencia(usados, acumulado, blocos_restantes):
-            """
-            Alocação flexível: prioriza hashes ainda não usadas, mas permite
-            reutilização controlada entre blocos quando o acervo não contém
-            15 evidências distintas. Dentro de cada bloco, as 3 hashes seguem
-            distintas para evitar repetição imediata.
+            """Busca global com backtracking real e reutilização controlada.
+
+            Prioriza a maior quantidade de hashes distintas, depois reduz o
+            reuso e desempata por diversidade de fontes e notas editoriais.
+            Não impõe reserva exclusiva por parágrafo: o mesmo hash pode ser
+            compartilhado entre blocos, respeitando o limite global de usos.
             """
             nonlocal melhor_solucao_contingencia, nos_contingencia
-            nos_contingencia += 1
 
-            usos_hash = {}
-            solucao_gulosa = {}
+            MAX_USOS_POR_HASH = 3
+            MIN_HASHES_UNICAS_SELECAO = 7
             blocos_ordenados = sorted(
                 list(blocos_restantes),
-                key=lambda b: len(combinacoes_contingencia.get(b, []))
+                key=lambda b: (len(combinacoes_contingencia.get(b, [])), b)
             )
-            MAX_USOS_POR_HASH = 3
 
-            for chave_bloco in blocos_ordenados:
-                melhor_registro = None
-                melhor_chave = None
+            usos_hash = {}
+            solucao_atual = {}
+            fragmentos_atuais = []
+            melhor_score = None
+            melhor_mapa = None
+            limite_atingido = False
+            busca_concluida = False
+            hashes_possiveis_global = {
+                h
+                for lista_registros in combinacoes_contingencia.values()
+                for registro in lista_registros
+                for h in _hashes_registro(registro)
+                if h
+            }
+            max_hashes_unicas_possiveis = min(15, len(hashes_possiveis_global))
 
-                for registro in combinacoes_contingencia.get(chave_bloco, []):
-                    hashes = _hashes_registro(registro)
-                    if len(hashes) != 3:
-                        continue
-                    if any(usos_hash.get(h, 0) >= MAX_USOS_POR_HASH for h in hashes):
-                        continue
+            def _texto_hash(item):
+                return str(
+                    item.get('hash')
+                    or gerar_hash_trecho(item.get('texto', ''))
+                    or ''
+                ).strip()
 
-                    # Não confundir hash diferente com evidência nova quando
-                    # o trecho é apenas uma janela sobreposta da mesma fonte.
-                    # A métrica é a mesma do gate final: max(SequenceMatcher, Jaccard de shingles).
-                    grupo_atual = list(registro[3])
-                    sobreposicao = False
-                    for i_cand in range(len(grupo_atual)):
-                        for j_cand in range(i_cand + 1, len(grupo_atual)):
-                            ca, cb = grupo_atual[i_cand], grupo_atual[j_cand]
-                            ha = str(ca.get("hash") or gerar_hash_trecho(ca.get("texto", "")))
-                            hb = str(cb.get("hash") or gerar_hash_trecho(cb.get("texto", "")))
-                            if ha != hb and _similaridade_fragmentos_local(ca.get("texto", ""), cb.get("texto", "")) >= 0.42:
-                                sobreposicao = True
-                                break
-                        if sobreposicao:
-                            break
-                    if sobreposicao:
-                        continue
-                    for grupo_anterior in solucao_gulosa.values():
-                        for ca in grupo_atual:
-                            ha = str(ca.get("hash") or gerar_hash_trecho(ca.get("texto", "")))
-                            for cb in grupo_anterior:
-                                hb = str(cb.get("hash") or gerar_hash_trecho(cb.get("texto", "")))
-                                if ha != hb and _similaridade_fragmentos_local(ca.get("texto", ""), cb.get("texto", "")) >= 0.42:
-                                    sobreposicao = True
-                                    break
-                            if sobreposicao:
-                                break
-                        if sobreposicao:
-                            break
-                    if sobreposicao:
-                        continue
+            def _grupo_sem_colisao(grupo):
+                # Verifica sobreposição dentro da própria combinação.
+                for i_cand in range(len(grupo)):
+                    for j_cand in range(i_cand + 1, len(grupo)):
+                        ca, cb = grupo[i_cand], grupo[j_cand]
+                        ha, hb = _texto_hash(ca), _texto_hash(cb)
+                        if not ha or not hb or ha == hb:
+                            return False
+                        if _similaridade_fragmentos_local(
+                            ca.get('texto', ''), cb.get('texto', '')
+                        ) >= 0.42:
+                            return False
 
-                    novos = sum(1 for h in hashes if usos_hash.get(h, 0) == 0)
-                    reutilizados = 3 - novos
-                    diversidade_fonte = _diversidade_fontes_combinacao(registro[3])
+                # Verifica a combinação contra todos os blocos já escolhidos.
+                for ca in grupo:
+                    ha = _texto_hash(ca)
+                    for cb in fragmentos_atuais:
+                        hb = _texto_hash(cb)
+                        # Reuso do mesmo hash entre blocos é permitido;
+                        # hashes diferentes com texto sobreposto não são.
+                        if ha != hb and _similaridade_fragmentos_local(
+                            ca.get('texto', ''), cb.get('texto', '')
+                        ) >= 0.42:
+                            return False
+                return True
 
-                    # Primeiro maximiza evidências ainda não usadas; depois
-                    # minimiza reutilização; por fim preserva narrativa/nota.
-                    chave_rank = (
-                        novos,
-                        -reutilizados,
-                        diversidade_fonte,
+            def _registrar_solucao(nota_acumulada, diversidade_acumulada):
+                nonlocal melhor_score, melhor_mapa, busca_concluida
+                total_posicoes = len(fragmentos_atuais)
+                hashes_unicas = len(usos_hash)
+                if total_posicoes != 15 or hashes_unicas < MIN_HASHES_UNICAS_SELECAO:
+                    return
+
+                reutilizacoes = total_posicoes - hashes_unicas
+                score = (
+                    hashes_unicas,
+                    -reutilizacoes,
+                    diversidade_acumulada,
+                    nota_acumulada,
+                )
+                if melhor_score is None or score > melhor_score:
+                    melhor_score = score
+                    melhor_mapa = {
+                        chave: [dict(x) for x in grupo]
+                        for chave, grupo in solucao_atual.items()
+                    }
+                    # Como as combinações são exploradas por novidade,
+                    # diversidade de fonte e nota, a primeira solução que
+                    # alcança o teto matemático de hashes únicas já maximiza
+                    # a diversidade possível para este acervo. Encerrar aqui
+                    # evita percorrer centenas de milhares de permutações.
+                    if hashes_unicas >= max_hashes_unicas_possiveis:
+                        busca_concluida = True
+
+            def _dfs(indice, nota_acumulada=0.0, diversidade_acumulada=0):
+                nonlocal nos_contingencia, limite_atingido
+
+                if limite_atingido or busca_concluida:
+                    return
+
+                if indice >= len(blocos_ordenados):
+                    _registrar_solucao(nota_acumulada, diversidade_acumulada)
+                    return
+
+                # Poda: mesmo usando três hashes novas em cada bloco restante,
+                # ainda seria impossível atingir o mínimo de diversidade.
+                unicas_possiveis = len(usos_hash) + 3 * (len(blocos_ordenados) - indice)
+                if unicas_possiveis < MIN_HASHES_UNICAS_SELECAO:
+                    return
+
+                chave_bloco = blocos_ordenados[indice]
+                registros = combinacoes_contingencia.get(chave_bloco, [])
+
+                # A ordenação favorece novidade sem transformar isso em reserva
+                # exclusiva; depois considera fontes distintas e qualidade.
+                registros_ordenados = sorted(
+                    registros,
+                    key=lambda registro: (
+                        sum(1 for h in _hashes_registro(registro) if usos_hash.get(h, 0) == 0),
+                        _diversidade_fontes_combinacao(registro[3]),
                         float(registro[0] or 0),
                         float(registro[1] or 0),
                         float(registro[2] or 0),
+                    ),
+                    reverse=True
+                )
+
+                for registro in registros_ordenados:
+                    nos_contingencia += 1
+                    if nos_contingencia > MAX_NOS_CONTINGENCIA:
+                        limite_atingido = True
+                        return
+
+                    grupo = registro[3]
+                    hashes = [_texto_hash(x) for x in grupo]
+                    if len(grupo) != 3 or any(not h for h in hashes):
+                        continue
+                    if len(set(hashes)) != 3:
+                        continue
+                    if any(usos_hash.get(h, 0) >= MAX_USOS_POR_HASH for h in hashes):
+                        continue
+                    if not _grupo_sem_colisao(grupo):
+                        continue
+
+                    novos = sum(1 for h in hashes if usos_hash.get(h, 0) == 0)
+                    diversidade = _diversidade_fontes_combinacao(grupo)
+                    nota_registro = (
+                        float(registro[0] or 0)
+                        + float(registro[1] or 0) * 0.01
+                        + float(registro[2] or 0) * 0.0001
                     )
-                    if melhor_registro is None or chave_rank > melhor_chave:
-                        melhor_registro = registro
-                        melhor_chave = chave_rank
 
-                if melhor_registro is None:
-                    print(
-                        "REUTILIZAÇÃO CONTROLADA SEM COMBINAÇÃO:",
-                        chave_bloco,
-                        "| limite por hash:", MAX_USOS_POR_HASH
+                    solucao_atual[chave_bloco] = grupo
+                    fragmentos_atuais.extend(grupo)
+                    for h in hashes:
+                        usos_hash[h] = usos_hash.get(h, 0) + 1
+
+                    _dfs(
+                        indice + 1,
+                        nota_acumulada + nota_registro,
+                        diversidade_acumulada + diversidade,
                     )
-                    return False
 
-                solucao_gulosa[chave_bloco] = list(melhor_registro[3])
-                for h in _hashes_registro(melhor_registro):
-                    usos_hash[h] = usos_hash.get(h, 0) + 1
+                    for h in hashes:
+                        usos_hash[h] -= 1
+                        if usos_hash[h] <= 0:
+                            usos_hash.pop(h, None)
+                    del fragmentos_atuais[-len(grupo):]
+                    solucao_atual.pop(chave_bloco, None)
 
-            total_posicoes = sum(len(v) for v in solucao_gulosa.values())
-            hashes_unicas = len(usos_hash)
-            MIN_HASHES_UNICAS_SELECAO = 7
+                    # A melhor solução possível tem 15 hashes distintas.
+                    # Se encontrada, o restante só poderia empatar em
+                    # diversidade/reuso; continua a busca até o teto para
+                    # tentar melhorar as notas sem arriscar travamento.
+                    if limite_atingido or busca_concluida:
+                        return
 
-            if total_posicoes != 15 or hashes_unicas < MIN_HASHES_UNICAS_SELECAO:
+            _dfs(0)
+
+            if melhor_mapa is None:
                 print(
-                    "REUTILIZAÇÃO CONTROLADA REPROVADA:",
-                    "| posições:", total_posicoes,
-                    "| hashes únicas:", hashes_unicas,
-                    "| mínimo:", MIN_HASHES_UNICAS_SELECAO
+                    'CONTINGÊNCIA SEM SOLUÇÃO GLOBAL',
+                    '| nós examinados:', nos_contingencia,
+                    '| limite:', MAX_NOS_CONTINGENCIA,
+                    '| teto atingido:', limite_atingido,
                 )
                 return False
 
-            nota_total = sum(
-                float(registro[0] or 0) + float(registro[1] or 0) * 0.01
-                for chave_bloco in blocos_ordenados
-                for registro in [next(
-                    r for r in combinacoes_contingencia.get(chave_bloco, [])
-                    if list(r[3]) == solucao_gulosa[chave_bloco]
-                )]
+            total_posicoes = sum(len(v) for v in melhor_mapa.values())
+            hashes_unicas = len({
+                _texto_hash(x)
+                for grupo in melhor_mapa.values()
+                for x in grupo
+            })
+            nota_total = (
+                hashes_unicas * 100
+                - (total_posicoes - hashes_unicas) * 25
+                + melhor_score[2] * 10
+                + melhor_score[3]
             )
-            # Bônus pela diversidade global e penalidade explícita por reuso.
-            nota_total += hashes_unicas * 100
-            nota_total -= (total_posicoes - hashes_unicas) * 25
 
-            melhor_solucao_contingencia = (
-                nota_total,
-                {chave: list(grupo) for chave, grupo in solucao_gulosa.items()}
-            )
+            melhor_solucao_contingencia = (nota_total, melhor_mapa)
             solucao_contingencia.clear()
             solucao_contingencia.update(
-                {chave: list(grupo) for chave, grupo in solucao_gulosa.items()}
+                {chave: [dict(x) for x in grupo] for chave, grupo in melhor_mapa.items()}
             )
 
             print(
-                "REUTILIZAÇÃO CONTROLADA APROVADA",
-                "| posições:", total_posicoes,
-                "| hashes únicas:", hashes_unicas,
-                "| reutilizações:", total_posicoes - hashes_unicas,
-                "| máximo por hash:", MAX_USOS_POR_HASH
+                'REUTILIZAÇÃO CONTROLADA APROVADA',
+                '| posições:', total_posicoes,
+                '| hashes únicas:', hashes_unicas,
+                '| reutilizações:', total_posicoes - hashes_unicas,
+                '| máximo por hash:', MAX_USOS_POR_HASH,
+                '| nós examinados:', nos_contingencia,
+                '| teto atingido:', limite_atingido,
+                '| diversidade máxima encontrada:', busca_concluida,
             )
             return True
 
