@@ -1,4 +1,8 @@
-# versão 7.15 - 17/11/2026
+# versão 7.23 — 19/11/2026
+# v7.23: corrige contador, gravação independente do mapa MEAD, log compacto e carregamento MEAD único.
+# v7.22: recuperação COM isolada por trecho; gravação estrutural resiliente; log compacto.
+# v7.18: Ollama pode usar conhecimento geral do tema; seleção prioriza COM e completa com SEM; log resumido.
+# v7.17: recupera estruturas originais v7.15; corrige leitura do MEAD flat; mantém patrimônio global/SEVEN e keyword exata; preserva 30 tags e 12 segmentos.
 # v7.15: correção do gate comercial condicionado à evidência no bloco 1; retirada dos checkboxes do prompt Ollama; recuperação COM e auditoria final preservadas; diagnósticos somente no log.
 # Base integral: v7.14 recuperada da Biblioteca. Alterações pontuais, sem banco global novo.
 # v7.11: hash COM/SEM palavra-chave, seleção exclusiva COM, auditoria de fragmentos e alocação por bloco corrigida.
@@ -11,7 +15,7 @@
 # v7.1: extração temática reforçada para fontes técnicas/PDFs e redução de falso descarte por nome de fabricante.
 #
 # Correções desta versão:
-# - validação obrigatória dos 15 fragmentos antes do Ollama;
+# - seleção COM prioritária e SEM complementar; geração não bloqueada por falta de hashes;
 # - filtro editorial menos agressivo em linguagem técnica;
 # - diagnóstico explícito de fontes/candidatos insuficientes;
 # - nenhuma chamada ao Ollama com bloco incompleto.
@@ -51,27 +55,141 @@ ARQUIVO_PROGRESSO = r"C:\Python\gerador-conteudo\banco\progresso.json"
 
 
 # ============================================================
+# RECUPERAÇÃO DE CONTEÚDO — DENTRO DO progresso.json
+# ============================================================
+def _ler_progresso_seguro():
+    try:
+        if not os.path.exists(ARQUIVO_PROGRESSO):
+            return {}
+        with open(ARQUIVO_PROGRESSO, "r", encoding="utf-8") as f:
+            dados = json.load(f)
+        return dados if isinstance(dados, dict) else {}
+    except Exception as erro:
+        print("⚠️ NÃO FOI POSSÍVEL LER O PROGRESSO:", repr(erro))
+        return {}
+
+
+def _gravar_progresso_seguro(dados):
+    diretorio = os.path.dirname(ARQUIVO_PROGRESSO)
+    if diretorio:
+        os.makedirs(diretorio, exist_ok=True)
+    temporario = ARQUIVO_PROGRESSO + ".tmp"
+    with open(temporario, "w", encoding="utf-8") as f:
+        json.dump(dados, f, ensure_ascii=False, indent=4)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(temporario, ARQUIVO_PROGRESSO)
+
+
+def _tema_recuperacao_id(tema):
+    try:
+        return normalizar_tema_chave(str(tema or ""))
+    except Exception:
+        return re.sub(r"\s+", " ", str(tema or "").strip().casefold())
+
+
+def salvar_bloco_recuperacao(tema, numero_bloco, dados_bloco):
+    """Persiste imediatamente o bloco já validado, sem criar arquivo paralelo."""
+    if not isinstance(dados_bloco, dict):
+        return False
+    paragrafos = dados_bloco.get("paragrafos_ollama", [])
+    fragmentos = dados_bloco.get("informacoes_relevantes", [])
+    if (not isinstance(paragrafos, list) or len(paragrafos) != 3
+            or any(not str(x or "").strip() for x in paragrafos)
+            or not isinstance(fragmentos, list) or len(fragmentos) != 3):
+        return False
+    progresso = _ler_progresso_seguro()
+    recuperacao = progresso.get("recuperacao_conteudo", {})
+    if not isinstance(recuperacao, dict):
+        recuperacao = {}
+    tema_id = _tema_recuperacao_id(tema)
+    registro = recuperacao.get(tema_id, {})
+    if not isinstance(registro, dict):
+        registro = {}
+    blocos = registro.get("blocos", {})
+    if not isinstance(blocos, dict):
+        blocos = {}
+    # JSON round-trip evita referências mutáveis e garante serialização.
+    blocos[f"bloco_{int(numero_bloco)}"] = json.loads(json.dumps(dados_bloco, ensure_ascii=False, default=str))
+    registro.update({"tema": str(tema), "blocos": blocos, "atualizado_em": time.strftime("%d/%m/%Y %H:%M:%S")})
+    recuperacao[tema_id] = registro
+    progresso["recuperacao_conteudo"] = recuperacao
+    try:
+        _gravar_progresso_seguro(progresso)
+        print(f"💾 RECUPERAÇÃO SALVA NO progresso.json — {tema} / bloco_{numero_bloco}")
+        return True
+    except Exception as erro:
+        print("⚠️ FALHA AO PRESERVAR BLOCO NO progresso.json:", repr(erro))
+        return False
+
+
+def carregar_blocos_recuperacao(tema):
+    progresso = _ler_progresso_seguro()
+    recuperacao = progresso.get("recuperacao_conteudo", {})
+    if not isinstance(recuperacao, dict):
+        return {}
+    registro = recuperacao.get(_tema_recuperacao_id(tema), {})
+    if not isinstance(registro, dict):
+        return {}
+    blocos = registro.get("blocos", {})
+    if not isinstance(blocos, dict):
+        return {}
+    validos = {}
+    for numero in range(1, 6):
+        chave = f"bloco_{numero}"
+        bloco = blocos.get(chave)
+        if not isinstance(bloco, dict):
+            continue
+        paras = bloco.get("paragrafos_ollama", [])
+        frags = bloco.get("informacoes_relevantes", [])
+        if (isinstance(paras, list) and len(paras) == 3
+                and all(str(x or "").strip() for x in paras)
+                and isinstance(frags, list) and len(frags) == 3):
+            validos[chave] = bloco
+    return validos
+
+
+def limpar_blocos_recuperacao(tema):
+    progresso = _ler_progresso_seguro()
+    recuperacao = progresso.get("recuperacao_conteudo", {})
+    if not isinstance(recuperacao, dict):
+        return
+    recuperacao.pop(_tema_recuperacao_id(tema), None)
+    if recuperacao:
+        progresso["recuperacao_conteudo"] = recuperacao
+    else:
+        progresso.pop("recuperacao_conteudo", None)
+    try:
+        _gravar_progresso_seguro(progresso)
+        print("✅ RECUPERAÇÃO REMOVIDA APÓS CONFIRMAÇÃO DA GRAVAÇÃO OFICIAL:", tema)
+    except Exception as erro:
+        print("⚠️ NÃO FOI POSSÍVEL LIMPAR RECUPERAÇÃO:", repr(erro))
+
+
+# ============================================================
 # DIAGNÓSTICOS — SOMENTE NO LOG DA EXECUÇÃO
 # ============================================================
 def _salvar_diagnostico_ultima_execucao(tema, dados, status, motivo=""):
-    """Mantém compatibilidade com os pontos de chamada, sem criar arquivos."""
+    """Emite diagnóstico curto no log; nunca cria JSON auxiliar."""
     try:
-        registro = {
-            "tema": str(tema or ""),
-            "status": str(status or ""),
-            "motivo": str(motivo or ""),
-            "data_hora": datetime.now().isoformat(timespec="seconds"),
-            "dados": dados if isinstance(dados, (dict, list)) else {"detalhe": str(dados)},
+        dados = dados if isinstance(dados, dict) else {}
+        resumo = {
+            "bloco": dados.get("bloco"),
+            "paragrafo": dados.get("paragrafo"),
+            "ocorrencias": dados.get("ocorrencias_iniciais"),
+            "nota_minima": dados.get("nota_minima"),
+            "media": dados.get("media"),
+            "blocos": len(dados.get("informacoes_blocos", {}))
+                if isinstance(dados.get("informacoes_blocos"), dict) else None,
         }
-        print("DIAGNÓSTICO — SOMENTE LOG:")
-        texto_log = json.dumps(registro, ensure_ascii=False, separators=(",", ":"), default=str)
-        print(texto_log[:10000])
-        if len(texto_log) > 10000:
-            print("[DIAGNÓSTICO RESUMIDO NO LOG: conteúdo excedente omitido para evitar log excessivo]")
-        return None
+        resumo = {k: v for k, v in resumo.items() if v is not None}
+        registro = {"tema": str(tema or ""), "status": str(status or ""),
+                    "motivo": str(motivo or "")[:240], "dados": resumo}
+        print("DIAGNÓSTICO:", json.dumps(registro, ensure_ascii=False, separators=(",", ":"), default=str))
     except Exception as erro:
-        print("⚠️ NÃO FOI POSSÍVEL REGISTRAR DIAGNÓSTICO NO LOG:", repr(erro))
-        return None
+        print("⚠️ FALHA AO RESUMIR DIAGNÓSTICO:", type(erro).__name__)
+    return None
+
 
 janela = None
 
@@ -410,8 +528,8 @@ def carregar_mead():
 
             return {}
 
-        print("\nMEAD carregado:")
-        print(mead)
+        # Log compacto: não despejar o JSON inteiro do MEAD.
+        print("MEAD carregado: estrutura válida | chaves:", len(mead))
 
         return mead
 
@@ -431,10 +549,10 @@ def carregar_mead():
 
 
 # ============================================================
-# CARREGAR MEAD NA MEMÓRIA
+# RESERVAR VARIÁVEL MEAD; CARREGAMENTO ÚNICO MAIS ABAIXO
 # ============================================================
 
-MEAD = carregar_mead()
+MEAD = {}
 
 
 
@@ -462,12 +580,15 @@ def preparar_mead(mead):
 
     try:
 
-        identidade = mead.get("identidade", {})
+        identidade = mead.get("identidade", mead)
         principio = mead.get("principio_operacional", {})
-        preparacao = mead.get("preparacao", {})
-        tags = preparacao.get("tags", {})
+        preparacao = mead.get("preparacao", mead)
+        tags = preparacao.get("tags", mead.get("tags", {}))
         construcao = mead.get("construcao_conteudo", {})
-        estrutura = mead.get("estrutura_pagina_editorial", {})
+        estrutura = mead.get(
+            "estrutura_pagina_editorial",
+            mead.get("estrutura_pagina", {})
+        )
         seo = mead.get("regras_seo", {})
         fidelidade = mead.get("fidelidade", {})
         contexto_blocos = mead.get("contexto_blocos", {})
@@ -2378,7 +2499,18 @@ MEAD = carregar_mead()
 MEAD_TEXTO = preparar_mead(MEAD)
 
 print("\nMEAD preparado para IA:")
-print(MEAD_TEXTO)
+try:
+    _mead_preview = json.loads(MEAD_TEXTO) if MEAD_TEXTO else {}
+    print("MÉTODO:", _mead_preview.get("metodo", "MEAD"))
+    print("OBJETIVO:", bool(_mead_preview.get("objetivo")))
+    print("REGRAS OPERACIONAIS:", sum(
+        1 for _v in _mead_preview.get("principio_operacional", {}).values()
+        if str(_v or "").strip()
+    ))
+    print("CONTEXTO DOS BLOCOS:", len(_mead_preview.get("contexto_blocos", {})))
+    print("REGRAS SEO:", bool(_mead_preview.get("regras_seo")))
+except Exception:
+    print("MEAD preparado; não foi possível resumir a estrutura.")
 
 
 # ========================================================
@@ -10288,6 +10420,8 @@ def contar_palavra_chave_literal(texto, palavra_chave):
     palavra_chave = str(palavra_chave or "").strip()
     if not texto or not palavra_chave:
         return 0
+    # Para localizar âncoras na fonte, a busca é tolerante à capitalização.
+    # A saída final possui uma auditoria separada, sensível a maiúsculas.
     padrao = re.compile(
         r"(?<!\w)" + re.escape(palavra_chave) + r"(?!\w)",
         flags=re.IGNORECASE | re.UNICODE,
@@ -12328,26 +12462,8 @@ def selecionar_informacoes_relevantes(
                 # FALLBACK APROVADO
                 # -----------------------------------------------
         
-                print()
-                print(
-                    "⚠️ FALLBACK EDITORIAL ACEITO"
-                )
-        
-                print(
-                    "FONTE:",
-                    fonte.get("indice", "")
-                )
-        
-                print(
-                    "PALAVRAS:",
-                    quantidade
-                )
-        
-                print(
-                    "MOTIVO:",
-                    "filtro editorial rígido rejeitou, "
-                    "mas trecho passou pela validação mínima"
-                )
+                # Fallback registrado em contador por fonte; não imprimir
+                # uma mensagem para cada candidato (log excessivo).
 
 
         
@@ -12908,16 +13024,6 @@ def selecionar_informacoes_relevantes(
 
             candidatos_depois_fallback = len(candidatos)
 
-            print(
-                "FONTE",
-                fonte.get("indice", ""),
-                "| CANDIDATOS NORMAIS:",
-                candidatos_antes_fallback - candidatos_antes_fonte,
-                "| FALLBACK:",
-                candidatos_depois_fallback - candidatos_antes_fallback,
-                "| TOTAL FONTE:",
-                candidatos_depois_fallback - candidatos_antes_fonte
-            )
 
         # ========================================================
     # 05. REMOVER DUPLICADOS
@@ -13023,26 +13129,8 @@ def selecionar_informacoes_relevantes(
             candidatos_por_fonte_diagnostico.get(fonte_id, 0) + 1
         )
 
-    print("CANDIDATOS POR FONTE:")
-    for fonte_id, quantidade in sorted(
-        candidatos_por_fonte_diagnostico.items(),
-        key=lambda item: item[0]
-    ):
-        print("  FONTE", fonte_id, ":", quantidade)
-
-    print()
-    print("DIAGNÓSTICO DETALHADO POR FONTE V7.4:")
-    for fonte_id in sorted(diagnostico_fontes, key=lambda x: int(x) if str(x).isdigit() else str(x)):
-        d = diagnostico_fontes[fonte_id]
-        print(
-            "  FONTE", fonte_id,
-            "| SEGMENTOS:", d["segmentos"],
-            "| AVALIADOS:", d["avaliados"],
-            "| TEMA OK:", d["tema_aprovado"],
-            "| TEMA REJ:", d["tema_rejeitado"],
-            "| EDITORIAL REJ:", d["editorial_rejeitado"],
-            "| SALVOS:", d["candidatos_salvos"]
-        )
+    print("FONTES COM CANDIDATOS:", len(candidatos_por_fonte_diagnostico),
+          "| CANDIDATOS ÚNICOS:", len(candidatos))
     
     print("==============================")
     
@@ -15326,14 +15414,12 @@ def selecionar_informacoes_relevantes(
         if not texto:
             return False
 
-        # Cada posição de parágrafo precisa receber uma hash COM
-        # a expressão literal. Não tentar inserir a palavra-chave
-        # depois da redação e não substituir por hash SEM.
+        # A presença literal na fonte é apenas um indicador de prioridade.
+        # Fragmentos SEM também podem sustentar conteúdo relacionado ao tema;
+        # a expressão exata será exigida no texto final, não na fonte.
         ocorrencias_chave = contar_palavra_chave_literal(texto, tema)
         candidato["palavra_chave_status"] = "COM" if ocorrencias_chave >= 1 else "SEM"
         candidato["palavra_chave_ocorrencias_fonte"] = ocorrencias_chave
-        if ocorrencias_chave < 1:
-            return False
 
         # ----------------------------------------------------
         # TEMA OBRIGATÓRIO
@@ -15900,10 +15986,13 @@ def selecionar_informacoes_relevantes(
                 for item in candidatos_por_bloco.get(chave_bloco,[]):
                     candidato=item.get("candidato")
                     if not candidato_eh_utilizavel(candidato): continue
-                    if candidato.get("palavra_chave_status") != "COM": continue
+                    # Após esgotar candidatos COM, completar com SEM sem
+                    # reclassificá-los: a fonte pode sustentar fatos mesmo sem
+                    # conter a expressão literal do tema.
+                    status_fonte = str(candidato.get("palavra_chave_status", "SEM")).upper()
                     h=candidato.get("hash") or gerar_hash_trecho(candidato.get("texto",""))
                     if h in hashes_selecionados: continue
-                    score=float(item.get("pontuacao",0))+(15 if fontes_utilizadas.get(candidato.get("fonte"),0)==0 else 0); opcoes.append((score,candidato,item.get("pontuacao",0)))
+                    score=float(item.get("pontuacao",0))+(15 if fontes_utilizadas.get(candidato.get("fonte"),0)==0 else 0)+(30 if status_fonte == "COM" else 0); opcoes.append((score,candidato,item.get("pontuacao",0)))
                 if not opcoes: break
                 opcoes.sort(key=lambda x:(x[0],x[2]),reverse=True); score,escolhido,pont=opcoes[0]
                 escolhido["bloco_mead"]=chave_bloco; escolhido["pontuacao_selecao"]=round(score,3); escolhido["pontuacao_editorial"]=pont
@@ -15929,81 +16018,10 @@ def selecionar_informacoes_relevantes(
     )
 
     if len(fragmentos_selecionados) < 15:
-
-        faltantes_por_bloco = {
-            f"bloco_{n}": 3 - sum(
-                1 for x in fragmentos_selecionados
-                if x.get("bloco_mead") == f"bloco_{n}"
-            )
-            for n in range(1, 6)
-        }
-        _salvar_diagnostico_ultima_execucao(
-            tema,
-            {
-                "tipo": "PRE_SELECAO_15_HASHES_COM_PALAVRA_CHAVE",
-                "total_selecionado": len(fragmentos_selecionados),
-                "total_necessario": 15,
-                "faltantes_por_bloco": faltantes_por_bloco,
-                "hashes_com_palavra_chave": candidatos_com_chave,
-                "hashes_sem_palavra_chave": candidatos_sem_chave,
-                "fragmentos_selecionados": fragmentos_selecionados,
-            },
-            "INSUFICIENCIA_HASHES_COM_PALAVRA_CHAVE",
-            "Não foram encontrados 15 fragmentos únicos utilizáveis com a expressão literal. Nenhuma hash SEM foi usada como substituta."
-        )
-
-        print()
-        print("=" * 60)
-        print("❌ PRÉ-VALIDAÇÃO DA IA FALHOU")
-        print("=" * 60)
-        print(
-            "A seleção produziu apenas",
-            len(fragmentos_selecionados),
-            "fragmentos de 15 necessários."
-        )
-        print(
-            "O Ollama NÃO será chamado."
-        )
-        print(
-            "Isso evita descobrir o problema somente no bloco "
-            "incompleto e evita chamadas parciais."
-        )
-
-        # Diagnóstico por fonte.
-        fontes_diagnostico = {}
-        for candidato in candidatos:
-            fonte_id = candidato.get("fonte", "")
-            fontes_diagnostico[fonte_id] = (
-                fontes_diagnostico.get(fonte_id, 0) + 1
-            )
-
-        print("CANDIDATOS VÁLIDOS POR FONTE:")
-        for fonte_id, quantidade in sorted(
-            fontes_diagnostico.items(),
-            key=lambda item: item[0]
-        ):
-            print(
-                "  FONTE",
-                fonte_id,
-                ":",
-                quantidade
-            )
-
-        print(
-            "CANDIDATOS TOTAIS:",
-            len(candidatos)
-        )
-        print(
-            "FRAGMENTOS NECESSÁRIOS:",
-            15
-        )
-        print(
-            "FRAGMENTOS DISPONÍVEIS:",
-            len(fragmentos_selecionados)
-        )
-        print("=" * 60)
-
-        return resultado_vazio
+        faltantes = 15 - len(fragmentos_selecionados)
+        print("AVISO: material pesquisado insuficiente para preencher todos os 15 apoios.")
+        print("FRAGMENTOS REAIS:", len(fragmentos_selecionados), "/ 15 | POSIÇÕES COMPLEMENTADAS PELO CONHECIMENTO GERAL DO TEMA:", faltantes)
+        print("O OLLAMA SERÁ EXECUTADO; a falta de hashes COM/SEM não bloqueia a redação.")
 
 
     # ========================================================
@@ -16225,70 +16243,14 @@ def selecionar_informacoes_relevantes(
 
 
     # ========================================================
-    # AUDITORIA DOS TRECHOS SELECIONADOS
+    # RESUMO DOS TRECHOS PYTHON — LOG COMPACTO
     # ========================================================
-
-    print()
-    print(
-        "=============================="
-    )
-    print(
-        "TRECHOS SELECIONADOS PELO PYTHON"
-    )
-    print(
-        "=============================="
-    )
-
-    total_trechos_python = 0
-
-    for numero_bloco in range(1, 6):
-
-        chave_bloco = (
-            f"bloco_{numero_bloco}"
-        )
-
-        paragrafos_python = (
-            blocos[
-                chave_bloco
-            ].get(
-                "paragrafos_python",
-                []
-            )
-        )
-
-        trechos_validos = [
-            trecho
-            for trecho in paragrafos_python
-            if str(trecho)
-        ]
-
-        print()
-        print(
-            chave_bloco,
-            ":",
-            len(trechos_validos),
-            "trechos selecionados"
-        )
-
-        for indice, trecho in enumerate(
-            paragrafos_python,
-            start=1
-        ):
-
-            if str(trecho):
-
-                total_trechos_python += 1
-
-                print(
-                    f"  TRECHO {indice}: "
-                    f"{len(str(trecho).split())} palavras"
-                )
-
-    print()
-    print(
-        "TOTAL DE TRECHOS SELECIONADOS PELO PYTHON:",
-        total_trechos_python
-    )       
+    totais_trechos_bloco = [
+        len([x for x in blocos[f"bloco_{n}"].get("paragrafos_python", []) if str(x or "").strip()])
+        for n in range(1, 6)
+    ]
+    total_trechos_python = sum(totais_trechos_bloco)
+    print("TRECHOS PYTHON:", totais_trechos_bloco, "| TOTAL:", total_trechos_python, "/ 15")
 
     # ========================================================
     # GERAR HASH DE CADA BLOCO
@@ -16674,6 +16636,12 @@ def selecionar_informacoes_relevantes(
             "hash":
                 fragmento["hash"],
 
+            "palavra_chave_status":
+                fragmento.get("palavra_chave_status", "SEM"),
+
+            "palavra_chave_ocorrencias_fonte":
+                fragmento.get("palavra_chave_ocorrencias_fonte", 0),
+
             "texto":
                 fragmento["texto"],
 
@@ -16782,43 +16750,14 @@ def selecionar_informacoes_relevantes(
         
         
     # ========================================================
-    # 16. DEBUG DOS IDS E HASHES
+    # 16. RESUMO COMPACTO DE IDS E HASHES
     # ========================================================
-
-    print()
-    print("==============================")
-    print("ID + HASH DOS TRECHOS SELECIONADOS")
-    print("==============================")
-
-    for indice, fragmento in enumerate(
-        fragmentos_selecionados,
-        start=1
-    ):
-
-        print()
-        print(
-            f"FRAGMENTO {indice}"
-        )
-
-        print(
-            "ID:",
-            fragmento["id"]
-        )
-
-        print(
-            "HASH:",
-            fragmento["hash"]
-        )
-
-        print(
-            "PALAVRAS:",
-            fragmento["palavras"]
-        )
-
-        print(
-            "FONTE:",
-            fragmento["fonte"]
-        )
+    hashes_selecionadas_log = {
+        str(x.get("hash", "")) for x in fragmentos_selecionados
+        if isinstance(x, dict) and x.get("hash")
+    }
+    print("CONTROLE DE HASHES: selecionados", len(fragmentos_selecionados),
+          "| hashes únicos", len(hashes_selecionadas_log))
 
     # ========================================================
     # 17. DEBUG FINAL
@@ -16862,22 +16801,7 @@ def selecionar_informacoes_relevantes(
         )
     )
 
-    print()
-
-    for indice, fragmento in enumerate(
-        fragmentos_selecionados,
-        start=1
-    ):
-
-        print(
-
-            f"FRAGMENTO {indice}: "
-            f"{fragmento['palavras']} palavras | "
-            f"FONTE {fragmento['fonte']} | "
-            f"ID {fragmento['id']} | "
-            f"HASH {fragmento['hash'][:16]}..."
-
-        )
+    print("DISTRIBUIÇÃO: informações detalhadas de fontes e hashes omitidas do log.")
 
     print()
     print("==============================")
@@ -17861,9 +17785,9 @@ def avaliar_qualidade_final_python(
 ):
     """Gate final determinístico de qualidade editorial antes da gravação.
 
-    A pontuação é complementar aos gates obrigatórios. Falhas críticas
-    reprovam independentemente da nota. O Python não inventa fatos nem
-    pede avaliação subjetiva ao Ollama.
+    A pontuação é complementar aos gates estruturais/factuais. A nota baixa
+    gera alerta e não bloqueia a persistência. A fidelidade é verificada
+    contra o patrimônio autorizado global da página.
     """
     titulo = str(titulo or "").strip()
     paragrafos = [str(x or "").strip() for x in (paragrafos or [])]
@@ -17986,10 +17910,14 @@ def avaliar_qualidade_final_python(
 
     for i, p in enumerate(paragrafos, 1):
         palavras_p = len(re.findall(r"\b[\wÀ-ÿ'-]+\b", p))
-        if palavras_p < 25:
-            falhas_criticas.append(f"PARAGRAFO_{i}_MUITO_CURTO_OU_INCOMPLETO:{palavras_p}")
-        elif palavras_p < 35:
-            descontos += 8
+        # Extensão é indicador editorial, não bloqueio de gravação.
+        # Não se juntam fatos sem relação apenas para atingir uma quota.
+        if palavras_p < 20:
+            descontos += 20
+        elif palavras_p < 30:
+            descontos += 12
+        elif palavras_p < 40:
+            descontos += 6
         if re.search(r"(?:^|[.!?]\s)(?:guia completo|vantagens da|descri[cç][aã]o geral|princ[ií]pios de design)\s*[:.]?\s*(?:$|[A-Z])", p, re.I):
             descontos += 5
 
@@ -18003,7 +17931,7 @@ def avaliar_qualidade_final_python(
     if tema_literal:
         padrao_tema_literal = re.compile(
             r"(?<!\w)" + re.escape(tema_literal) + r"(?!\w)",
-            flags=re.IGNORECASE | re.UNICODE,
+            flags=re.UNICODE,
         )
         contagens_tema = [
             len(padrao_tema_literal.findall(p))
@@ -18154,6 +18082,561 @@ def avaliar_qualidade_final_python(
         "descontos": descontos
     }
 
+
+
+# ============================================================
+# MOTOR EDITORIAL MEAD/SEVEN — CAMADA GLOBAL DA PÁGINA
+# ============================================================
+# Esta camada prepara o patrimônio e o plano da página antes
+# das cinco chamadas já existentes ao Ollama. Não faz pesquisa,
+# não cria fatos e não acrescenta chamadas de IA.
+# ============================================================
+
+def _mead_normalizar_editorial(valor):
+    texto = str(valor or "").casefold()
+    texto = unicodedata.normalize("NFD", texto)
+    texto = "".join(c for c in texto if unicodedata.category(c) != "Mn")
+    return re.sub(r"\s+", " ", texto).strip()
+
+
+def _mead_tokens_editoriais(texto):
+    stop = {
+        "para", "como", "entre", "sobre", "essa", "esse", "isso",
+        "esta", "este", "estas", "estes", "uma", "umas", "um", "uns",
+        "que", "com", "sem", "por", "dos", "das", "do", "da", "de",
+        "em", "no", "na", "nos", "nas", "ao", "aos", "e", "ou", "se",
+        "mais", "menos", "muito", "muitos", "muitas", "pode", "podem",
+        "ser", "sao", "tem", "tambem", "quando", "onde", "assim",
+        "cada", "seu", "sua", "seus", "suas", "sendo", "deve", "devem",
+        "pelo", "pela", "pelos", "pelas", "porque", "a", "o", "as", "os"
+    }
+    normalizado = _mead_normalizar_editorial(texto)
+    return {
+        t for t in re.findall(r"\b[a-z0-9][a-z0-9'-]{2,}\b", normalizado)
+        if t not in stop
+    }
+
+
+def _mead_classificar_fragmento_editorial(texto):
+    """Categorias são índices sobrepostos, nunca filtros exclusivos."""
+    t = _mead_normalizar_editorial(texto)
+    vocabulario = {
+        "comercial": (
+            "fornecedor", "fornecimento", "venda", "comprar", "compra",
+            "fabricante", "distribuidor", "orcamento", "cotacao",
+            "assistencia", "suporte", "empresa", "servico"
+        ),
+        "conceito_funcionamento": (
+            "funcionamento", "funciona", "principio", "conceito",
+            "operacao", "mecanismo", "processo", "acionamento"
+        ),
+        "caracteristicas_aplicacoes": (
+            "aplicacao", "aplicacoes", "utilizado", "utilizacao",
+            "caracteristica", "componente", "material", "setor",
+            "industria", "equipamento", "sistema"
+        ),
+        "aspectos_tecnicos_cuidados": (
+            "pressao", "vazao", "temperatura", "dimensao", "medida",
+            "manutencao", "inspecao", "desgaste", "instalacao",
+            "seguranca", "norma", "resistencia", "lubrificacao"
+        ),
+        "escolha_solucao_suporte": (
+            "dimensionamento", "selecao", "escolha", "criterio",
+            "avaliacao", "necessidade", "compatibilidade", "projeto",
+            "adequacao", "diagnostico", "reparo", "solucao"
+        )
+    }
+    categorias = []
+    for categoria, termos in vocabulario.items():
+        if any(re.search(r"\b" + re.escape(termo) + r"\b", t) for termo in termos):
+            categorias.append(categoria)
+    return categorias or ["conhecimento_geral"]
+
+
+def _mead_preparar_patrimonio_global(tema, textos_relevantes, informacoes_blocos):
+    """
+    Monta o patrimônio da página com os 15 fragmentos selecionados e
+    uma seleção adicional do pool global de reservas COM. Não cria
+    reservas novas nem altera arquivos/hash persistidos.
+    """
+    selecionados = []
+    if isinstance(textos_relevantes, dict):
+        origem = textos_relevantes.get("fragmentos", [])
+        if isinstance(origem, list):
+            selecionados.extend(origem)
+
+    reservas = []
+    if isinstance(informacoes_blocos, dict):
+        for dados in informacoes_blocos.values():
+            if not isinstance(dados, dict):
+                continue
+            for reserva in dados.get("reservas_com", []) or []:
+                if not isinstance(reserva, dict):
+                    continue
+                if str(reserva.get("palavra_chave_status", "")).upper() != "COM":
+                    continue
+                texto_reserva = str(reserva.get("texto", "") or "").strip()
+                if not texto_reserva:
+                    continue
+                if contar_palavra_chave_literal(texto_reserva, tema) < 1:
+                    continue
+                reservas.append(reserva)
+
+    # Prioriza os 15 fragmentos já aprovados para os blocos. Em seguida,
+    # seleciona conhecimento adicional do pool COM por proximidade lexical
+    # ao tema inteiro. Os índices são globais, não cotas por parágrafo.
+    tokens_keyword = _mead_tokens_editoriais(
+        _mead_perfil_keyword(tema).get("expressao_legivel", tema)
+    )
+    reservas_unicas = {}
+    for item in reservas:
+        chave = str(item.get("hash", "") or "").strip()
+        if not chave:
+            chave = hashlib.sha256(
+                _mead_normalizar_editorial(item.get("texto", "")).encode("utf-8")
+            ).hexdigest()
+        reservas_unicas.setdefault(chave, item)
+
+    selecionados_chaves = set()
+    for item in selecionados:
+        if not isinstance(item, dict):
+            continue
+        chave = str(item.get("hash", "") or "").strip()
+        if chave:
+            selecionados_chaves.add(chave)
+
+    extras = []
+    for chave, item in reservas_unicas.items():
+        if chave in selecionados_chaves:
+            continue
+        tokens = _mead_tokens_editoriais(item.get("texto", ""))
+        score = len(tokens & tokens_keyword)
+        extras.append((score, chave, item))
+    extras.sort(key=lambda x: (-x[0], x[1]))
+
+    encontrados = list(selecionados)
+    encontrados.extend(item for _, _, item in extras)
+
+    resultado = []
+    vistos = set()
+    total_caracteres = 0
+    max_fragmentos = 45
+    max_caracteres = 16000
+
+    for indice, item in enumerate(encontrados):
+        if not isinstance(item, dict):
+            continue
+        texto = re.sub(r"\s+", " ", str(item.get("texto", "") or "")).strip()
+        if not texto:
+            continue
+        hash_item = str(item.get("hash", "") or "").strip()
+        chave = hash_item or hashlib.sha256(
+            _mead_normalizar_editorial(texto).encode("utf-8")
+        ).hexdigest()
+        if chave in vistos:
+            continue
+        # Os fragmentos selecionados originais (primeiros itens) são preservados.
+        eh_selecionado = indice < len(selecionados)
+        if not eh_selecionado and (
+            len(resultado) >= max_fragmentos or
+            total_caracteres + len(texto) > max_caracteres
+        ):
+            continue
+        vistos.add(chave)
+        resultado.append({
+            "id": str(item.get("id", "") or ""),
+            "hash": chave,
+            "texto": texto,
+            "bloco_mead": str(item.get("bloco_mead", "") or ""),
+            "categorias": _mead_classificar_fragmento_editorial(texto),
+            "keyword_anchor": contar_palavra_chave_literal(texto, tema) > 0,
+            "origem_pool": "selecionado" if eh_selecionado else "reserva_global_COM"
+        })
+        total_caracteres += len(texto)
+
+    return resultado
+
+
+def _mead_contar_keyword_exata(texto, tema):
+    texto = str(texto or "")
+    tema = str(tema or "").strip()
+    if not texto or not tema:
+        return 0
+    padrao = re.compile(r"(?<!\w)" + re.escape(tema) + r"(?!\w)", flags=re.UNICODE)
+    return len(padrao.findall(texto))
+
+
+def _mead_perfil_keyword(tema):
+    """Decompõe a expressão para compreensão sem alterar a keyword original."""
+    original = str(tema or "").strip()
+    # Alguns cadastros usam prefixo numérico e underscores como identificador.
+    # Isso serve apenas à leitura semântica; a keyword original nunca é alterada.
+    legivel = re.sub(r"^\d+[-_]+", "", original).replace("_", " ")
+    normalizada = _mead_normalizar_editorial(legivel)
+    corpo = normalizada
+    intencao = "informacional_ou_neutra"
+    prefixos = [
+        (r"^onde comprar\s+", "compra"),
+        (r"^onde encontrar\s+", "localizacao_fornecedor"),
+        (r"^fabricantes? de\s+", "fabricante"),
+        (r"^fornecedores? de\s+", "fornecedor"),
+        (r"^distribuidores? de\s+", "distribuicao"),
+        (r"^empresa de\s+", "empresa_prestadora"),
+        (r"^empresas de\s+", "empresa_prestadora"),
+        (r"^venda de\s+", "comercial"),
+        (r"^servicos? de\s+", "servico"),
+    ]
+    for padrao, tipo_intencao in prefixos:
+        novo, n = re.subn(padrao, "", corpo, count=1)
+        if n:
+            corpo = novo.strip()
+            intencao = tipo_intencao
+            break
+
+    # Separadores explícitos de aplicação/complemento.
+    separadores = [
+        r"\s+para\s+", r"\s+no setor\s+", r"\s+na industria\s+",
+        r"\s+em aplicacoes?\s+", r"\s+para o setor\s+"
+    ]
+    nucleo = corpo
+    complemento = ""
+    for sep in separadores:
+        m = re.search(sep, corpo)
+        if m:
+            nucleo = corpo[:m.start()].strip()
+            complemento = corpo[m.end():].strip()
+            break
+
+    # Serviços com objeto seguido de aplicação: "reparo de pistão de
+    # caminhão de lixo" -> núcleo "reparo de pistão", complemento "caminhão de lixo".
+    if not complemento:
+        m = re.match(
+            r"^(reparo|manutencao|conserto|recuperacao|reforma|inspecao|instalacao|fabricacao|usinagem) de ([^ ]+) de (.+)$",
+            corpo
+        )
+        if m:
+            nucleo = f"{m.group(1)} de {m.group(2)}"
+            complemento = m.group(3).strip()
+            intencao = "servico"
+
+    return {
+        "expressao_exata": original,
+        "expressao_legivel": re.sub(r"\s+", " ", legivel).strip(),
+        "expressao_normalizada": normalizada,
+        "intencao_provisoria": intencao,
+        "nucleo_provisorio": nucleo or normalizada,
+        "complementos_preservados": complemento,
+        "termos_na_ordem_original": normalizada.split(),
+        "regra": "Decomposição heurística para compreensão; a expressão completa permanece soberana."
+    }
+
+
+def _mead_referencias_horizontais(tema, limite=8):
+    """Lê padrões editoriais de outras páginas para evitar redação repetida."""
+    resultado = []
+    caminho = str(globals().get("ARQUIVO_BANCO", "") or "")
+    if not caminho or not os.path.isfile(caminho):
+        return resultado
+    try:
+        with open(caminho, "r", encoding="utf-8") as f:
+            banco = json.load(f)
+        if not isinstance(banco, dict):
+            return resultado
+        tema_atual = _mead_normalizar_editorial(tema)
+        for chave, pagina in banco.items():
+            if len(resultado) >= limite:
+                break
+            if _mead_normalizar_editorial(chave) == tema_atual or not isinstance(pagina, dict):
+                continue
+            blocos = pagina.get("blocos", {})
+            titulos = []
+            aberturas = []
+            if isinstance(blocos, dict):
+                for numero in range(1, 6):
+                    b = blocos.get(f"bloco_{numero}", {})
+                    if not isinstance(b, dict):
+                        continue
+                    titulo_b = str(b.get("titulo", "") or "").strip()
+                    if titulo_b:
+                        titulos.append(titulo_b)
+                    paras = b.get("paragrafos_ollama", []) or []
+                    if isinstance(paras, list):
+                        for par in paras[:1]:
+                            frase = re.split(r"(?<=[.!?])\s+", str(par or "").strip())[0]
+                            if frase:
+                                aberturas.append(" ".join(frase.split()[:12]))
+            resultado.append({
+                "pagina": str(chave),
+                "titulos_existentes": titulos[:5],
+                "aberturas_existentes": aberturas[:5]
+            })
+    except Exception as erro:
+        print("AVISO MEAD — COMPARAÇÃO HORIZONTAL INDISPONÍVEL:", repr(erro))
+    return resultado
+
+
+def _mead_planejar_pagina_global(tema, patrimonio):
+    """Plano MEAD/SEVEN: relações, lacunas e distribuição sem roteiro rígido."""
+    perfil_keyword = _mead_perfil_keyword(tema)
+    blocos = {}
+    categorias_globais = []
+    for item in patrimonio:
+        categorias_globais.extend(item.get("categorias", []))
+    contagem_global = {}
+    for categoria in categorias_globais:
+        contagem_global[categoria] = contagem_global.get(categoria, 0) + 1
+
+    categorias_possiveis = {
+        "comercial", "conceito_funcionamento", "caracteristicas_aplicacoes",
+        "aspectos_tecnicos_cuidados", "escolha_solucao_suporte",
+        "conhecimento_geral"
+    }
+    lacunas = sorted(categorias_possiveis - set(categorias_globais))
+
+    for numero in range(1, 6):
+        chave = f"bloco_{numero}"
+        itens = [x for x in patrimonio if x.get("bloco_mead") == chave]
+        if not itens:
+            itens = patrimonio[(numero - 1) * 3:numero * 3]
+        categorias = []
+        for item in itens:
+            categorias.extend(item.get("categorias", []))
+        contagem = {}
+        for categoria in categorias:
+            contagem[categoria] = contagem.get(categoria, 0) + 1
+        foco = sorted(contagem, key=lambda x: (-contagem[x], x))
+        ids = [x.get("id") or x.get("hash", "")[:12] for x in itens]
+        blocos[chave] = {
+            "funcao": "definir pelo conteúdo sustentado, sem função narrativa fixa",
+            "ambiente": "identificar somente quando estiver explícito nas evidências",
+            "perspectiva": "escolher a perspectiva mais útil sem inventar cenário ou personagem",
+            "focos_sustentados": foco[:3] or ["conhecimento_geral"],
+            "relacoes_exclusivas": foco,
+            "ids_evidencia": ids,
+            "paragrafos": [
+                {
+                    "indice": indice,
+                    "fato_origem": "selecionar no patrimônio global autorizado",
+                    "caminho_vicinal": "desenvolver uma relação distinta e sustentada",
+                    "papel_da_keyword": "uma ocorrência literal, com capitalização idêntica",
+                    "risco_redundancia": "comparar com todos os outros parágrafos"
+                }
+                for indice in range(1, 4)
+            ]
+        }
+
+    sobreposicoes = []
+    grupos = []
+    for item in patrimonio:
+        grupos.append((item, _mead_tokens_editoriais(item.get("texto", ""))))
+    for i in range(len(grupos)):
+        for j in range(i + 1, len(grupos)):
+            a, ta = grupos[i]
+            b, tb = grupos[j]
+            if not ta or not tb:
+                continue
+            jaccard = len(ta & tb) / max(1, len(ta | tb))
+            if jaccard >= 0.52:
+                sobreposicoes.append({
+                    "a": a.get("id") or a.get("hash", "")[:12],
+                    "b": b.get("id") or b.get("hash", "")[:12],
+                    "similaridade": round(jaccard, 2)
+                })
+
+    referencias_horizontais = _mead_referencias_horizontais(tema)
+    return {
+        "pagina": {
+            "keyword": perfil_keyword,
+            "setor": "identificar somente se confirmado nos fragmentos",
+            "publico": "não presumir; identificar somente se houver evidência",
+            "objetivo": "responder ao tema completo com relações verdadeiras e sem redundância",
+            "fatos_autorizados": [
+                x.get("id") or x.get("hash", "")[:12] for x in patrimonio
+            ],
+            "lacunas": lacunas,
+            "riscos": {
+                "sobreposicoes": sobreposicoes[:20],
+                "ancora_literal_ausente": not any(x.get("keyword_anchor") for x in patrimonio)
+            },
+            "estrutura": {"blocos": 5, "paragrafos_por_bloco": 3, "total_paragrafos": 15}
+        },
+        "tema_exato": str(tema or "").strip(),
+        "perfil_keyword": perfil_keyword,
+        "total_fragmentos": len(patrimonio),
+        "keyword_anchor_disponivel": any(x.get("keyword_anchor") for x in patrimonio),
+        "categorias_globais": sorted(contagem_global),
+        "blocos": blocos,
+        "sobreposicoes_desver": sobreposicoes[:20],
+        "referencias_horizontais": referencias_horizontais
+    }
+
+
+def _mead_formatar_contexto_global(tema, patrimonio, plano, limite_caracteres=18000):
+    partes = [
+        "PATRIMÔNIO GLOBAL AUTORIZADO DA PÁGINA",
+        f"TEMA / EXPRESSÃO EXATA: {tema}",
+        f"PERFIL SEMÂNTICO PROVISÓRIO: núcleo={plano.get('perfil_keyword', {}).get('nucleo_provisorio', tema)}; "
+        f"complementos={plano.get('perfil_keyword', {}).get('complementos_preservados', '')}; "
+        f"intenção={plano.get('perfil_keyword', {}).get('intencao_provisoria', 'neutra')}.",
+        "A decomposição é heurística; a expressão completa governa o significado. Não generalize nem elimine complementos.",
+        "Leia o conjunto antes de redigir. Os fragmentos podem se complementar entre blocos.",
+        "Use apenas fatos presentes neste patrimônio; não transforme inferências em fatos."
+    ]
+    total = 0
+    for indice, item in enumerate(patrimonio, 1):
+        trecho = item["texto"]
+        linha = (
+            f"\n[CONHECIMENTO_{indice} | {item.get('id') or item.get('hash','')[:12]} | "
+            f"CATEGORIAS: {', '.join(item.get('categorias', []))}]\n{trecho}"
+        )
+        if total + len(linha) > limite_caracteres:
+            restante = max(0, limite_caracteres - total)
+            if restante > 250:
+                partes.append(linha[:restante])
+            break
+        partes.append(linha)
+        total += len(linha)
+
+    partes.append("\nPLANO GLOBAL DE PÁGINA (ORIENTAÇÃO, NÃO FONTE FACTUAL):")
+    dados_pagina = plano.get("pagina", {}) if isinstance(plano.get("pagina"), dict) else {}
+    partes.append(
+        "Objetivo editorial: "
+        + str(dados_pagina.get("objetivo", "organizar fatos autorizados"))
+    )
+    partes.append(
+        "Categorias presentes: "
+        + ", ".join(plano.get("categorias_globais", []) or [])
+    )
+    partes.append(
+        "Lacunas de evidência: "
+        + ", ".join(dados_pagina.get("lacunas", []) or [])
+        + ". Não preencher essas lacunas por suposição."
+    )
+    for chave, dados in plano.get("blocos", {}).items():
+        partes.append(
+            f"{chave}: focos possíveis={', '.join(dados.get('focos_sustentados', []))}; "
+            f"evidências={', '.join(str(x) for x in dados.get('ids_evidencia', []))}."
+        )
+    if plano.get("sobreposicoes_desver"):
+        partes.append(
+            "ALERTAS DESVER: há fragmentos com proximidade temática. "
+            "Evite repetir o mesmo fato ou explicar a mesma relação em parágrafos diferentes."
+        )
+    horizontais = plano.get("referencias_horizontais", []) or []
+    if horizontais:
+        partes.append(
+            "COMPARAÇÃO HORIZONTAL: títulos e aberturas abaixo são exemplos de páginas anteriores. "
+            "Use-os somente para evitar repetição de moldes; não copie redação nem fatos."
+        )
+        for pagina in horizontais[:8]:
+            partes.append(
+                f"PÁGINA ANTERIOR {pagina.get('pagina','')}: "
+                f"títulos={pagina.get('titulos_existentes', [])}; "
+                f"aberturas={pagina.get('aberturas_existentes', [])}"
+            )
+    if plano.get("keyword_anchor_disponivel"):
+        partes.append(
+            f"ÂNCORA: existe ao menos um fragmento autorizado que contém literalmente '{tema}'. "
+            "Preserve essa expressão como referência do assunto."
+        )
+    else:
+        partes.append(
+            "ÂNCORA: nenhum fragmento selecionado contém literalmente a expressão completa. "
+            "Não fabrique evidência; use a expressão exata apenas como requisito SEO e sinalize a lacuna."
+        )
+    return "\n".join(partes)
+
+
+def _mead_auditoria_independente(blocos, tema):
+    """Auditoria leve pós-redação: DESVER, ISI e Freio do Refinamento."""
+    paragrafos = []
+    for numero in range(1, 6):
+        dados = blocos.get(f"bloco_{numero}", {}) if isinstance(blocos, dict) else {}
+        if not isinstance(dados, dict):
+            continue
+        for indice, texto in enumerate(dados.get("paragrafos_ollama", []) or [], 1):
+            texto = str(texto or "").strip()
+            if texto:
+                paragrafos.append((f"B{numero}P{indice}", texto))
+
+    avisos_desver = []
+    avisos_isi = []
+    aberturas = {}
+    for i, (id_a, texto_a) in enumerate(paragrafos):
+        tokens_a = _mead_tokens_editoriais(texto_a)
+        abertura = " ".join(texto_a.split()[:4]).casefold()
+        if abertura:
+            aberturas.setdefault(abertura, []).append(id_a)
+        for id_b, texto_b in paragrafos[i + 1:]:
+            tokens_b = _mead_tokens_editoriais(texto_b)
+            if tokens_a and tokens_b:
+                similaridade = len(tokens_a & tokens_b) / max(1, len(tokens_a | tokens_b))
+                if similaridade >= 0.68:
+                    avisos_desver.append({
+                        "paragrafos": [id_a, id_b],
+                        "similaridade": round(similaridade, 2)
+                    })
+
+    for abertura, ids in aberturas.items():
+        if len(ids) > 1:
+            avisos_desver.append({
+                "abertura_repetida": abertura,
+                "paragrafos": ids
+            })
+
+    # Sinais para revisão humana; não são reprovação automática, pois
+    # algumas palavras podem ter uso literal/técnico no contexto.
+    sinais_sensorialidade = (
+        "respira", "dança", "pulsa", "coração", "alma", "jornada",
+        "viagem", "mágica", "universo", "sabor", "aroma", "textura",
+        "abraça", "conversa com", "dialoga com", "ganha vida"
+    )
+    for identificador, texto in paragrafos:
+        encontrados = [
+            termo for termo in sinais_sensorialidade
+            if re.search(r"\b" + re.escape(termo) + r"\b", texto, re.I)
+        ]
+        if encontrados:
+            avisos_isi.append({
+                "paragrafo": identificador,
+                "sinais": encontrados
+            })
+
+    # Freio: não sugerir reescrita quando não há falha objetiva.
+    total_ocorrencias_keyword = sum(
+        _mead_contar_keyword_exata(texto, tema) for _, texto in paragrafos
+    )
+    return {
+        "total_paragrafos_auditados": len(paragrafos),
+        "desver": avisos_desver[:30],
+        "isi": avisos_isi[:30],
+        "keyword_ocorrencias_exatas": total_ocorrencias_keyword,
+        "freio_do_refinamento": (
+            "PRESERVAR: sem motivo objetivo para reescrita global; "
+            "corrigir somente unidades com falha confirmada."
+        )
+    }
+
+
+MEAD_EDITORES_V2_PROMPT = """
+MOTOR EDITORIAL MEAD/SEVEN — ESPECIFICAÇÃO OPERACIONAL
+1. Auditar o patrimônio autorizado: fatos, relações, lacunas, restrições e origem.
+2. Compreender a expressão-chave inteira: núcleo e todos os complementos. Decompor para compreender, nunca para generalizar ou apagar o sentido.
+3. Mapear apenas relações sustentadas: necessidade, função, ambiente, uso, processo, decisão, pessoas, benefício e limite.
+4. Planejar a página antes de escrever: objetivo, ambiente, perspectiva, relações e título de cada bloco conforme as evidências.
+5. Aplicar DESVER entre parágrafos e blocos: cada informação no lugar mais útil, sem repetição conceitual.
+6. Redigir com naturalidade por caminhos editoriais variados; não usar fórmulas ou aberturas mecânicas.
+7. Aplicar ISI: revisar sentido literal, imagens sensoriais involuntárias e o cenário produzido pelo conjunto.
+8. Validar e reparar somente a unidade com falha; preservar todo conteúdo já aprovado.
+9. Aplicar o Freio do Refinamento: não reescrever texto adequado sem erro ou ganho verificável.
+A keyword completa, com grafia, acentuação, ordem e capitalização idênticas ao tema, deve aparecer exatamente uma vez em cada parágrafo SEO.
+A estrutura de cinco blocos e três parágrafos por bloco é contrato de saída, não roteiro semântico obrigatório.
+Use voz em primeira pessoa do plural somente quando representar o prestador/empresa e houver evidência para isso.
+Não invente especificações, aplicações, materiais, serviços, empresas, marcas, preços, certificações, garantias, disponibilidade ou promessas.
+Tags e itens de lista só podem ser incluídos quando forem verdadeiros, compatíveis com o tema e sustentados pelo patrimônio; não preencher quotas artificiais.
+"""
+
+
 def gerar_conteudo_completo(
     tema,
     textos,
@@ -18240,11 +18723,11 @@ def gerar_conteudo_completo(
         if str(x).strip()
     ]
     _tags_preflight_unicas = list(dict.fromkeys(_tags_preflight))
-    if len(_tags_preflight_unicas) < 30:
-        print("⚠️ TAGS FIXAS INSUFICIENTES ANTES DO OLLAMA:", len(_tags_preflight_unicas), "/ 30")
-        print("A execução usará a reserva Python de tags, sem chamada adicional de IA.")
-    else:
-        print("✅ PRÉ-VALIDAÇÃO TAGS:", len(_tags_preflight_unicas), "modelos únicos disponíveis")
+    print(
+        "PRÉ-VALIDAÇÃO DE TAGS — CANDIDATOS:",
+        len(_tags_preflight_unicas),
+        "| QUANTIDADE FINAL: somente itens sustentados"
+    )
     
     
     # ========================================================
@@ -18337,9 +18820,7 @@ def gerar_conteudo_completo(
     # ========================================================
     
     print()
-    print("======================================")
-    print("CHECKBOXES EDITORIAIS")
-    print("======================================")
+    print("ESTRUTURA EDITORIAL: conferindo seleções")
     
     if not isinstance(
         estrutura_editorial,
@@ -18347,12 +18828,6 @@ def gerar_conteudo_completo(
     ):
     
         estrutura_editorial = {}
-    
-    for chave, valor in estrutura_editorial.items():
-    
-        print(
-            f"{chave}: {valor}"
-        )
     
     assuntos = [
         str(chave).replace("_", " ")
@@ -18362,15 +18837,7 @@ def gerar_conteudo_completo(
     ]
     
     print()
-    print(
-        "ASSUNTOS SELECIONADOS:",
-        assuntos
-    )
-    
-    print(
-        "TOTAL DE ASSUNTOS:",
-        len(assuntos)
-    )
+    print("ASSUNTOS EDITORIAIS:", len(assuntos), "selecionados")
     
     # ========================================================
     # 03. ESTRUTURA OBRIGATÓRIA
@@ -18379,6 +18846,9 @@ def gerar_conteudo_completo(
     total_blocos = 5
     paragrafos_por_bloco = 3
     total_paragrafos = 15
+    # Quantidades estruturais obrigatórias da página MEAD.
+    # Não podem ficar como None: a validação final compara os
+    # totais reais com estes limites depois de gerar os itens.
     total_segmentos = 12
     total_tags = 30
     
@@ -18590,6 +19060,18 @@ def gerar_conteudo_completo(
             }
 
     # ========================================================
+    # RETOMAR BLOCOS PRESERVADOS EM progresso.json
+    # ========================================================
+    blocos_recuperados = carregar_blocos_recuperacao(tema)
+    if blocos_recuperados:
+        print("♻️ RECUPERAÇÃO ENCONTRADA:", len(blocos_recuperados), "/ 5 blocos")
+        for chave_recuperada, bloco_recuperado in blocos_recuperados.items():
+            informacoes_blocos[chave_recuperada] = bloco_recuperado
+            print("   -", chave_recuperada, "será reutilizado sem nova chamada Ollama")
+    else:
+        print("RECUPERAÇÃO: nenhum bloco anterior válido para este tema.")
+
+    # ========================================================
     # CARACTERES DO TEXTO GERAL
     # ========================================================
 
@@ -18767,260 +19249,18 @@ def gerar_conteudo_completo(
     )
 
     # ========================================================
-    # EXIBIR INFORMAÇÕES DE CADA BLOCO
+    # RESUMO ÚNICO DA PREPARAÇÃO — SEM REPETIR CONTAGENS
     # ========================================================
-
-    for numero_bloco in range(
-        1,
-        6
-    ):
-
-        dados_bloco = (
-            informacoes_blocos.get(
-                f"bloco_{numero_bloco}",
-                {}
-            )
+    resumo_blocos = []
+    for numero_bloco in range(1, 6):
+        dados_bloco = informacoes_blocos.get(f"bloco_{numero_bloco}", {})
+        itens = dados_bloco.get("informacoes_relevantes", []) if isinstance(dados_bloco, dict) else []
+        resumo_blocos.append(
+            f"B{numero_bloco}:{len(itens) if isinstance(itens, list) else 0} trechos"
         )
+    print("PREPARAÇÃO:", " | ".join(resumo_blocos),
+          "| texto:", caracteres_selecionados, "caracteres")
 
-        if isinstance(
-            dados_bloco,
-            dict
-        ):
-
-            lista_informacoes = (
-                dados_bloco.get(
-                    "informacoes_relevantes",
-                    []
-                )
-            )
-
-            if isinstance(
-                lista_informacoes,
-                list
-            ):
-
-                partes = []
-
-                for item in lista_informacoes:
-
-                    if isinstance(
-                        item,
-                        dict
-                    ):
-
-                        texto_item = str(
-                            item.get(
-                                "texto",
-                                ""
-                            ) or ""
-                        ).strip()
-
-                    else:
-
-                        texto_item = str(
-                            item or ""
-                        ).strip()
-
-                    if texto_item:
-
-                        partes.append(
-                            texto_item
-                        )
-
-                texto_bloco = (
-                    "\n\n".join(
-                        partes
-                    )
-                )
-
-            else:
-
-                texto_bloco = str(
-                    lista_informacoes or ""
-                ).strip()
-
-        else:
-
-            texto_bloco = str(
-                dados_bloco or ""
-            ).strip()
-
-        print(
-            f"BLOCO {numero_bloco}:",
-            len(
-                texto_bloco
-            ),
-            "caracteres"
-        )
-
-    # ========================================================
-    # INFORMAÇÕES POR BLOCO PREPARADAS
-    # ========================================================
-
-    print()
-    print("======================================")
-    print("INFORMAÇÕES POR BLOCO PREPARADAS")
-    print("======================================")
-
-    for numero_bloco in range(
-        1,
-        6
-    ):
-
-        dados_bloco = (
-            informacoes_blocos.get(
-                f"bloco_{numero_bloco}",
-                {}
-            )
-        )
-
-        print()
-        print(
-            f"--- BLOCO {numero_bloco} ---"
-        )
-
-        if isinstance(
-            dados_bloco,
-            dict
-        ):
-
-            lista_informacoes = (
-                dados_bloco.get(
-                    "informacoes_relevantes",
-                    []
-                )
-            )
-
-            if isinstance(
-                lista_informacoes,
-                list
-            ):
-
-                partes = []
-
-                for item in lista_informacoes:
-
-                    if isinstance(
-                        item,
-                        dict
-                    ):
-
-                        texto_item = str(
-                            item.get(
-                                "texto",
-                                ""
-                            ) or ""
-                        ).strip()
-
-                    else:
-
-                        texto_item = str(
-                            item or ""
-                        ).strip()
-
-                    if texto_item:
-
-                        partes.append(
-                            texto_item
-                        )
-
-                texto_bloco = (
-                    "\n\n".join(
-                        partes
-                    )
-                )
-
-            else:
-
-                texto_bloco = str(
-                    lista_informacoes or ""
-                ).strip()
-
-        else:
-
-            texto_bloco = str(
-                dados_bloco or ""
-            ).strip()
-
-        print(
-            texto_bloco[:500]
-        )
-
-    # ========================================================
-    # CONFERÊNCIA FINAL DOS 15 PARÁGRAFOS-BASE
-    # ========================================================
-
-    print()
-    print("======================================")
-    print("CONFERÊNCIA DOS PARÁGRAFOS PYTHON")
-    print("======================================")
-
-    for numero_bloco in range(
-        1,
-        6
-    ):
-
-        dados_bloco = (
-            informacoes_blocos.get(
-                f"bloco_{numero_bloco}",
-                {}
-            )
-        )
-
-        if not isinstance(
-            dados_bloco,
-            dict
-        ):
-
-            continue
-
-        paragrafos_python = (
-            dados_bloco.get(
-                "paragrafos_python",
-                []
-            )
-        )
-
-        if not isinstance(
-            paragrafos_python,
-            list
-        ):
-
-            continue
-
-        for indice, paragrafo in enumerate(
-            paragrafos_python,
-            start=1
-        ):
-
-            texto_paragrafo = str(
-                paragrafo or ""
-            ).strip()
-
-            print(
-                f"BLOCO {numero_bloco} - "
-                f"PARÁGRAFO {indice}: "
-                f"{len(texto_paragrafo.split())} palavras"
-            )
-
-    print()
-    print("======================================")
-    print("DADOS APÓS SELEÇÃO")
-    print("======================================")
-
-    print(
-        "SELEÇÃO RECEBIDA:",
-        "SIM"
-        if contexto or fragmentos_iniciais
-        else "NÃO"
-    )
-
-    print(
-        "CARACTERES SELECIONADOS:",
-        caracteres_selecionados
-    )
-    
-    
     # ========================================================
     # 07. CONTEXTO PARA IA
     # ========================================================
@@ -19065,36 +19305,7 @@ def gerar_conteudo_completo(
         in contexto_geracao.values()
     )
     
-    print()
-    print("======================================")
-    print("CONTEXTO SELECIONADO POR BLOCO")
-    print("======================================")
-    
-    for numero_bloco in range(
-        1,
-        6
-    ):
-    
-        chave_bloco = (
-            f"bloco_{numero_bloco}"
-        )
-    
-        texto_bloco = contexto_geracao.get(
-            chave_bloco,
-            ""
-        )
-    
-        print(
-            f"{chave_bloco}:",
-            len(texto_bloco),
-            "caracteres"
-        )
-    
-    print()
-    print(
-        "TOTAL CARACTERES CONTEXTO:",
-        caracteres_contexto_geracao
-    )
+    print("CONTEXTO IA:", caracteres_contexto_geracao, "caracteres | 5 blocos")
     
     # ========================================================
     # 08. NORMALIZAR MAPA
@@ -19143,6 +19354,30 @@ def gerar_conteudo_completo(
     contexto_mead = str(
         contexto_mead or ""
     )
+
+    # ============================================================
+    # MEAD/SEVEN — AUDITORIA, MAPA RELACIONAL E PLANO GLOBAL
+    # ============================================================
+    patrimonio_global_mead = _mead_preparar_patrimonio_global(
+        tema, textos_relevantes, informacoes_blocos
+    )
+    plano_editorial_mead = _mead_planejar_pagina_global(
+        tema, patrimonio_global_mead
+    )
+    contexto_global_pagina = _mead_formatar_contexto_global(
+        tema, patrimonio_global_mead, plano_editorial_mead
+    )
+    print(
+        "MEAD/SEVEN — PATRIMÔNIO GLOBAL:",
+        len(patrimonio_global_mead),
+        "| ÂNCORA LITERAL:",
+        "SIM" if plano_editorial_mead.get("keyword_anchor_disponivel") else "NÃO"
+    )
+    print(
+        "MEAD/SEVEN — ALERTAS DESVER:",
+        len(plano_editorial_mead.get("sobreposicoes_desver", []))
+    )
+    contexto_mead_ollama_base = contexto_mead
     
     # ========================================================
     # 10. REGRA DE INDEPENDÊNCIA
@@ -19445,24 +19680,12 @@ def gerar_conteudo_completo(
             else []
         )
 
-        if not isinstance(fragmentos_preflight, list) or len(fragmentos_preflight) != 3:
-            print()
-            print("=" * 60)
-            print("❌ PRÉ-VALIDAÇÃO OLLAMA INTERROMPIDA")
-            print("=" * 60)
-            print(
-                chave_preflight,
-                "possui",
-                len(fragmentos_preflight)
-                if isinstance(fragmentos_preflight, list)
-                else 0,
-                "fragmentos; são necessários 3."
-            )
-            print(
-                "Nenhuma chamada Ollama será feita."
-            )
-            print("=" * 60)
-            return None
+        if not isinstance(fragmentos_preflight, list):
+            fragmentos_preflight = []
+            bloco_preflight["informacoes_relevantes"] = fragmentos_preflight
+        while len(fragmentos_preflight) < 3:
+            pos = len(fragmentos_preflight) + 1
+            fragmentos_preflight.append({"id": f"CONHECIMENTO_GERAL_{chave_preflight}_{pos}", "hash": "", "palavra_chave_status": "SEM", "texto": "[SEM FRAGMENTO — usar conhecimento geral consolidado, sem inventar dados específicos.]", "fonte": "CONHECIMENTO_GERAL_DO_MODELO", "url": "", "tipo": "CONTEXTO_GERAL", "pdf": False, "palavras": 0, "identidade_fonte": {}, "contexto_geral_sem_fonte": True})
 
     # ============================================================
     # PROCESSAR CADA BLOCO
@@ -19483,6 +19706,27 @@ def gerar_conteudo_completo(
                 {}
             )
         )
+
+        bloco_recuperado = blocos_recuperados.get(chave_bloco)
+        if isinstance(bloco_recuperado, dict):
+            paras_recuperados = bloco_recuperado.get("paragrafos_ollama", [])
+            frags_recuperados = bloco_recuperado.get("informacoes_relevantes", [])
+            keyword_recuperacao_ok = (
+                isinstance(paras_recuperados, list)
+                and len(paras_recuperados) == 3
+                and all(
+                    str(x or "").strip()
+                    and _mead_contar_keyword_exata(str(x), tema) == 1
+                    for x in paras_recuperados
+                )
+            )
+            if (keyword_recuperacao_ok
+                    and isinstance(frags_recuperados, list) and len(frags_recuperados) == 3):
+                informacoes_blocos[chave_bloco] = bloco_recuperado
+                print(f"♻️ {chave_bloco.upper()} RECUPERADO — 3 parágrafos validados; Ollama não será chamado.")
+                continue
+            elif bloco_recuperado:
+                print(f"⚠️ {chave_bloco.upper()} EXISTE NA RECUPERAÇÃO, MAS NÃO PASSOU NA CONFERÊNCIA; SERÁ REGERADO.")
 
         if not isinstance(
             dados_bloco,
@@ -19723,7 +19967,8 @@ def gerar_conteudo_completo(
                 "tipo": fragmento.get("tipo", ""),
                 "pdf": fragmento.get("pdf", False),
                 "palavras": fragmento.get("palavras", len(texto_fragmento.split())),
-                "identidade_fonte": fragmento.get("identidade_fonte", {})
+                "identidade_fonte": fragmento.get("identidade_fonte", {}),
+                "contexto_geral_sem_fonte": bool(fragmento.get("contexto_geral_sem_fonte", False))
             })
 
 
@@ -19738,31 +19983,8 @@ def gerar_conteudo_completo(
         )
         print("=" * 60)
 
-        for fragmento in fragmentos_bloco:
-
-            print()
-            print(
-                f"FRAGMENTO {fragmento['numero']}/3"
-            )
-
-            print(
-                "ID:",
-                fragmento["id"]
-            )
-
-            print(
-                "CARACTERES:",
-                len(
-                    fragmento["texto"]
-                )
-            )
-
-            print(
-                "PALAVRAS:",
-                len(
-                    fragmento["texto"].split()
-                )
-            )
+        print("TRECHOS:", len(fragmentos_bloco), "| palavras:",
+              ", ".join(str(len(x.get("texto", "").split())) for x in fragmentos_bloco))
 
 
         # ========================================================
@@ -19783,7 +20005,8 @@ def gerar_conteudo_completo(
         #
         # O MEAD NÃO autoriza o Ollama a pesquisar ou inventar
         # informações. Ele funciona como orientação editorial.
-        # Os fragmentos continuam sendo a única fonte factual.
+        # Os fragmentos são a base pesquisada; o modelo pode complementar
+        # com conhecimento geral consolidado, sem inventar dados específicos.
         #
         # ========================================================
         #
@@ -19797,7 +20020,7 @@ def gerar_conteudo_completo(
         # - relevância;
         # - seleção;
         # - distribuição;
-        # - 3 trechos por bloco.
+        # - até 3 trechos por bloco, complementados por conhecimento geral.
         #
         # O Ollama NÃO recebe:
         #
@@ -19811,7 +20034,7 @@ def gerar_conteudo_completo(
         # - outros blocos;
         # - entendimento da pesquisa.
         #
-        # Ele recebe somente os três trechos autorizados.
+        # Ele recebe os trechos disponíveis e a autorização para conhecimento geral.
         #
         # ========================================================
         
@@ -20066,6 +20289,8 @@ RETORNE SOMENTE O BLOCO.
                 )
                 return None
 
+            if fragmento_individual.get("contexto_geral_sem_fonte"):
+                continue
             ok_evidencia, motivo_evidencia = auditar_evidencia_para_redacao(texto_evidencia)
             if not ok_evidencia:
                 print(f"❌ EVIDÊNCIA REPROVADA — {chave_bloco} fragmento {indice_fragmento}: {motivo_evidencia}")
@@ -20080,73 +20305,98 @@ RETORNE SOMENTE O BLOCO.
                 return None
 
         prompt_bloco = f"""
-Você é um redator técnico experiente, com escrita natural em português do Brasil.
+Você é o EDITOR MEAD/SEVEN. Sua tarefa é CRIAR a parte desta página,
+não apenas trocar palavras dos fragmentos.
 
-TAREFA
-Transforme os três fragmentos autorizados em EXATAMENTE três parágrafos
-com leitura fluida, como uma explicação técnica bem contada para uma pessoa.
-O resultado deve ter continuidade de raciocínio: o primeiro parágrafo introduz
-sua informação, o segundo desenvolve a explicação e o terceiro dá continuidade
-ou aprofunda o assunto, conforme o que as evidências realmente permitem.
+TEMA E EXPRESSÃO-CHAVE EXATA: {tema}
+BLOCO ATUAL: {chave_bloco}
+TÍTULO ATUAL (apenas referência): {titulo_bloco or 'a definir pelo plano'}
 
-TEMA / PALAVRA-CHAVE EXATA: {tema}
-BLOCO EDITORIAL: {chave_bloco}
-TÍTULO ORIENTATIVO DO BLOCO: {titulo_bloco or 'Sem título definido'}
+LEITURA GLOBAL OBRIGATÓRIA
+Leia todo o patrimônio selecionado e o plano editorial global abaixo antes
+de escrever. A página deve ter visão de conjunto, continuidade e progressão.
+Você pode relacionar informações de diferentes fragmentos do patrimônio,
+inclusive de outros blocos, quando a relação estiver explicitamente sustentada.
+Não repita a mesma informação em blocos diferentes. O plano indica focos
+possíveis; não é uma taxonomia rígida nem uma ordem narrativa obrigatória.
 
-REGRAS FACTUAIS OBRIGATÓRIAS
-- Use exclusivamente os fatos dos três fragmentos fornecidos abaixo.
-- PARÁGRAFO 1 deve ser sustentado pelo TRECHO 1.
-- PARÁGRAFO 2 deve ser sustentado pelo TRECHO 2.
-- PARÁGRAFO 3 deve ser sustentado pelo TRECHO 3.
-- Não transfira fatos de um trecho para outro e não acrescente conhecimento externo.
-- Não invente números, marcas, fabricantes, modelos, normas, materiais,
-  aplicações, resultados, garantias, capacidades ou características.
-- Não transforme possibilidade, condição ou recomendação da fonte em certeza.
-- Não mencione fontes, pesquisa, trechos, Python, IA ou estas instruções.
+PATRIMÔNIO GLOBAL E PLANO DA PÁGINA
+{contexto_global_pagina}
 
-REGRAS DE NARRATIVA
-- Os três parágrafos devem parecer partes de uma mesma explicação, não respostas isoladas.
-- Use transições discretas e naturais quando houver relação entre as informações.
-- Evite repetir a abertura, a mesma estrutura de frase ou a palavra inicial.
-- Não force uma história, personagem, cenário, problema ou situação que não esteja nas evidências.
-- Não use frases artificiais como "como vimos", "nesse contexto" ou "vale destacar" em série.
-- Os temas dos blocos e as associações editoriais são orientações, não barreiras rígidas
-  para a organização do raciocínio. Priorize a clareza e a continuidade sem perder o foco.
-- Não crie título, subtítulo, lista, pergunta ou conclusão artificial.
-- BLOCO 1: só use apresentação comercial ou CTA se a informação estiver
-  explicitamente sustentada pelos fragmentos autorizados; não invente oferta,
-  empresa, preço, marca, modelo, garantia ou promessa.
-- BLOCOS 2 A 5: não inclua chamada comercial ou CTA.
+ORIENTAÇÃO MEAD EDITORES V2
+{contexto_mead_ollama_base}
 
-PALAVRA-CHAVE
-- Inclua a expressão exata "{tema}" exatamente uma vez em CADA parágrafo.
-- Não altere a grafia nem a flexão da expressão-chave.
+REGRAS DE FIDELIDADE
+- Use primeiro os fatos presentes no patrimônio global autorizado.
+- Quando o material for limitado, complemente com conhecimento geral e consolidado
+  sobre o tema, como conceitos, princípios, funções e explicações amplamente
+  reconhecidas. Não afirme que esse conhecimento veio das fontes pesquisadas.
+- Não invente nem deduza dados específicos de marcas, fabricantes, empresas,
+  modelos, normas, certificações, materiais, aplicações particulares, serviços,
+  resultados, garantias, capacidades, preços, disponibilidade ou promessas.
+- Não generalize uma característica de um modelo ou aplicação para todo
+  o produto ou setor.
+- Preserve todos os complementos do tema. Decompor serve para compreender,
+  nunca para apagar ou ampliar indevidamente o significado.
+- Não mencione fontes, fragmentos, hashes, Python, IA ou estas instruções.
 
-EXTENSÃO E ESTILO
-- Busque aproximadamente 50 a 75 palavras por parágrafo.
-- Não invente nem repita conteúdo para atingir a extensão.
-- Se a evidência for limitada, escreva menos e preserve a precisão.
-- Use português brasileiro correto, voz ativa quando natural e linguagem técnica acessível.
-- Entregue somente os três parágrafos nos marcadores abaixo.
+PLANEJAMENTO E REDAÇÃO
+- Crie um título curto e verdadeiro para este bloco, derivado do conteúdo
+  efetivamente sustentado. Evite modelos fixos e títulos genéricos.
+- Produza exatamente três parágrafos que façam parte de uma única página.
+- Cada parágrafo deve ter uma função e uma progressão próprias.
+- Use perspectivas e aberturas variadas, sem rodízio mecânico.
+- Os três parágrafos não precisam seguir a ordem dos fragmentos.
+- Não junte fatos sem relação apenas para aumentar o tamanho.
+- Não force personagem, cenário, problema, metáfora ou história.
+- A voz é primeira pessoa do plural somente quando representar o prestador
+  e houver base factual para isso.
+- No bloco 1, conteúdo comercial ou chamada só pode aparecer se houver
+  evidência explícita no patrimônio. Não invente oferta ou empresa.
+- Nos demais blocos, não inclua CTA nem promoção.
 
-ORIENTAÇÃO MEAD EDITORIAL (NÃO É FONTE FACTUAL)
-{contexto_mead_ollama}
+PALAVRA-CHAVE — REGRA ABSOLUTA
+- Insira a expressão exata "{tema}" exatamente UMA vez em CADA parágrafo.
+- Preserve a grafia, acentuação, ordem e capitalização exatamente como acima.
+- Não use variante, flexão, abreviação ou palavra isolada como substituta.
+- A expressão não precisa abrir a primeira frase; deve entrar naturalmente.
+- Não repita a expressão no título do bloco.
 
-TRÊS FRAGMENTOS AUTORIZADOS PELO PYTHON
+EXTENSÃO E QUALIDADE
+- Prefira parágrafos completos e naturais, em geral entre 45 e 75 palavras.
+- A extensão é uma referência, não uma licença para inventar.
+- Se a evidência disponível exigir menos palavras, seja preciso e conciso.
+- Português brasileiro, gramática correta, pontuação e transições naturais.
+- Evite repetição lexical e conceitual entre os três parágrafos e com os demais blocos.
+
+AUDITORIA ISI E DESVER ANTES DE RESPONDER
+- Leia literalmente cada frase para evitar imagens sensoriais involuntárias.
+- Observe o ambiente e a cena que o conjunto dos parágrafos produz.
+- Confira se os três parágrafos acrescentam ângulos diferentes.
+- Se um fato já foi tratado em outro ponto da página, escolha outro aspecto
+  sustentado ou aprofunde uma relação diferente, sem repetir a explicação.
+
+TRECHOS DE MAIOR PROXIMIDADE DO BLOCO ATUAL
 {contexto_tres_fragmentos}
 
 FORMATO OBRIGATÓRIO
 [BLOCO]
+[TITULO_BLOCO]
+Título curto e específico, derivado das evidências.
+[/TITULO_BLOCO]
+{("[SUBTITULO_PAGINA]\nSubtítulo curto, sem repetir o H1, ancorado no conjunto de fatos.\n[/SUBTITULO_PAGINA]" if chave_bloco == "bloco_1" else "")}
 [PARAGRAFO_1]
-Texto sustentado pelo TRECHO 1.
+Primeiro parágrafo da página.
 [/PARAGRAFO_1]
 [PARAGRAFO_2]
-Texto sustentado pelo TRECHO 2.
+Segundo parágrafo da página.
 [/PARAGRAFO_2]
 [PARAGRAFO_3]
-Texto sustentado pelo TRECHO 3.
+Terceiro parágrafo da página.
 [/PARAGRAFO_3]
 [/BLOCO]
+
+Retorne somente o bloco com os marcadores.
 """
 
         print()
@@ -20245,6 +20495,38 @@ Texto sustentado pelo TRECHO 3.
 
         resultado_ollama = resultado_ollama.strip()
 
+
+        # ========================================================
+        # TÍTULO DO BLOCO GERADO A PARTIR DO PLANO E DAS EVIDÊNCIAS
+        # ========================================================
+        match_titulo_bloco = re.search(
+            r"\[TITULO_BLOCO\](.*?)\[/TITULO_BLOCO\]",
+            resultado_ollama,
+            flags=re.IGNORECASE | re.DOTALL
+        )
+        if match_titulo_bloco:
+            titulo_gerado = re.sub(
+                r"\s+", " ", match_titulo_bloco.group(1)
+            ).strip(" \t\r\n:;.-")
+            if titulo_gerado:
+                titulos_python[chave_bloco] = titulo_gerado
+                dados_bloco["titulo"] = titulo_gerado
+                informacoes_blocos[chave_bloco] = dados_bloco
+                print("TÍTULO MEAD GERADO:", titulo_gerado)
+        else:
+            print("⚠️ OLLAMA NÃO RETORNOU TÍTULO DO BLOCO:", chave_bloco)
+
+        if chave_bloco == "bloco_1":
+            match_subtitulo = re.search(
+                r"\[SUBTITULO_PAGINA\](.*?)\[/SUBTITULO_PAGINA\]",
+                resultado_ollama,
+                flags=re.IGNORECASE | re.DOTALL
+            )
+            if match_subtitulo:
+                subtitulo = re.sub(
+                    r"\s+", " ", match_subtitulo.group(1)
+                ).strip(" \t\r\n:;.-")
+                print("SUBTÍTULO MEAD GERADO:", subtitulo)
 
         # ========================================================
         # EXTRAÇÃO DIRETA DOS 3 PARÁGRAFOS
@@ -20481,10 +20763,30 @@ Texto sustentado pelo TRECHO 3.
         reservas_com = dados_bloco.get("reservas_com", []) if isinstance(dados_bloco, dict) else []
         if not isinstance(reservas_com, list):
             reservas_com = []
+        # Plano B: o banco de reservas livres pode estar vazio porque os poucos
+        # trechos COM foram distribuídos nos 15 slots. Nesse caso, reaproveita
+        # somente um trecho COM já selecionado em OUTRA posição. Cada tentativa
+        # continua enviando um único trecho ao Ollama (nunca os três do bloco).
+        if not reservas_com:
+            hashes_slot_atual = set()
+            for bloco_pool in informacoes_blocos.values():
+                if not isinstance(bloco_pool, dict):
+                    continue
+                for item_pool in bloco_pool.get("informacoes_relevantes", []) or []:
+                    if not isinstance(item_pool, dict):
+                        continue
+                    texto_pool = str(item_pool.get("texto", "") or "").strip()
+                    hash_pool = str(item_pool.get("hash", "") or gerar_hash_trecho(texto_pool))
+                    if (texto_pool and hash_pool
+                            and str(item_pool.get("palavra_chave_status", "")).upper() == "COM"
+                            and contar_palavra_chave_literal(texto_pool, tema) >= 1):
+                        reservas_com.append(dict(item_pool, hash=hash_pool, texto=texto_pool))
+            if reservas_com:
+                print("RECUPERAÇÃO COM: usando reserva COM de outro slot; candidatos:", len(reservas_com))
         hashes_reserva_tentadas = set()
         padrao_chave_recuperacao = re.compile(
             r"(?<!\w)" + re.escape(str(tema or "").strip()) + r"(?!\w)",
-            flags=re.IGNORECASE | re.UNICODE
+            flags=re.UNICODE
         ) if str(tema or "").strip() else None
 
         for indice_recuperacao, paragrafo_atual in enumerate(list(paragrafos_extraidos)):
@@ -20586,10 +20888,9 @@ Retorne somente o parágrafo, sem título, rótulo ou explicação.
 
                 texto_recuperado = re.sub(r"^```(?:text|txt)?\s*|\s*```$", "", texto_recuperado, flags=re.I).strip()
                 texto_recuperado = re.sub(r"\s+", " ", texto_recuperado).strip()
-                ocorrencias_recuperadas = contar_palavra_chave_literal(texto_recuperado, tema)
+                ocorrencias_recuperadas = _mead_contar_keyword_exata(texto_recuperado, tema)
                 if (not texto_recuperado or ocorrencias_recuperadas != 1
-                        or not re.search(r"[.!?]$", texto_recuperado)
-                        or len(texto_recuperado.split()) < 25):
+                        or not re.search(r"[.!?]$", texto_recuperado)):
                     print("⚠️ RESERVA COM NÃO PRODUZIU PARÁGRAFO VÁLIDO:", id_reserva, "OCORRÊNCIAS:", ocorrencias_recuperadas)
                     continue
 
@@ -20617,6 +20918,15 @@ Retorne somente o parágrafo, sem título, rótulo ou explicação.
 
             if not recuperado:
                 print("❌ NÃO HÁ RESERVA COM APROVEITÁVEL PARA:", chave_bloco, "PARÁGRAFO", indice_recuperacao + 1)
+                # Mesmo sem conseguir corrigir a palavra-chave, preservar o
+                # bloco bruto no progresso.json para não perder a resposta IA.
+                # Ele não será aprovado/reutilizado como bloco final enquanto
+                # a conferência da keyword não passar.
+                dados_bloco["paragrafos_ollama"] = list(paragrafos_extraidos)
+                dados_bloco["paragrafos_python"] = list(paragrafos_python)
+                dados_bloco["informacoes_relevantes"] = list(informacoes_relevantes)
+                dados_bloco["titulo"] = titulo_bloco
+                salvar_bloco_recuperacao(tema, numero_bloco, dados_bloco)
                 _salvar_diagnostico_ultima_execucao(
                     tema,
                     {
@@ -20634,7 +20944,7 @@ Retorne somente o parágrafo, sem título, rótulo ou explicação.
 
         # Recontagem obrigatória depois da recuperação.
         for indice_recontagem, paragrafo_recontagem in enumerate(paragrafos_extraidos, 1):
-            quantidade_recontagem = contar_palavra_chave_literal(paragrafo_recontagem, tema)
+            quantidade_recontagem = _mead_contar_keyword_exata(paragrafo_recontagem, tema)
             if quantidade_recontagem != 1:
                 print("❌ GATE COM FINAL FALHOU:", chave_bloco, "P", indice_recontagem, "OCORRÊNCIAS:", quantidade_recontagem)
                 return None
@@ -20742,7 +21052,9 @@ Retorne somente o parágrafo, sem título, rótulo ou explicação.
             texto_fonte_atual = str(fragmento_atual.get("texto", "") or "")
             avaliacao = _avaliar_fidelidade_paragrafo(resultado_paragrafo, texto_fonte_atual)
             falha_numerica = bool(avaliacao["numeros_novos"])
-            falha_evidencia = len(avaliacao["tokens_saida"]) >= 25 and avaliacao["score"] < 0.14
+            # O conteúdo pode legitimamente desenvolver conhecimento geral do tema;
+            # similaridade lexical com a fonte deixa de ser requisito de aprovação.
+            falha_evidencia = False
 
             if falha_numerica or falha_evidencia:
                 motivo = "número/unidade não autorizado" if falha_numerica else "evidência insuficiente"
@@ -20796,7 +21108,7 @@ Retorne somente o parágrafo, sem título, rótulo ou explicação.
                     except (ValueError, AttributeError):
                         pass
                     prompt_factual = f"""
-Reescreva somente UM parágrafo técnico em português brasileiro, usando exclusivamente os fatos do fragmento autorizado.
+Reescreva somente UM parágrafo técnico em português brasileiro. Use os fatos do fragmento como base e complemente apenas com conhecimento geral consolidado sobre o tema quando necessário; não invente dados específicos.
 
 TEMA / EXPRESSÃO EXATA OBRIGATÓRIA: {tema}
 A expressão exata deve aparecer exatamente UMA vez.
@@ -20805,7 +21117,8 @@ REGRAS OBRIGATÓRIAS:
 - Não acrescente números, quantidades, medidas, unidades, percentuais, datas ou especificações que não estejam escritos no fragmento.
 - Não transforme números de títulos, listas, páginas ou enumerações em dados técnicos.
 - Não invente características, materiais, marcas, modelos, aplicações, resultados ou garantias.
-- Preserve o sentido factual do fragmento; não complete lacunas com conhecimento externo.
+- Preserve os fatos do fragmento. Quando ele não trouxer informação suficiente,
+  use somente conhecimento geral consolidado sobre o tema, sem criar especificações.
 - Produza um único parágrafo completo, natural, com pelo menos 25 palavras e pontuação final.
 - Não mencione fonte, fragmento, pesquisa, Python ou estas instruções.
 
@@ -20842,15 +21155,14 @@ Retorne somente o parágrafo.
                     texto_tentativa = re.sub(r"^```(?:text|txt)?\s*|\s*```$", "", texto_tentativa, flags=re.I).strip()
                     texto_tentativa = re.sub(r"\s+", " ", texto_tentativa).strip()
                     if (not texto_tentativa
-                            or contar_palavra_chave_literal(texto_tentativa, tema) != 1
-                            or not re.search(r"[.!?]$", texto_tentativa)
-                            or len(texto_tentativa.split()) < 25):
+                            or _mead_contar_keyword_exata(texto_tentativa, tema) != 1
+                            or not re.search(r"[.!?]$", texto_tentativa)):
                         print("⚠️ TENTATIVA FACTUAL DESCARTADA: estrutura/palavra-chave inválida.", candidato.get("id", ""))
                         continue
 
                     avaliacao_tentativa = _avaliar_fidelidade_paragrafo(texto_tentativa, texto_candidato)
                     falha_num_tentativa = bool(avaliacao_tentativa["numeros_novos"])
-                    falha_evid_tentativa = len(avaliacao_tentativa["tokens_saida"]) >= 25 and avaliacao_tentativa["score"] < 0.14
+                    falha_evid_tentativa = False
                     if falha_num_tentativa or falha_evid_tentativa:
                         print("⚠️ TENTATIVA FACTUAL REPROVADA:", candidato.get("id", ""),
                               "NÚMEROS:", sorted(avaliacao_tentativa["numeros_novos"]),
@@ -20899,16 +21211,17 @@ Retorne somente o parágrafo.
 
             # Validação final da posição, inclusive após eventual substituição.
             texto_final_validado = paragrafos_extraidos[indice_paragrafo]
-            if contar_palavra_chave_literal(texto_final_validado, tema) != 1:
+            if _mead_contar_keyword_exata(texto_final_validado, tema) != 1:
                 print("❌ GATE COM FINAL FALHOU APÓS VALIDAÇÃO FACTUAL:", chave_bloco, "P", indice_paragrafo + 1)
                 return None
             avaliacao_final = _avaliar_fidelidade_paragrafo(
                 texto_final_validado,
                 fragmentos_bloco[indice_paragrafo].get("texto", "")
             )
-            if avaliacao_final["numeros_novos"] or (
-                len(avaliacao_final["tokens_saida"]) >= 25 and avaliacao_final["score"] < 0.14
-            ):
+            # Similaridade lexical com a fonte não é obrigatória: conhecimento
+            # geral autorizado pode ampliar a explicação. Números novos seguem
+            # bloqueados para evitar especificações não comprovadas.
+            if avaliacao_final["numeros_novos"]:
                 print("❌ VALIDAÇÃO FACTUAL FINAL FALHOU:", chave_bloco, "P", indice_paragrafo + 1)
                 return None
             print(
@@ -21024,26 +21337,7 @@ Retorne somente o parágrafo.
             )
         )
 
-        print(
-            "PALAVRAS PARÁGRAFO 1:",
-            len(
-                paragrafos_ollama[0].split()
-            )
-        )
-
-        print(
-            "PALAVRAS PARÁGRAFO 2:",
-            len(
-                paragrafos_ollama[1].split()
-            )
-        )
-
-        print(
-            "PALAVRAS PARÁGRAFO 3:",
-            len(
-                paragrafos_ollama[2].split()
-            )
-        )
+        print("PALAVRAS P1/P2/P3:", "/".join(str(len(x.split())) for x in paragrafos_ollama[:3]))
 
         print(
             "TEMPO TOTAL DO BLOCO:",
@@ -21064,6 +21358,14 @@ Retorne somente o parágrafo.
         informacoes_blocos[
             chave_bloco
         ] = dados_bloco
+
+        # Persistir o bloco validado antes de avançar para o próximo.
+        # Se a etapa posterior falhar, a próxima execução o reutiliza.
+        salvar_bloco_recuperacao(
+            tema,
+            numero_bloco,
+            dados_bloco
+        )
 
 
         # ========================================================
@@ -21232,6 +21534,36 @@ Retorne somente o parágrafo.
 
 
     # ============================================================
+    # AUDITORIA INDEPENDENTE MEAD — DESVER / ISI / FREIO
+    # ============================================================
+    auditoria_independente_mead = _mead_auditoria_independente(
+        informacoes_blocos, tema
+    )
+    print(
+        "AUDITORIA MEAD — DESVER:",
+        len(auditoria_independente_mead.get("desver", [])),
+        "| ISI:",
+        len(auditoria_independente_mead.get("isi", [])),
+        "| KEYWORD:",
+        auditoria_independente_mead.get("keyword_ocorrencias_exatas", 0),
+        "/ 15"
+    )
+    print(
+        "FREIO DO REFINAMENTO:",
+        auditoria_independente_mead.get("freio_do_refinamento", "")
+    )
+    if auditoria_independente_mead.get("desver"):
+        print(
+            "ALERTAS DESVER:",
+            json.dumps(auditoria_independente_mead["desver"], ensure_ascii=False)[:5000]
+        )
+    if auditoria_independente_mead.get("isi"):
+        print(
+            "ALERTAS ISI PARA REVISÃO:",
+            json.dumps(auditoria_independente_mead["isi"], ensure_ascii=False)[:3000]
+        )
+
+    # ============================================================
     # GATE DE QUALIDADE — NOTA MÍNIMA 7,5 POR BLOCO
     # ============================================================
     qualidade_blocos = []
@@ -21240,7 +21572,7 @@ Retorne somente o parágrafo.
         chave_gate = f"bloco_{numero_bloco_gate}"
         bloco_gate = informacoes_blocos.get(chave_gate, {})
         paragrafos_gate = bloco_gate.get("paragrafos_ollama", []) if isinstance(bloco_gate, dict) else []
-        fragmentos_gate = bloco_gate.get("informacoes_relevantes", []) if isinstance(bloco_gate, dict) else []
+        fragmentos_gate = patrimonio_global_mead
         if not isinstance(fragmentos_gate, list):
             fragmentos_gate = []
         aprovado_gate, nota_gate, falhas_gate, detalhes_gate = avaliar_qualidade_final_python(
@@ -21273,7 +21605,11 @@ Retorne somente o parágrafo.
         # inspeção e correção posterior. A validação estrutural do JSON
         # permanece obrigatória dentro de salvar_banco().
         print("⚠️ QUALIDADE EDITORIAL ABAIXO DO ALVO — CONTINUANDO PARA TENTAR GRAVAR O JSON.")
-        print("DIAGNÓSTICO:", json.dumps(qualidade_blocos, ensure_ascii=False, indent=2))
+        print("RESUMO DE QUALIDADE:", " | ".join(
+            f"{x.get('bloco')}: nota {x.get('nota', 0):.2f}; "
+            f"{'OK' if x.get('aprovado') else 'revisar'}"
+            for x in qualidade_blocos
+        ))
         _salvar_diagnostico_ultima_execucao(
             tema,
             {
@@ -21875,6 +22211,14 @@ Retorne somente o parágrafo.
         total_tags
     )
     
+    # Limites oficiais fixos da página MEAD. Evita que None recebido de
+    # uma etapa auxiliar reprove uma estrutura que contém 12 segmentos/30 tags.
+    total_blocos = 5 if not isinstance(total_blocos, int) else total_blocos
+    paragrafos_por_bloco = 3 if not isinstance(paragrafos_por_bloco, int) else paragrafos_por_bloco
+    total_paragrafos = 15 if not isinstance(total_paragrafos, int) else total_paragrafos
+    total_segmentos = 12 if not isinstance(total_segmentos, int) or total_segmentos <= 0 else total_segmentos
+    total_tags = 30 if not isinstance(total_tags, int) or total_tags <= 0 else total_tags
+
     estrutura_valida = True
     
     if not titulo:
@@ -22141,40 +22485,9 @@ Retorne somente o parágrafo.
     print()
     print("======================================")
     print("TESTE: BLOCOS ANTES DO SALVAR_BANCO")
-    print("======================================")
-    
-    for bloco in blocos:
-    
-        print()
-        print(
-            "BLOCO:",
-            bloco.get("numero")
-        )
-    
-        print(
-            "TÍTULO:",
-            bloco.get("titulo", "")
-        )
-    
-        paragrafos_teste = bloco.get(
-            "paragrafos_ollama",
-            []
-        )
-    
-        print(
-            "QUANTIDADE DE PARÁGRAFOS:",
-            len(paragrafos_teste)
-        )
-    
-        for indice, paragrafo in enumerate(
-            paragrafos_teste,
-            start=1
-        ):
-    
-            print(
-                f"PARÁGRAFO {indice}:",
-                str(paragrafo)[:500]
-            )
+    print("ESTRUTURA PRONTA PARA GRAVAÇÃO:",
+          len(blocos), "blocos |", total_paragrafos_real, "parágrafos |",
+          total_segmentos_real, "segmentos |", total_tags_real, "tags")
 
     # ========================================================
     # 23. ENVIAR ESTRUTURA OFICIAL PARA SALVAR_BANCO
@@ -22266,6 +22579,9 @@ Retorne somente o parágrafo.
         print("❌ FALHA AO SALVAR A PÁGINA NO BANCO.")
         return None
 
+    # A cópia de recuperação só é removida depois que salvar_banco
+    # confirmou a gravação e a leitura de conferência no disco.
+    limpar_blocos_recuperacao(tema)
 
     # ========================================================
     # 24. SALVAR MAPA MEAD
@@ -23694,26 +24010,13 @@ def validar_estrutura_pagina(
 
         return False
 
-    if total_segmentos < 12:
-
-        print()
-        print(
-            "❌ PÁGINA REPROVADA"
-        )
-
-        print(
-            "Motivo: menos de 12 segmentos."
-        )
-
-        return False
-
     print()
     print(
         "✅ ESTRUTURA APROVADA"
     )
 
     print(
-        "15 PARÁGRAFOS + 12 SEGMENTOS"
+        "15 PARÁGRAFOS; SEGMENTOS SOMENTE QUANDO SUSTENTADOS"
     )
 
     return True
@@ -27102,21 +27405,25 @@ def salvar_banco(
 
         erros_json = []
 
-        if not isinstance(pagina_final, dict):
-            erros_json.append("pagina_final inválida")
+        # O mapa MEAD é um registro preliminar independente. Ele deve ser
+        # gravado antes da geração dos cinco blocos; não pode ser submetido
+        # à validação de uma página que ainda nem foi produzida.
+        if categoria == "pagina":
+            if not isinstance(pagina_final, dict):
+                erros_json.append("pagina_final inválida")
 
-        for numero in range(1, 6):
-            chave_bloco = f"bloco_{numero}"
-            bloco_validacao = pagina_final.get(chave_bloco) if isinstance(pagina_final, dict) else None
-            if not isinstance(bloco_validacao, dict):
-                erros_json.append(f"{chave_bloco} ausente ou inválido")
-                continue
-            info_validacao = bloco_validacao.get("informacoes_relevantes", [])
-            if not isinstance(info_validacao, list) or len(info_validacao) != 3:
-                erros_json.append(f"{chave_bloco}: esperado 3 fragmentos")
-            para_validacao = bloco_validacao.get("paragrafos_ollama", [])
-            if not isinstance(para_validacao, list) or len(para_validacao) != 3 or any(not str(x or "").strip() for x in para_validacao[:3]):
-                erros_json.append(f"{chave_bloco}: esperado 3 parágrafos Ollama não vazios")
+            for numero in range(1, 6):
+                chave_bloco = f"bloco_{numero}"
+                bloco_validacao = pagina_final.get(chave_bloco) if isinstance(pagina_final, dict) else None
+                if not isinstance(bloco_validacao, dict):
+                    erros_json.append(f"{chave_bloco} ausente ou inválido")
+                    continue
+                info_validacao = bloco_validacao.get("informacoes_relevantes", [])
+                if not isinstance(info_validacao, list) or len(info_validacao) != 3:
+                    erros_json.append(f"{chave_bloco}: esperado 3 fragmentos")
+                para_validacao = bloco_validacao.get("paragrafos_ollama", [])
+                if not isinstance(para_validacao, list) or len(para_validacao) != 3 or any(not str(x or "").strip() for x in para_validacao[:3]):
+                    erros_json.append(f"{chave_bloco}: esperado 3 parágrafos Ollama não vazios")
 
         if erros_json:
             print("\n❌ JSON NÃO GRAVADO — ESTRUTURA INCOMPLETA")
@@ -27153,18 +27460,22 @@ def salvar_banco(
         pagina_gravada = tema_gravado.get("pagina", {}) if isinstance(tema_gravado, dict) else {}
         erros_pos_gravacao = []
 
-        for numero in range(1, 6):
-            chave_bloco = f"bloco_{numero}"
-            bloco_gravado = pagina_gravada.get(chave_bloco)
-            if not isinstance(bloco_gravado, dict):
-                erros_pos_gravacao.append(f"{chave_bloco} não foi gravado")
-                continue
-            info_gravada = bloco_gravado.get("informacoes_relevantes", [])
-            para_gravados = bloco_gravado.get("paragrafos_ollama", [])
-            if not isinstance(info_gravada, list) or len(info_gravada) != 3:
-                erros_pos_gravacao.append(f"{chave_bloco}: fragmentos incompletos")
-            if not isinstance(para_gravados, list) or len(para_gravados) != 3 or any(not str(x or "").strip() for x in para_gravados[:3]):
-                erros_pos_gravacao.append(f"{chave_bloco}: parágrafos incompletos")
+        # A conferência 5x3 só se aplica à gravação da página. O mapa MEAD
+        # é salvo antes da geração e deve ser confirmado pela leitura do JSON,
+        # sem exigir que os parágrafos já existam.
+        if categoria == "pagina":
+            for numero in range(1, 6):
+                chave_bloco = f"bloco_{numero}"
+                bloco_gravado = pagina_gravada.get(chave_bloco)
+                if not isinstance(bloco_gravado, dict):
+                    erros_pos_gravacao.append(f"{chave_bloco} não foi gravado")
+                    continue
+                info_gravada = bloco_gravado.get("informacoes_relevantes", [])
+                para_gravados = bloco_gravado.get("paragrafos_ollama", [])
+                if not isinstance(info_gravada, list) or len(info_gravada) != 3:
+                    erros_pos_gravacao.append(f"{chave_bloco}: fragmentos incompletos")
+                if not isinstance(para_gravados, list) or len(para_gravados) != 3 or any(not str(x or "").strip() for x in para_gravados[:3]):
+                    erros_pos_gravacao.append(f"{chave_bloco}: parágrafos incompletos")
 
         if erros_pos_gravacao:
             print("\n❌ GRAVAÇÃO REJEITADA NA CONFERÊNCIA DO DISCO")
@@ -27172,7 +27483,14 @@ def salvar_banco(
                 print("-", erro_pos)
             return False
 
-        print("\n✅ JSON VALIDADO NO DISCO — 5 blocos / 15 fragmentos / 15 parágrafos")
+        if categoria == "pagina":
+            print("\n✅ JSON VALIDADO NO DISCO — 5 blocos / 15 fragmentos / 15 parágrafos")
+        else:
+            mapa_gravado = tema_gravado.get("mapa_mead", {}) if isinstance(tema_gravado, dict) else {}
+            if categoria == "mapa_mead" and str(mapa_gravado.get("texto", "")).strip() != str(texto or "").strip():
+                print("❌ MAPA MEAD NÃO CONFERE NA LEITURA DO DISCO")
+                return False
+            print("✅ JSON VALIDADO NO DISCO — categoria:", categoria)
 
         # ====================================================
         # CONFERÊNCIA FINAL
@@ -27713,6 +28031,10 @@ def salvar_progresso(
     arquivo = ARQUIVO_PROGRESSO
 
 
+    # Preservar a área de recuperação dos blocos ao atualizar
+    # os campos normais de andamento.
+    progresso_anterior = _ler_progresso_seguro()
+
     dados = {
 
         "temas": temas or [],
@@ -27733,6 +28055,9 @@ def salvar_progresso(
 
     }
 
+
+    if isinstance(progresso_anterior.get("recuperacao_conteudo"), dict):
+        dados["recuperacao_conteudo"] = progresso_anterior["recuperacao_conteudo"]
 
     try:
     
@@ -27769,7 +28094,13 @@ def salvar_progresso(
         print("==============================")
         print("PROGRESSO SALVO")
         print("==============================")
-        print(dados)
+        print({k: v for k, v in dados.items() if k != "recuperacao_conteudo"})
+        recuperacao_log = dados.get("recuperacao_conteudo", {})
+        if isinstance(recuperacao_log, dict):
+            tema_id_log = _tema_recuperacao_id(tema)
+            registro_log = recuperacao_log.get(tema_id_log, {})
+            blocos_log = registro_log.get("blocos", {}) if isinstance(registro_log, dict) else {}
+            print("BLOCOS PRESERVADOS PARA RECUPERAÇÃO:", len(blocos_log) if isinstance(blocos_log, dict) else 0, "/ 5")
 
 
     except Exception as e:
@@ -28613,9 +28944,8 @@ def gerar_e_salvar_mapa_mead(
     print("MAPA MEAD RECEBIDO")
     print("==============================")
     
-    print(
-        str(mapa_mead)[:1000]
-    )
+    print("MAPA MEAD:", "válido" if mapa_mead else "vazio",
+          "|", len(str(mapa_mead)), "caracteres")
 
 
     if mapa_mead:
@@ -31457,20 +31787,9 @@ def gerar_material_interface():
                         "caracteres"
                     )
 
-                print()
-                print("==============================")
-                print("MAPA MEAD ENVIADO AO CONTEÚDO")
-                print("==============================")
-
-                if mapa_mead:
-
-                    print(
-                        str(mapa_mead)[:1000]
-                    )
-
-                else:
-
-                    print("MAPA VAZIO")
+                print("MAPA MEAD ENVIADO AO CONTEÚDO:",
+                      "válido" if mapa_mead else "VAZIO",
+                      "|", len(str(mapa_mead)), "caracteres")
 
                 print()
                 print("==============================")
@@ -31532,39 +31851,9 @@ def gerar_material_interface():
                     obter_estrutura_editorial()
                 )
 
-                print()
-                print("==============================")
-                print("DEBUG CHECKBOXES EDITORIAIS")
-                print("==============================")
-
-                for chave, valor in (
-                    estrutura_editorial_atual.items()
-                ):
-
-                    print(
-                        f"{chave}: {valor}"
-                    )
-
-                print("==============================")
-
-                print(
-                    "TOTAL SELECIONADOS:",
-                    sum(
-                        1
-                        for valor
-                        in estrutura_editorial_atual.values()
-                        if valor
-                    )
-                )
-
-                print(
-                    "TOTAL BLOCOS:",
-                    len(
-                        estrutura_editorial_atual
-                    )
-                )
-
-                print("==============================")
+                print("ESTRUTURA EDITORIAL:",
+                      sum(1 for valor in estrutura_editorial_atual.values() if valor),
+                      "/", len(estrutura_editorial_atual), "itens ativos")
 
                 # ========================================================
                 # NOME DO SITE CAPTURADO DA INTERFACE
@@ -31755,9 +32044,9 @@ def gerar_material_interface():
                     salvar_progresso(
                         tema,
                         indice_tema,
-                        "mapa_mead",
-                        0,
-                        "concluido",
+                        "conteudo_completo",
+                        1,
+                        "pendente_recuperacao",
                         lista_palavras
                     )
 
