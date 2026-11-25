@@ -1,3 +1,10 @@
+# versão 7.42 — 25/11/2026
+# v7.44: cronômetro reiniciado por tema e atualizado na linha de status até o fim do processamento.
+# v7.41: corrige seleção multilíngue, subtítulo independente, B1 institucional controlado e DOCX do bloco 2; remove CTA fixa.
+# v7.40: refinamento editorial — preserva/extrai títulos dinâmicos, prosa corrida sem listas/fichas,
+# faixa 40–55 palavras como referência editorial, títulos preservados no JSON, tipos de bomba separados e B1 comercial
+# explicitamente relacionado à keyword, variado e sem CTA genérico não sustentado.
+# Base v7.39: parágrafos objetivos/comercial B1, arquitetura de 15 evidências e reservas.
 # versão 7.33 — 24/11/2026
 # v7.34: teste editorial MEAD — progressão temática, diversidade entre parágrafos e auditoria de repetição; mantém Qwen3.5:4b e arquitetura de 1 chamada/15 parágrafos.
 # v7.32: preserva resposta global/parcial nas atualizações do progresso; recupera 15 parágrafos sem marcadores por fronteiras de frases, quando há conteúdo suficiente; mantém uma chamada Ollama.
@@ -4256,7 +4263,6 @@ def gerar_entendimento_produto(
         "fontes_prioritarias": [
 
             "manual técnico",
-            "datasheet",
             "catálogo técnico",
             "documentação técnica",
             "norma técnica",
@@ -11488,11 +11494,6 @@ def selecionar_informacoes_relevantes(
             "why choose",
             "our products",
             "our product",
-            "nossos produtos",
-            "nossa empresa",
-            "sobre nossa empresa",
-            "conheca nossa empresa",
-            "conheça nossa empresa",
             "fale com nossa equipe"
 
         ]
@@ -11684,15 +11685,12 @@ def selecionar_informacoes_relevantes(
             "especificações técnicas",
             "especificacion tecnica",
             "especificaciones tecnicas",
-            "technical specifications",
-            "technical data",
             "dados tecnicos",
             "dados técnicos",
             "caracteristicas tecnicas",
             "características técnicas",
             "ficha tecnica",
             "ficha técnica",
-            "technical datasheet",
             "datasheet",
             "modelo:",
             "model:",
@@ -11794,15 +11792,6 @@ def selecionar_informacoes_relevantes(
             "empresa expert",
             "somos especialistas",
             "somos especialista",
-            "nossa experiencia",
-            "nossa experiência",
-            "nossa equipe",
-            "nossos produtos",
-            "nossa empresa",
-            "a empresa oferece",
-            "a empresa fornece",
-            "a empresa comercializa",
-            "a empresa trabalha",
             "entre em contato",
             "fale conosco",
             "solicite um orçamento",
@@ -11864,35 +11853,10 @@ def selecionar_informacoes_relevantes(
         # 10. IDIOMA ESTRANGEIRO / CATÁLOGO BRUTO
         # ====================================================
 
-        marcadores_estrangeiros = [
-
-            "technical specifications",
-            "technical data",
-            "product specifications",
-            "centrifugal pump technology",
-            "water pump",
-            "pump model",
-            "especificaciones tecnicas",
-            "especificaciones técnicas",
-            "detalles",
-            "caracteristicas tecnicas",
-            "características técnicas"
-        ]
-
-        ocorrencias_estrangeiras = 0
-
-        for marcador in marcadores_estrangeiros:
-
-            if (
-                normalizar_assunto_texto(
-                    marcador
-                )
-                in texto_normalizado
-            ):
-                ocorrencias_estrangeiras += 1
-
-        if ocorrencias_estrangeiras >= 1:
-            return False
+        # Fontes em outros idiomas não são rejeitadas apenas pelo idioma.
+        # A aderência temática e os filtros de identidade, catálogo e
+        # contaminação continuam ativos; o prompt orienta a interpretação
+        # da evidência e a redação final exclusivamente em PT-BR.
 
         # ====================================================
         # 11. NOME DE PESSOA COMO CRÉDITO
@@ -12329,6 +12293,38 @@ def selecionar_informacoes_relevantes(
                 )
 
             )
+
+            # Equivalências lexicais multilíngues conservadoras para que
+            # fontes estrangeiras relevantes não sejam descartadas antes
+            # de o Ollama poder interpretá-las e redigir em PT-BR.
+            equivalencias_tema = {
+                "chinelo": {"flip", "flop", "flipflop", "sandals", "sandal"},
+                "borracha": {"rubber", "latex", "elastomer"},
+                "bomba": {"pump", "pumps"},
+                "centrifuga": {"centrifugal"},
+                "agua": {"water"},
+                "valvula": {"valve", "valves"},
+                "tubulacao": {"pipe", "piping", "pipeline"},
+                "vedacao": {"seal", "sealing", "gasket"},
+                "rolamento": {"bearing", "bearings"},
+                "motor": {"motor", "engine"},
+                "compressor": {"compressor", "compressors"},
+                "filtro": {"filter", "filters"},
+                "mangueira": {"hose", "hoses"},
+                "conexao": {"fitting", "fittings", "connection"},
+                "aco": {"steel"},
+                "inox": {"stainless"},
+                "plastico": {"plastic"},
+                "industrial": {"industrial"},
+            }
+            for palavra_tema in palavras_tema:
+                radical_tema = palavra_tema.rstrip("s")
+                sinonimos = set(equivalencias_tema.get(palavra_tema, set()))
+                sinonimos.update(equivalencias_tema.get(radical_tema, set()))
+                # Só considera representada a palavra correspondente; não
+                # permite que um único sinônimo valide todo o tema composto.
+                if sinonimos.intersection(palavras_fragmento):
+                    palavras_fragmento.add(palavra_tema)
 
 
             # ----------------------------------------------------
@@ -14233,6 +14229,27 @@ def selecionar_informacoes_relevantes(
             return 0
 
         pontuacao = 0
+
+        # ----------------------------------------------------
+        # PRIORIDADE COMERCIAL DO BLOCO 1 (FLEXÍVEL)
+        # Pontua evidências reais de fornecimento/contratação;
+        # não transforma ausência de evidência em reprovação.
+        # ----------------------------------------------------
+        if chave_bloco == "bloco_1":
+            termos_comerciais_b1 = (
+                "fornecimento", "fornecedor", "fornecedores",
+                "fabricacao", "fabricante", "fabricantes",
+                "distribuicao", "distribuidor", "distribuidores",
+                "comercializacao", "comercializa", "comercializado",
+                "contratacao", "aquisicao", "compra", "venda",
+                "orcamento", "cotacao", "escopo", "atendimento",
+                "servico", "servicos", "produto", "produtos"
+            )
+            sinais_comerciais = sum(
+                1 for termo in termos_comerciais_b1
+                if termo in texto_normalizado
+            )
+            pontuacao += min(32, sinais_comerciais * 8)
 
         # ----------------------------------------------------
         # A. COMPATIBILIDADE COM O OBJETIVO DO BLOCO
@@ -18881,8 +18898,16 @@ MOTOR EDITORIAL MEAD/SEVEN — ESPECIFICAÇÃO OPERACIONAL
 9. Aplicar o Freio do Refinamento: não reescrever texto adequado sem erro ou ganho verificável.
 A keyword completa, com grafia, acentuação, ordem e capitalização idênticas ao tema, deve aparecer exatamente uma vez em cada parágrafo SEO.
 A estrutura de cinco blocos e três parágrafos por bloco é contrato de saída, não roteiro semântico obrigatório.
+Cada parágrafo deve ser prosa corrida; não produzir listas, tabelas, fichas técnicas,
+bullets, enumerações, subtítulos ou tópicos dentro dos parágrafos SEO.
+Quando houver tipos ou variantes de equipamento, não misturar categorias distintas;
+no caso de bombas, separar centrífuga geral, sanitária, submersível e autoaspirante,
+sem transferir características de uma para outra.
 Use voz em primeira pessoa do plural somente quando representar o prestador/empresa e houver evidência para isso.
 Não invente especificações, aplicações, materiais, serviços, empresas, marcas, preços, certificações, garantias, disponibilidade ou promessas.
+No bloco 1, conteúdo comercial precisa se referir explicitamente à expressão-chave da página,
+ser variado entre páginas e estar sustentado pelo patrimônio; não usar CTA genérico como
+"Entre em contato" nem afirmar experiência, qualidade, equipe, pagamento ou região sem prova.
 Tags e itens de lista só podem ser incluídos quando forem verdadeiros, compatíveis com o tema e sustentados pelo patrimônio; não preencher quotas artificiais.
 """
 
@@ -19949,11 +19974,12 @@ def gerar_conteudo_completo(
                 continue
             _texto = str(_frag.get("texto", "") or "").strip()
             _hash = str(_frag.get("hash", "") or "").strip()
-            _status = str(_frag.get("palavra_chave_status", "SEM") or "SEM").upper()
             if _hash:
                 hashes_pagina.append(_hash)
+            # O Ollama recebe apenas a posição editorial e o texto autorizado.
+            # IDs, hashes e status internos permanecem no Python/log/banco.
             partes_patrimonio_pagina.append(
-                f"[EVIDENCIA {_chave} P{_pos} | STATUS={_status} | HASH={_hash or 'SEM_HASH'}]\n{_texto}"
+                f"[EVIDENCIA {_chave} P{_pos}]\n{_texto}"
             )
 
     hashes_unicos_pagina = [h for h in hashes_pagina if h]
@@ -19968,16 +19994,15 @@ Você é o redator técnico-editorial MEAD/SEVEN. Escreva UMA página completa e
 TEMA E EXPRESSÃO-CHAVE EXATA: {palavra_chave_redacao}
 ESTRUTURA OBRIGATÓRIA: 5 blocos, 3 parágrafos em cada bloco, total de 15 parágrafos.
 
-PATRIMÔNIO GLOBAL E PLANO EDITORIAL:
-{contexto_global_pagina}
-
-REGRAS MEAD:
-{contexto_mead_ollama_base}
+CONTEXTO EDITORIAL COMPACTO:
+Use exclusivamente as 15 evidências específicas apresentadas mais abaixo como base factual.
+Não há necessidade de repetir mapas, bancos, fontes brutas ou patrimônios paralelos.
+Preserve a progressão dos cinco blocos e não complete lacunas com suposições.
 
 DIRETRIZES DE FIDELIDADE E AUTORIA — ABORDAGEM FLEXÍVEL:
 - Leia os 15 fragmentos como patrimônio informativo autorizado. Antes de redigir, planeje mentalmente a progressão dos cinco blocos e distribua os assuntos para que a página avance sem voltar repetidamente ao mesmo ponto.
 - PROGRESSÃO EDITORIAL OBRIGATÓRIA, adaptada ao que as fontes realmente permitem afirmar:
-  BLOCO 1 — apresentar o equipamento/serviço e explicar seu princípio, finalidade ou contexto fundamental.
+  BLOCO 1 — PRIORIDADE COMERCIAL E INSTITUCIONAL: quando as evidências autorizarem, apresente a relação da nossa empresa com a palavra-chave exata, usando naturalmente expressões como “nossa empresa”, “nossos profissionais”, “nossos funcionários”, “nossa equipe”, “fornecemos” ou “atendimento”. Distribua esses aspectos entre os três parágrafos, varie a redação de página para página e relacione cada afirmação diretamente ao tema. Não invente identidade, equipe, oferta, disponibilidade, preço, orçamento, prazo ou condição comercial. Se não houver evidência comercial, use fatos autorizados sem criar uma oferta.
   BLOCO 2 — desenvolver características, componentes, configurações ou diferenças entre tipos, sem repetir a definição do bloco 1.
   BLOCO 3 — explicar critérios de escolha, dimensionamento, compatibilidade, condições de operação ou decisão técnica.
   BLOCO 4 — desenvolver aplicações e segmentos de uso concretos, explicando por que cada contexto demanda aquela solução. Não transformar nomes de empresas ou termos comerciais em aplicações.
@@ -19986,11 +20011,18 @@ DIRETRIZES DE FIDELIDADE E AUTORIA — ABORDAGEM FLEXÍVEL:
 - Antes de escrever cada parágrafo, identifique mentalmente qual informação nova ele acrescentará. Se a ideia central já apareceu, não a reformule: escolha outro ângulo ou explique uma condição diferente sustentada pelas fontes.
 - Evite repetir fórmulas como eficiência, resistência, segurança, confiabilidade, qualidade e economia sem explicar concretamente de onde vem o benefício, em quais condições ocorre e quais limites existem.
 - Não use adjetivos promocionais vazios como “design inovador”, “alta eficiência”, “resistência comprovada”, “melhor escolha”, “solução ideal” ou “temperaturas extremas” sem evidência específica e contextualizada. Prefira descrever a característica verificável e sua consequência prática.
-- Use fatos sustentados pelo patrimônio. Conhecimento técnico geral só pode esclarecer conceitos amplamente estabelecidos; não pode acrescentar especificações, compatibilidades, materiais, capacidades, normas ou aplicações particulares ausentes das fontes.
-- Não invente números, medidas, capacidades, materiais, marcas, modelos, fabricantes, normas, certificações, aplicações particulares, serviços, preços, garantias, disponibilidade, resultados ou promessas. Não invente dados comerciais nem fale em nome de uma empresa sem evidência explícita.
+- FIDELIDADE ESTRITA: use somente informações que estejam expressamente presentes nas 15 evidências. Não use conhecimento geral para completar, corrigir ou ampliar o conteúdo. Se uma evidência for insuficiente, escreva menos; não preencha lacunas.
+- NÃO MISTURE EQUIPAMENTOS: não trate versões sanitárias, submersas, autoaspirantes, bombas de deslocamento positivo ou outros tipos como se fossem o mesmo equipamento. Só compare ou relacione tipos diferentes quando a própria evidência trouxer essa comparação de forma explícita. Preserve o escopo e as condições de cada informação.
+- NÃO INVENTE números, medidas, capacidades, materiais, marcas, modelos, fabricantes, normas, certificações, aplicações particulares, serviços, preços, garantias, disponibilidade, resultados ou promessas. Não invente dados comerciais nem fale em nome de uma empresa sem evidência explícita.
+- IDIOMA OBRIGATÓRIO: escreva exclusivamente em português brasileiro. As evidências podem estar em inglês, espanhol ou outro idioma: interprete e traduza mentalmente os fatos relevantes antes de redigir. Não copie frases estrangeiras nem descarte um fato apenas porque a fonte está em outro idioma. Preserve nomes técnicos e unidades somente quando necessários e sustentados pela evidência.
 - Não mencione fontes, fragmentos, hashes, Python, Ollama ou estas instruções.
-- Prefira parágrafos completos, claros, naturais e bem pontuados. A faixa de 45 a 75 palavras é apenas orientativa: não alongue nem encurte artificialmente; priorize conteúdo útil e específico.
-- Em cada um dos 15 parágrafos, inclua a expressão exata "{palavra_chave_redacao}" uma única vez, com esta capitalização e acentuação. Não a repita para garantir SEO: após a primeira ocorrência, use referências naturais como "o equipamento", "esse sistema" ou pronomes, quando cabíveis.
+- OBJETIVIDADE: cada parágrafo deve ter preferencialmente entre 40 e 55 palavras. Não existe mínimo obrigatório: se a evidência sustentar uma explicação completa em menos palavras, mantenha o parágrafo curto. Nunca aumente o texto apenas para atingir uma contagem.
+- SEM ENROLAÇÃO: elimine chamadas genéricas, frases promocionais, introduções que apenas anunciam o assunto, conclusões óbvias e repetições da mesma ideia. Não use expressões como "confira as vantagens", "solução ideal", "alta qualidade", "excelente desempenho", "ampla gama" ou equivalentes sem informação factual específica que as comprove.
+- DENSIDADE INFORMATIVA: cada frase deve acrescentar um fato autorizado, explicar uma relação presente na evidência ou esclarecer uma condição expressamente indicada. Se a frase não acrescentar informação, remova-a.
+- PRECISÃO: prefira nomes técnicos e verbos concretos. Não generalize uma característica de um modelo para todos os equipamentos da categoria. Não transforme uma possibilidade em garantia ou regra universal.
+- FLUIDEZ: varie naturalmente a construção das frases. Evite repetir a mesma abertura, estrutura sintática ou conclusão nos parágrafos próximos.
+- AUTONOMIA: cada parágrafo deve ser compreensível por si, sem referentes vagos como "conforme mencionado", "nesse sentido" ou "essa característica" quando não estiver claro a que se referem.
+- Em cada um dos 15 parágrafos, inclua a expressão exata "{palavra_chave_redacao}" uma única vez, com esta capitalização e acentuação. Não altere a expressão-chave para tentar fazê-la concordar com a frase. Construa a frase ao redor dela de forma gramaticalmente correta. Depois da única ocorrência, use pronomes ou referências naturais somente quando a concordância estiver correta; se houver risco de erro, reformule a frase.
 - A expressão-chave não deve aparecer nos títulos, subtítulos ou títulos de bloco. Tags SEO são exceção e permanecem em minúsculas.
 - Primeiro conclua os 15 parágrafos. SOMENTE DEPOIS, leia o conteúdo produzido e crie um título específico para cada bloco, refletindo os assuntos realmente tratados nos três parágrafos daquele bloco. Não use títulos genéricos ou uma sequência fixa de títulos.
 - Depois de concluir os parágrafos, crie também um subtítulo editorial curto para a página, baseado no conjunto do conteúdo. Não repita o H1 nem a expressão-chave.
@@ -20043,11 +20075,10 @@ Repita o mesmo formato para [BLOCO_2] até [BLOCO_5], sem o subtítulo de págin
                 "think": False,
                 "keep_alive": "10m",
                 "options": {
-                    # A resposta anterior terminou exatamente no teto de 2.800 tokens.
-                    # Reservamos espaço suficiente para os 15 parágrafos e elevamos
-                    # a janela total para acomodar entrada + saída sem truncamento.
-                    "num_predict": 8000,
-                    "num_ctx": 24576,
+                    # Saída dimensionada para 15 parágrafos objetivos (40–65 palavras),
+                    # cinco títulos e marcadores, sem incentivar preenchimento artificial.
+                    "num_predict": 3800,
+                    "num_ctx": 16384,
                     "temperature": 0.2,
                     "top_p": 0.9,
                     "repeat_penalty": 1.05
@@ -20074,7 +20105,7 @@ Repita o mesmo formato para [BLOCO_2] até [BLOCO_5], sem o subtítulo de págin
                 partes_resposta_stream.append(trecho_stream)
                 # Aproximação deliberadamente identificada: ~4 caracteres/token.
                 tokens_stream_estimados += max(1, int(len(trecho_stream) / 4))
-                percentual_stream = min(99, int(tokens_stream_estimados / 8000 * 100))
+                percentual_stream = min(99, int(tokens_stream_estimados / 4500 * 100))
                 if percentual_stream >= ultimo_percentual_log + 5:
                     decorrido_stream = max(0.1, time.time() - inicio_ollama_pagina)
                     taxa_stream = round(tokens_stream_estimados / decorrido_stream, 2)
@@ -20385,16 +20416,25 @@ Repita o mesmo formato para [BLOCO_2] até [BLOCO_5], sem o subtítulo de págin
 
 
         # ========================================================
-        # TÍTULO DO BLOCO
+        # TÍTULO DO BLOCO — PRESERVAR O TÍTULO EXTRAÍDO
         # ========================================================
-
-        # O título será preenchido exclusivamente pelo marcador
-        # [TITULO_BLOCO] retornado após a redação do bloco.
-        titulo_bloco = ""
-
+        # O marcador [TITULO_BLOCO] já foi extraído da resposta global
+        # e armazenado em dados_bloco/titulos_python. Não reinicializar
+        # a variável com string vazia: isso apagava o título antes de
+        # montar a estrutura final e salvar o JSON.
         titulo_bloco = str(
-            titulo_bloco or ""
+            dados_bloco.get("titulo", "")
+            or titulos_python.get(chave_bloco, "")
+            or ""
         ).strip()
+
+        # A extração defensiva do título a partir de resultado_ollama
+        # ocorre somente depois que a resposta do bloco é preparada.
+        # Neste ponto, a variável ainda pode não existir.
+
+        if titulo_bloco:
+            dados_bloco["titulo"] = titulo_bloco
+            titulos_python[chave_bloco] = titulo_bloco
 
 
         # ========================================================
@@ -20878,9 +20918,20 @@ PLANEJAMENTO E REDAÇÃO
 - Não force personagem, cenário, problema, metáfora ou história.
 - A voz é primeira pessoa do plural somente quando representar o prestador
   e houver base factual para isso.
-- No bloco 1, conteúdo comercial ou chamada só pode aparecer se houver
-  evidência explícita no patrimônio. Não invente oferta ou empresa.
+- No bloco 1, qualquer afirmação comercial deve estar explicitamente ligada
+  à expressão-chave exata da página e sustentada pelo patrimônio autorizado.
+- No bloco 1, distribua os pontos comerciais com naturalidade entre os
+  parágrafos e varie a redação de página para página; não use frase-modelo,
+  abordagem comercial genérica nem CTA como "Entre em contato".
+- Não afirme experiência, qualidade, equipe, condições de pagamento,
+  abrangência/região de atendimento, oferta ou serviços sem comprovação.
 - Nos demais blocos, não inclua CTA nem promoção.
+- Escreva somente prosa corrida nos parágrafos: não use listas, tabelas,
+  fichas técnicas, bullets, tópicos, subtítulos ou enumerações internas.
+- Quando o tema envolver tipos distintos de equipamento, mantenha suas
+  características e aplicações separadas. Para bombas, não confunda bomba
+  centrífuga geral, sanitária, submersível ou autoaspirante; só mencione
+  cada tipo quando estiver sustentado e pertinente ao tema exato.
 
 PALAVRA-CHAVE — REGRA ABSOLUTA
 - Insira a expressão exata "{palavra_chave_redacao}" exatamente UMA vez em CADA parágrafo.
@@ -20890,8 +20941,9 @@ PALAVRA-CHAVE — REGRA ABSOLUTA
 - Não repita a expressão no título do bloco.
 
 EXTENSÃO E QUALIDADE
-- Prefira parágrafos completos e naturais, em geral entre 45 e 75 palavras.
-- A extensão é uma referência, não uma licença para inventar.
+- Prefira parágrafos completos e naturais, em geral entre 40 e 55 palavras.
+- A faixa de 40–55 palavras é somente referência editorial: nunca é filtro,
+  motivo de reprovação ou licença para inventar/esticar conteúdo.
 - Se a evidência disponível exigir menos palavras, seja preciso e conciso.
 - Português brasileiro, gramática correta, pontuação e transições naturais.
 - Evite repetição lexical e conceitual entre os três parágrafos e com os demais blocos.
@@ -21044,12 +21096,51 @@ Retorne somente o bloco com os marcadores.
                 r"\s+", " ", match_titulo_bloco.group(1)
             ).strip(" \t\r\n:;.-")
             if titulo_gerado:
+                # Sincroniza a variável local com o título extraído.
+                # Sem isso, uma gravação posterior reutiliza titulo_bloco vazio
+                # e sobrescreve o título correto no JSON final.
+                titulo_bloco = titulo_gerado
                 titulos_python[chave_bloco] = titulo_gerado
                 dados_bloco["titulo"] = titulo_gerado
                 informacoes_blocos[chave_bloco] = dados_bloco
                 print("TÍTULO MEAD GERADO:", titulo_gerado)
         else:
-            print("⚠️ OLLAMA NÃO RETORNOU TÍTULO DO BLOCO:", chave_bloco)
+            # Fallback estritamente extractivo: deriva o título do conteúdo
+            # efetivamente redigido no próprio bloco, sem acrescentar fatos.
+            _textos_titulo = []
+            for _par_titulo in (resultado_ollama or "",):
+                for _idx_titulo in range(1, 4):
+                    _m_par_titulo = re.search(
+                        rf"\[PARAGRAFO_{_idx_titulo}\](.*?)\[/PARAGRAFO_{_idx_titulo}\]",
+                        _par_titulo, flags=re.I | re.S
+                    )
+                    if _m_par_titulo:
+                        _textos_titulo.append(_m_par_titulo.group(1).strip())
+            _titulo_fallback = ""
+            _ignorar_inicio_titulo = (
+                "no entanto", "além disso", "alem disso", "dessa forma",
+                "nesse contexto", "em resumo", "por outro lado",
+                "confira", "neste artigo", "como escolher"
+            )
+            for _texto_titulo in _textos_titulo:
+                _frase_titulo = re.split(r"(?<=[.!?])\s+", _texto_titulo, maxsplit=1)[0]
+                _frase_titulo = re.sub(r"^\s*[^A-Za-zÀ-ÿ0-9]+", "", _frase_titulo).strip(" .,:;–—-")
+                _frase_norm = normalizar_assunto_texto(_frase_titulo)
+                if any(_frase_norm.startswith(x) for x in _ignorar_inicio_titulo):
+                    _frase_titulo = re.sub(r"^[^,;:.]+[,;:.]\s*", "", _frase_titulo).strip()
+                _palavras_titulo = _frase_titulo.split()
+                if len(_palavras_titulo) >= 4:
+                    _titulo_fallback = " ".join(_palavras_titulo[:9]).strip(" .,:;–—-")
+                    break
+            if _titulo_fallback:
+                _titulo_fallback = _titulo_fallback[0].upper() + _titulo_fallback[1:]
+                titulo_bloco = _titulo_fallback
+                titulos_python[chave_bloco] = _titulo_fallback
+                dados_bloco["titulo"] = _titulo_fallback
+                informacoes_blocos[chave_bloco] = dados_bloco
+                print("TÍTULO EXTRACTIVO DE RESERVA:", chave_bloco, _titulo_fallback)
+            else:
+                print("⚠️ OLLAMA NÃO RETORNOU TÍTULO E NÃO HÁ FRASE ADEQUADA:", chave_bloco)
 
         if chave_bloco == "bloco_1":
             match_subtitulo = re.search(
@@ -21377,6 +21468,12 @@ Retorne somente o bloco com os marcadores.
                 dados_bloco["paragrafos_ollama"] = list(paragrafos_extraidos)
                 dados_bloco["paragrafos_python"] = list(paragrafos_python)
                 dados_bloco["informacoes_relevantes"] = list(informacoes_relevantes)
+                titulo_bloco = str(
+                    titulos_python.get(chave_bloco, "")
+                    or dados_bloco.get("titulo", "")
+                    or titulo_bloco
+                    or ""
+                ).strip()
                 dados_bloco["titulo"] = titulo_bloco
                 salvar_bloco_recuperacao(tema, numero_bloco, dados_bloco)
                 _salvar_diagnostico_ultima_execucao(
@@ -21733,6 +21830,14 @@ Retorne somente o parágrafo.
         ] = paragrafos_ollama
 
 
+        # Reconfere o título antes de persistir, priorizando o título extraído.
+        titulo_bloco = str(
+            titulos_python.get(chave_bloco, "")
+            or dados_bloco.get("titulo", "")
+            or titulo_bloco
+            or ""
+        ).strip()
+
         dados_bloco[
             "titulo"
         ] = titulo_bloco
@@ -21764,6 +21869,14 @@ Retorne somente o parágrafo.
             "paragrafos_ollama"
         ] = paragrafos_ollama
 
+
+        # Reconfere o título antes de persistir, priorizando o título extraído.
+        titulo_bloco = str(
+            titulos_python.get(chave_bloco, "")
+            or dados_bloco.get("titulo", "")
+            or titulo_bloco
+            or ""
+        ).strip()
 
         dados_bloco[
             "titulo"
@@ -22643,19 +22756,8 @@ Retorne somente o parágrafo.
     # O subtítulo pode ser omitido pelo modelo. Recupera a informação a
     # partir dos títulos já gerados, sem chamada adicional nem fatos novos.
     if not str(subtitulo or "").strip():
-        _titulos_sub_fallback = []
-        for _n_sub in range(1, 6):
-            _b_sub = informacoes_blocos.get(f"bloco_{_n_sub}", {})
-            _t_sub = str(_b_sub.get("titulo", "") or "").strip() if isinstance(_b_sub, dict) else ""
-            if _t_sub and _t_sub.casefold() not in {x.casefold() for x in _titulos_sub_fallback}:
-                _titulos_sub_fallback.append(_t_sub)
-        if _titulos_sub_fallback:
-            _resumo_sub = "; ".join(_titulos_sub_fallback[:3])
-            subtitulo = f"Visão geral: {_resumo_sub}"
-            print("⚠️ SUBTÍTULO AUSENTE DO OLLAMA — RECUPERADO DOS TÍTULOS DOS BLOCOS:", subtitulo)
-        else:
-            subtitulo = "Aspectos, aplicações e informações relacionadas ao tema"
-            print("⚠️ SUBTÍTULO AUSENTE — APLICADO SUBTÍTULO NEUTRO DE RECUPERAÇÃO.")
+        subtitulo = "Informações e critérios relacionados ao tema"
+        print("⚠️ SUBTÍTULO AUSENTE — APLICADO SUBTÍTULO CURTO E INDEPENDENTE.")
 
     total_blocos_real = len(
         blocos
@@ -28441,6 +28543,25 @@ def atualizar_banco_automatico(event=None):
 
 def atualizar_progresso(valor, texto):
 
+    # Enquanto um tema estiver ativo, nenhuma atualização pontual de
+    # progresso pode substituir o cronômetro visível pelo tempo antigo
+    # ou por uma mensagem genérica de "Processamento geral".
+    try:
+        if (
+            globals().get("PROCESSAMENTO_ATIVO", False)
+            and globals().get("INICIO_TEMA_TEMPO_ATIVO") is not None
+            and globals().get("TEMA_TEMPO_ATIVO")
+        ):
+            inicio_ativo = globals().get("INICIO_TEMA_TEMPO_ATIVO")
+            tema_ativo = globals().get("TEMA_TEMPO_ATIVO")
+            tempo_ativo = max(0, time.time() - inicio_ativo)
+            texto = (
+                f"Tema: {tema_ativo} | Gerando conteúdo com IA | "
+                f"Tempo: {formatar_tempo(tempo_ativo)}"
+            )
+    except Exception:
+        pass
+
     janela.after(
         0,
         lambda: barra_progresso.config(
@@ -28450,8 +28571,8 @@ def atualizar_progresso(valor, texto):
 
     janela.after(
         0,
-        lambda: status_progresso.config(
-            text=texto
+        lambda t=texto: status_progresso.config(
+            text=t
         )
     )
 
@@ -28486,28 +28607,43 @@ def formatar_tempo(segundos):
 
 
 # ============================================================
-# TEMPO EM TEMPO REAL
+# TEMPO EM TEMPO REAL — CRONÔMETRO INDIVIDUAL POR TEMA
 # ============================================================
+
+INICIO_TEMA_TEMPO_ATIVO = None
+TEMA_TEMPO_ATIVO = ""
+
 
 def atualizar_tempo_execucao(inicio, tema):
 
-    while IA_PROCESSANDO:
+    """Atualiza continuamente a linha de status do tema atual.
 
-        tempo = time.time() - inicio
+    O cronômetro não depende de IA_PROCESSANDO, pois deve continuar
+    durante validações, montagem e gravação do conteúdo.
+    """
+
+    while (
+        PROCESSAMENTO_ATIVO
+        and INICIO_TEMA_TEMPO_ATIVO == inicio
+        and TEMA_TEMPO_ATIVO == tema
+    ):
+
+        tempo = max(0, time.time() - inicio)
 
         texto = (
-            f"Tema: {tema} | "
+            f"Tema: {tema} | Gerando conteúdo com IA | "
             f"Tempo: {formatar_tempo(tempo)}"
         )
 
-        janela.after(
-            0,
-            lambda: status_tempo.config(
-                text=texto
+        try:
+            janela.after(
+                0,
+                lambda t=texto: status_progresso.config(text=t)
             )
-        )
+        except Exception:
+            pass
 
-        time.sleep(1)
+        time.sleep(0.5)
         
         
 
@@ -30953,6 +31089,8 @@ def gerar_material_interface():
     global ARQUIVO_BANCO
     global IA_PROCESSANDO
     global PROCESSAMENTO_ATIVO
+    global INICIO_TEMA_TEMPO_ATIVO
+    global TEMA_TEMPO_ATIVO
 
     try:
 
@@ -30963,12 +31101,8 @@ def gerar_material_interface():
         progresso = carregar_progresso()
 
         inicio_total = time.time()
-
-        threading.Thread(
-            target=atualizar_tempo_execucao,
-            args=(inicio_total, "Processamento geral"),
-            daemon=True
-        ).start()
+        INICIO_TEMA_TEMPO_ATIVO = None
+        TEMA_TEMPO_ATIVO = ""
 
         if progresso:
 
@@ -31156,9 +31290,23 @@ def gerar_material_interface():
             print("TEMA CORRIGIDO:", tema)
             print("==============================")
         
+            # Reinicia o cronômetro sempre que uma nova palavra/tema começa.
             inicio_tema = time.time()
+            INICIO_TEMA_TEMPO_ATIVO = inicio_tema
+            TEMA_TEMPO_ATIVO = tema
 
+            # Atualiza imediatamente a linha da interface para zerar o
+            # cronômetro do tema novo, sem aguardar outra etapa do processo.
+            atualizar_progresso(
+                0,
+                f"Tema: {tema} | Gerando conteúdo com IA | Tempo: 00:00"
+            )
 
+            threading.Thread(
+                target=atualizar_tempo_execucao,
+                args=(inicio_tema, tema),
+                daemon=True
+            ).start()
 
             print()
             print("=" * 50)
@@ -32617,12 +32765,19 @@ def gerar_material_interface():
             )
         )
 
+        tempo_ultimo_tema = (
+            time.time() - INICIO_TEMA_TEMPO_ATIVO
+            if INICIO_TEMA_TEMPO_ATIVO is not None
+            else tempo_final
+        )
+        tema_finalizado = TEMA_TEMPO_ATIVO or "Processamento"
+
         atualizar_progresso(
             100,
             (
-                f"Concluído | "
-                f"Tempo total: "
-                f"{formatar_tempo(tempo_final)}"
+                f"Tema: {tema_finalizado} | Concluído | "
+                f"Tempo: {formatar_tempo(tempo_ultimo_tema)} | "
+                f"Tempo geral: {formatar_tempo(tempo_final)}"
             )
         )
 
@@ -32884,7 +33039,15 @@ def _docx_adicionar_bloco(documento, bloco, numero):
         return
     titulo = str(bloco.get("titulo", "") or "").strip()
     if titulo:
-        _docx_adicionar_paragrafo(documento, titulo, tamanho=14, negrito=True)
+        # O título do segundo bloco fica alinhado à esquerda.
+        # Os parágrafos e os demais títulos mantêm o alinhamento padrão.
+        alinhamento_titulo = (
+            WD_ALIGN_PARAGRAPH.LEFT if numero in (1, 2) else None
+        )
+        _docx_adicionar_paragrafo(
+            documento, titulo, tamanho=14, negrito=True,
+            alinhamento=alinhamento_titulo
+        )
 
     paragrafos = bloco.get("paragrafos_ollama", [])
     if not isinstance(paragrafos, list):
@@ -33016,8 +33179,8 @@ def gerar_docx_mead(dados_pagina, pasta_destino, nome_arquivo_base=""):
         _docx_adicionar_bloco(documento, bloco, numero)
 
         if numero == 1:
+            # Assinatura institucional intermediária preservada no modelo DOCX.
             _docx_adicionar_separador(documento)
-        
             _docx_adicionar_paragrafo(
                 documento,
                 "Entre em Contato e Solicite seu Orçamento!",
@@ -33025,20 +33188,19 @@ def gerar_docx_mead(dados_pagina, pasta_destino, nome_arquivo_base=""):
                 negrito=True,
                 alinhamento=WD_ALIGN_PARAGRAPH.CENTER
             )
-        
             _docx_adicionar_paragrafo(
                 documento,
                 "Conte com nossa equipe para esclarecer suas dúvidas e orientar a contratação de serviços e equipamentos de acordo com as necessidades do seu projeto.",
                 tamanho=11,
                 alinhamento=WD_ALIGN_PARAGRAPH.CENTER
             )
-        
             _docx_adicionar_paragrafo(
                 documento,
                 "Entre em contato pelo WhatsApp, telefone ou e-mail. Teremos satisfação em conhecer sua demanda e apresentar nossas soluções.",
                 tamanho=11,
                 alinhamento=WD_ALIGN_PARAGRAPH.CENTER
             )
+
         # No modelo recebido, a lista de segmentos aparece após o terceiro bloco.
         if numero == 3:
             dados_segmentos = dict(dados_pagina)
