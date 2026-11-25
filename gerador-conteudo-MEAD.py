@@ -5519,28 +5519,33 @@ def carregar_bruto(tema):
     )
 
 
-    arquivo = Path(
+    pasta_brutos = Path(PASTA_DADOS)
+    arquivo = pasta_brutos / f"{nome}.json"
 
-        PASTA_DADOS
-
-    ) / f"{nome}.json"
-
-
+    # Recuperação segura de nome: se o arquivo existir com espaços,
+    # hífens, acentos ou caixa diferentes, localizar pela mesma
+    # normalização usada para gerar o nome canônico. Não escolhe
+    # arquivos de outros temas nem faz correspondência aproximada.
+    if not arquivo.exists() and pasta_brutos.is_dir():
+        try:
+            correspondencias = [
+                candidato for candidato in pasta_brutos.glob("*.json")
+                if normalizar_nome_arquivo(candidato.stem) == nome
+            ]
+            if len(correspondencias) == 1:
+                arquivo = correspondencias[0]
+                print("BRUTO LOCALIZADO POR NOME NORMALIZADO:", arquivo.name)
+            elif len(correspondencias) > 1:
+                print("⚠️ MAIS DE UM BRUTO COM O MESMO NOME NORMALIZADO; nenhum foi escolhido:", [x.name for x in correspondencias])
+        except OSError as erro_busca_bruto:
+            print("⚠️ FALHA AO CONFERIR NOMES ALTERNATIVOS DE BRUTO:", repr(erro_busca_bruto))
 
     if not arquivo.exists():
-
-
         print()
-
         print("==============================")
-
         print("BRUTO NÃO ENCONTRADO")
-
         print("==============================")
-
         print(arquivo)
-
-
         return []
 
 
@@ -20000,7 +20005,10 @@ Não há necessidade de repetir mapas, bancos, fontes brutas ou patrimônios par
 Preserve a progressão dos cinco blocos e não complete lacunas com suposições.
 
 DIRETRIZES DE FIDELIDADE E AUTORIA — ABORDAGEM FLEXÍVEL:
-- Leia os 15 fragmentos como patrimônio informativo autorizado. Antes de redigir, planeje mentalmente a progressão dos cinco blocos e distribua os assuntos para que a página avance sem voltar repetidamente ao mesmo ponto.
+- Leia os 15 fragmentos como patrimônio informativo autorizado. Antes de redigir, planeje mentalmente a página inteira: defina a ideia central de cada um dos 15 parágrafos, a ordem em que as informações serão apresentadas e a ligação lógica entre os cinco blocos. Só depois escreva a página completa.
+- PLANEJAMENTO DOS 15 PARÁGRAFOS: cada posição deve acrescentar uma informação ou explicação diferente. Não use três paráfrases do mesmo fato dentro de um bloco. Não repita em blocos posteriores uma definição, característica, aplicação ou orientação já explicada, salvo quando uma retomada curta for indispensável para a compreensão.
+- CONTINUIDADE DA PÁGINA: os blocos são partes de um único artigo, não cinco artigos independentes. O início deve situar o leitor; o desenvolvimento deve aprofundar e relacionar as informações; o encerramento deve concluir o raciocínio sem reiniciar a apresentação do tema. Use transições naturais entre os blocos, sem depender de expressões vagas como “isso”, “essa situação” ou “essa característica”.
+- CADA PARÁGRAFO: mantenha um foco identificável, apresente primeiro o assunto concreto, explique a informação autorizada e, quando houver base, mostre sua consequência ou aplicação. Não junte duas ideias sem conexão em uma mesma frase. Não insira subtítulos, títulos de bloco, listas ou chamadas editoriais dentro dos parágrafos.
 - PROGRESSÃO EDITORIAL OBRIGATÓRIA, adaptada ao que as fontes realmente permitem afirmar:
   BLOCO 1 — PRIORIDADE COMERCIAL E INSTITUCIONAL: quando as evidências autorizarem, apresente a relação da nossa empresa com a palavra-chave exata, usando naturalmente expressões como “nossa empresa”, “nossos profissionais”, “nossos funcionários”, “nossa equipe”, “fornecemos” ou “atendimento”. Distribua esses aspectos entre os três parágrafos, varie a redação de página para página e relacione cada afirmação diretamente ao tema. Não invente identidade, equipe, oferta, disponibilidade, preço, orçamento, prazo ou condição comercial. Se não houver evidência comercial, use fatos autorizados sem criar uma oferta.
   BLOCO 2 — desenvolver características, componentes, configurações ou diferenças entre tipos, sem repetir a definição do bloco 1.
@@ -20224,7 +20232,7 @@ Repita o mesmo formato para [BLOCO_2] até [BLOCO_5], sem o subtítulo de págin
     )) >= 15
 
     if not all(_aberturas_blocos_presentes) or not _marcadores_paragrafos_presentes:
-        _mt = re.search(r"\[TITULO_BLOCO\](.*?)\[/TITULO_BLOCO\]", resposta_global_ollama, flags=re.I | re.S)
+        _mt = re.search(r"\[TITULO_BLOCO\](.*?)(?:\[/TITULO_BLOCO\]|</TITULO_BLOCO>)", resposta_global_ollama, flags=re.I | re.S)
         _ms = re.search(r"\[SUBTITULO_PAGINA\](.*?)\[/SUBTITULO_PAGINA\]", resposta_global_ollama, flags=re.I | re.S)
         if _mt:
             _titulo_fallback_global = re.sub(r"\s+", " ", _mt.group(1)).strip()
@@ -21087,7 +21095,7 @@ Retorne somente o bloco com os marcadores.
         # TÍTULO DO BLOCO GERADO A PARTIR DO PLANO E DAS EVIDÊNCIAS
         # ========================================================
         match_titulo_bloco = re.search(
-            r"\[TITULO_BLOCO\](.*?)\[/TITULO_BLOCO\]",
+            r"\[TITULO_BLOCO\](.*?)(?:\[/TITULO_BLOCO\]|</TITULO_BLOCO>)",
             resultado_ollama,
             flags=re.IGNORECASE | re.DOTALL
         )
@@ -21403,6 +21411,30 @@ Retorne somente o bloco com os marcadores.
 
         for indice_keyword, paragrafo_keyword in enumerate(list(paragrafos_extraidos)):
             ocorrencias_ci = len(padrao_keyword_ci.findall(paragrafo_keyword)) if padrao_keyword_ci else 0
+
+            # Não converter automaticamente uma expressão em minúsculas
+            # precedida pelo artigo feminino minúsculo para a keyword
+            # oficial com inicial maiúscula. Isso criava construções como
+            # "a Bomba Centrífuga". A posição deve ser reescrita pelo Ollama
+            # ou recuperada de uma reserva COM gramaticalmente utilizável.
+            keyword_apos_artigo_minusculo = bool(
+                padrao_keyword_ci
+                and re.search(
+                    r"(?<!\w)(?:a|uma)\s+"
+                    + r"(?i:" + re.escape(str(palavra_chave_redacao or "").strip()) + r")",
+                    paragrafo_keyword,
+                    flags=re.UNICODE
+                )
+            )
+            if keyword_apos_artigo_minusculo:
+                print(
+                    "⚠️ INTEGRAÇÃO GRAMATICAL DA KEYWORD REPROVADA:",
+                    chave_bloco,
+                    "PARÁGRAFO", indice_keyword + 1,
+                    "— artigo feminino minúsculo imediatamente antes da expressão-chave."
+                )
+                ocorrencias_ci = 0
+
             if ocorrencias_ci >= 1:
                 contador_keyword = {"n": 0}
 
@@ -21451,8 +21483,18 @@ Retorne somente o bloco com os marcadores.
                 ).strip()
                 hash_reserva_keyword = str(reserva_keyword.get("hash", "") or "").strip()
                 ocorrencias_reserva = len(padrao_keyword_ci.findall(texto_reserva_keyword)) if padrao_keyword_ci else 0
+                reserva_keyword_gramaticalmente_invalida = bool(
+                    padrao_keyword_ci
+                    and re.search(
+                        r"(?<!\w)(?:a|uma)\s+"
+                        + r"(?i:" + re.escape(str(palavra_chave_redacao or "").strip()) + r")",
+                        texto_reserva_keyword,
+                        flags=re.UNICODE
+                    )
+                )
                 if (
                     not texto_reserva_keyword
+                    or reserva_keyword_gramaticalmente_invalida
                     or str(reserva_keyword.get("palavra_chave_status", "")).upper() != "COM"
                     or ocorrencias_reserva != 1
                     or len(texto_reserva_keyword.split()) < 25
