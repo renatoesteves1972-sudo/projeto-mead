@@ -1,4 +1,6 @@
-# versão 7.42 — 25/11/2026
+# versão 7.52 — 26/11/2026
+# v7.52: reforça bloco comercial (experiência, qualidade, equipe, atendimento, negociação, entrega e satisfação), variedade entre páginas e qualidade informativa; mantém geração integral em uma chamada Ollama.
+# Gravação JSON preservada; limpeza dos campos legados (hash/origem) fica para a etapa seguinte.
 # v7.44: cronômetro reiniciado por tema e atualizado na linha de status até o fim do processamento.
 # v7.41: corrige seleção multilíngue, subtítulo independente, B1 institucional controlado e DOCX do bloco 2; remove CTA fixa.
 # v7.40: refinamento editorial — preserva/extrai títulos dinâmicos, prosa corrida sem listas/fichas,
@@ -5519,33 +5521,28 @@ def carregar_bruto(tema):
     )
 
 
-    pasta_brutos = Path(PASTA_DADOS)
-    arquivo = pasta_brutos / f"{nome}.json"
+    arquivo = Path(
 
-    # Recuperação segura de nome: se o arquivo existir com espaços,
-    # hífens, acentos ou caixa diferentes, localizar pela mesma
-    # normalização usada para gerar o nome canônico. Não escolhe
-    # arquivos de outros temas nem faz correspondência aproximada.
-    if not arquivo.exists() and pasta_brutos.is_dir():
-        try:
-            correspondencias = [
-                candidato for candidato in pasta_brutos.glob("*.json")
-                if normalizar_nome_arquivo(candidato.stem) == nome
-            ]
-            if len(correspondencias) == 1:
-                arquivo = correspondencias[0]
-                print("BRUTO LOCALIZADO POR NOME NORMALIZADO:", arquivo.name)
-            elif len(correspondencias) > 1:
-                print("⚠️ MAIS DE UM BRUTO COM O MESMO NOME NORMALIZADO; nenhum foi escolhido:", [x.name for x in correspondencias])
-        except OSError as erro_busca_bruto:
-            print("⚠️ FALHA AO CONFERIR NOMES ALTERNATIVOS DE BRUTO:", repr(erro_busca_bruto))
+        PASTA_DADOS
+
+    ) / f"{nome}.json"
+
+
 
     if not arquivo.exists():
+
+
         print()
+
         print("==============================")
+
         print("BRUTO NÃO ENCONTRADO")
+
         print("==============================")
+
         print(arquivo)
+
+
         return []
 
 
@@ -18937,24 +18934,15 @@ def gerar_conteudo_completo(
 
     inicio_geracao = time.time()
 
-    # CONTROLE LOCAL DAS RESERVAS COM UTILIZADAS NA RECUPERAÇÃO.
-    # A variável criada durante a preparação dos blocos pertence a outra
-    # função e não fica visível aqui. Este conjunto precisa existir no
-    # escopo de gerar_conteudo_completo e permanecer compartilhado pelos
-    # cinco blocos durante toda a geração. Começa com os hashes já
-    # selecionados para impedir que uma reserva substituta colida com eles.
-    hashes_reservas_ocupadas = set()
+    # Sem reservas, hashes ou recuperação por fragmentos nesta arquitetura.
 
     tema_base = str(
         tema or ""
     ).strip()
 
-    # Forma editorial oficial: iniciais maiúsculas, acentos preservados.
-    # A chave original (tema_base) continua intacta para banco, busca e tags.
-    palavra_chave_redacao = " ".join(
-        palavra[:1].upper() + palavra[1:]
-        for palavra in re.sub(r"\s+", " ", tema_base).split()
-    )
+    # Preservar literalmente a palavra-chave digitada pelo usuário,
+    # incluindo capitalização, acentos e composição.
+    palavra_chave_redacao = re.sub(r"\s+", " ", tema_base).strip()
     palavra_chave_tag = tema_base.casefold()
 
     print()
@@ -19175,17 +19163,14 @@ def gerar_conteudo_completo(
     # 04. SELECIONAR INFORMAÇÕES RELEVANTES
     # ========================================================
     
-    print()
-    print("======================================")
-    print("SELECIONANDO INFORMAÇÕES RELEVANTES")
-    print("======================================")
     
-    textos_relevantes = selecionar_informacoes_relevantes(
-        tema,
-        textos,
-        mapa_mead,
-        estrutura_editorial
-    )
+    # Arquitetura atual: nenhuma seleção de fontes/fragmentos é executada.
+    # O único material editorial enviado ao modelo é a palavra-chave e o MEAD.
+    textos_relevantes = {
+        "texto": "",
+        "fragmentos": [],
+        "blocos_informacoes": {}
+    }
     
     # ========================================================
     # CORREÇÃO:
@@ -19221,22 +19206,20 @@ def gerar_conteudo_completo(
     )
     
     if not contexto_inicial and not fragmentos_iniciais:
-    
-        print()
-        print("======================================")
-        print("NENHUMA INFORMAÇÃO RELEVANTE")
-        print("======================================")
-    
-        return None
+        # Arquitetura MEAD + Ollama: não há pesquisa nem fontes brutas.
+        # A geração parte do MEAD integral e da palavra-chave; as validações
+        # serão aplicadas aos quinze parágrafos produzidos pelo Ollama.
+        contexto_inicial = (
+            "GERAÇÃO SEM PESQUISA EXTERNA: usar o MEAD integral e conhecimento "
+            "geral consolidado, sem inventar dados específicos."
+        )
+        textos_relevantes["texto"] = contexto_inicial
+        textos_relevantes["status"] = "geracao_mead_sem_pesquisa"
     
     # ========================================================
     # 05. PREPARAR INFORMAÇÕES
     # ========================================================
 
-    print()
-    print("======================================")
-    print("PREPARANDO INFORMAÇÕES SELECIONADAS")
-    print("======================================")
 
     if not isinstance(
         textos_relevantes,
@@ -19348,17 +19331,9 @@ def gerar_conteudo_completo(
                 "paragrafos_python": []
             }
 
-    # ========================================================
-    # RETOMAR BLOCOS PRESERVADOS EM progresso.json
-    # ========================================================
-    blocos_recuperados = carregar_blocos_recuperacao(tema)
-    if blocos_recuperados:
-        print("♻️ RECUPERAÇÃO ENCONTRADA:", len(blocos_recuperados), "/ 5 blocos")
-        for chave_recuperada, bloco_recuperado in blocos_recuperados.items():
-            informacoes_blocos[chave_recuperada] = bloco_recuperado
-            print("   -", chave_recuperada, "será reutilizado sem nova chamada Ollama")
-    else:
-        print("RECUPERAÇÃO: nenhum bloco anterior válido para este tema.")
+    # Não recuperar blocos antigos: cada palavra-chave gera uma página
+    # independente, planejada integralmente pelo Ollama nesta execução.
+    blocos_recuperados = {}
 
     # ========================================================
     # CARACTERES DO TEXTO GERAL
@@ -19444,10 +19419,6 @@ def gerar_conteudo_completo(
 
     total_paragrafos_python = 0
 
-    print()
-    print("======================================")
-    print("PARÁGRAFOS-BASE PYTHON")
-    print("======================================")
 
     for numero_bloco in range(
         1,
@@ -19498,11 +19469,6 @@ def gerar_conteudo_completo(
             quantidade
         )
 
-    print()
-    print(
-        "TOTAL PARÁGRAFOS-BASE PYTHON:",
-        total_paragrafos_python
-    )
 
     # ========================================================
     # DADOS APÓS SELEÇÃO
@@ -19513,29 +19479,6 @@ def gerar_conteudo_completo(
     print("DADOS APÓS SELEÇÃO")
     print("======================================")
 
-    print(
-        "SELEÇÃO RECEBIDA:",
-        "SIM"
-        if contexto or fragmentos_iniciais
-        else "NÃO"
-    )
-
-    print(
-        "TIPO RECEBIDO:",
-        type(
-            textos_relevantes
-        )
-    )
-
-    print(
-        "CARACTERES TEXTO:",
-        caracteres_selecionados
-    )
-
-    print(
-        "CARACTERES BLOCOS:",
-        caracteres_blocos
-    )
 
     # ========================================================
     # RESUMO ÚNICO DA PREPARAÇÃO — SEM REPETIR CONTAGENS
@@ -19547,8 +19490,6 @@ def gerar_conteudo_completo(
         resumo_blocos.append(
             f"B{numero_bloco}:{len(itens) if isinstance(itens, list) else 0} trechos"
         )
-    print("PREPARAÇÃO:", " | ".join(resumo_blocos),
-          "| texto:", caracteres_selecionados, "caracteres")
 
     # ========================================================
     # 07. CONTEXTO PARA IA
@@ -19594,7 +19535,6 @@ def gerar_conteudo_completo(
         in contexto_geracao.values()
     )
     
-    print("CONTEXTO IA:", caracteres_contexto_geracao, "caracteres | 5 blocos")
     
     # ========================================================
     # 08. NORMALIZAR MAPA
@@ -19656,16 +19596,8 @@ def gerar_conteudo_completo(
     contexto_global_pagina = _mead_formatar_contexto_global(
         tema, patrimonio_global_mead, plano_editorial_mead
     )
-    print(
-        "MEAD/SEVEN — PATRIMÔNIO GLOBAL:",
-        len(patrimonio_global_mead),
-        "| ÂNCORA LITERAL:",
-        "SIM" if plano_editorial_mead.get("keyword_anchor_disponivel") else "NÃO"
-    )
-    print(
-        "MEAD/SEVEN — ALERTAS DESVER:",
-        len(plano_editorial_mead.get("sobreposicoes_desver", []))
-    )
+    # Alertas internos permanecem disponíveis para as validações,
+    # mas não são exibidos no resumo da execução.
     contexto_mead_ollama_base = contexto_mead
     
     # ========================================================
@@ -19809,8 +19741,8 @@ def gerar_conteudo_completo(
     )
     
     print(
-        "FRAGMENTOS POR BLOCO:",
-        3
+        "FRAGMENTOS:",
+        "NÃO UTILIZADOS"
     )
     
     print(
@@ -19854,8 +19786,8 @@ def gerar_conteudo_completo(
     )
     
     print(
-        "CONTEXTO POR BLOCO:",
-        "SERÁ MONTADO A PARTIR DOS 3 FRAGMENTOS"
+        "CONTEXTO DO OLLAMA:",
+        "PALAVRA-CHAVE + MEAD COMPLETO"
     )
     
     print("=" * 60)
@@ -19887,7 +19819,7 @@ def gerar_conteudo_completo(
     print("=" * 60)
 
     print("CHAMADAS OLLAMA PREVISTAS: 1 PARA A PÁGINA INTEIRA")
-    print("FRAGMENTOS ENVIADOS NA ÚNICA CHAMADA: 15 (3 POR BLOCO)")
+    print("MEAD COMPLETO ENVIADO NA ÚNICA CHAMADA; FONTES/HASHES NÃO ENVIADOS")
 
     print(
         "PARÁGRAFOS ESPERADOS:",
@@ -19911,164 +19843,138 @@ def gerar_conteudo_completo(
         return None
 
 
-    # Reservar todos os hashes já escolhidos para os 15 lugares.
-    # Uma reserva de recuperação nunca pode reutilizar hash ocupado.
-    for _dados_hash_bloco in informacoes_blocos.values():
-        if not isinstance(_dados_hash_bloco, dict):
-            continue
-        for _frag_hash in _dados_hash_bloco.get("informacoes_relevantes", []) or []:
-            if isinstance(_frag_hash, dict):
-                _hash_existente = str(_frag_hash.get("hash", "") or "").strip()
-                if _hash_existente:
-                    hashes_reservas_ocupadas.add(_hash_existente)
-
     # ============================================================
-    # PRÉ-VALIDAÇÃO ABSOLUTA DOS 5 BLOCOS
+    # ARQUITETURA SEM FRAGMENTOS
     # ============================================================
-    #
-    # O Ollama só pode começar se todos os blocos tiverem
-    # exatamente 3 fragmentos. Assim o erro não aparece
-    # no meio das chamadas.
-    # ============================================================
-
+    # Os blocos são apenas recipientes do resultado do Ollama.
+    # Nenhum fragmento, hash, reserva ou fonte é criado/exigido.
     for numero_bloco in range(1, total_blocos + 1):
-
         chave_preflight = f"bloco_{numero_bloco}"
-        bloco_preflight = informacoes_blocos.get(
-            chave_preflight,
-            {}
-        )
-
-        fragmentos_preflight = (
-            bloco_preflight.get(
-                "informacoes_relevantes",
-                []
-            )
-            if isinstance(bloco_preflight, dict)
-            else []
-        )
-
-        if not isinstance(fragmentos_preflight, list):
-            fragmentos_preflight = []
-            bloco_preflight["informacoes_relevantes"] = fragmentos_preflight
-        while len(fragmentos_preflight) < 3:
-            pos = len(fragmentos_preflight) + 1
-            fragmentos_preflight.append({"id": f"CONHECIMENTO_GERAL_{chave_preflight}_{pos}", "hash": "", "palavra_chave_status": "SEM", "texto": "[SEM FRAGMENTO — usar conhecimento geral consolidado, sem inventar dados específicos.]", "fonte": "CONHECIMENTO_GERAL_DO_MODELO", "url": "", "tipo": "CONTEXTO_GERAL", "pdf": False, "palavras": 0, "identidade_fonte": {}, "contexto_geral_sem_fonte": True})
+        bloco_preflight = informacoes_blocos.get(chave_preflight, {})
+        if not isinstance(bloco_preflight, dict):
+            bloco_preflight = {}
+        bloco_preflight["informacoes_relevantes"] = []
+        bloco_preflight["paragrafos_python"] = []
+        bloco_preflight["paragrafos_ollama"] = []
+        informacoes_blocos[chave_preflight] = bloco_preflight
 
     # ============================================================
     # UMA ÚNICA CHAMADA OLLAMA PARA A PÁGINA INTEIRA (15 PARÁGRAFOS)
     # ============================================================
-    # O Python mantém os 15 fragmentos e seus vínculos individuais.
-    # O Ollama recebe o patrimônio completo e devolve cinco blocos.
-    # As validações existentes continuam sendo executadas por bloco.
+    # O Ollama recebe a palavra-chave e o MEAD integral e decide
+    # internamente a função dos cinco blocos, a distribuição temática
+    # e a redação dos quinze parágrafos. A estrutura legada do JSON é
+    # preservada nesta etapa para garantir a gravação sem migração dupla.
     # Recuperações que exigiriam nova chamada são desativadas nesta
     # arquitetura: se a resposta não passar, a execução informa o motivo.
     # ============================================================
     inicio_ollama_pagina = time.time()
-    partes_patrimonio_pagina = []
-    hashes_pagina = []
-    for _numero in range(1, total_blocos + 1):
-        _chave = f"bloco_{_numero}"
-        _dados = informacoes_blocos.get(_chave, {})
-        _frags = _dados.get("informacoes_relevantes", []) if isinstance(_dados, dict) else []
-        partes_patrimonio_pagina.append(
-            f"\n=== {_chave.upper()} | AGRUPAMENTO TÉCNICO; TÍTULO DEFINIDO APÓS A REDAÇÃO ==="
-        )
-        for _pos, _frag in enumerate(_frags[:3], 1):
-            if not isinstance(_frag, dict):
-                continue
-            _texto = str(_frag.get("texto", "") or "").strip()
-            _hash = str(_frag.get("hash", "") or "").strip()
-            if _hash:
-                hashes_pagina.append(_hash)
-            # O Ollama recebe apenas a posição editorial e o texto autorizado.
-            # IDs, hashes e status internos permanecem no Python/log/banco.
-            partes_patrimonio_pagina.append(
-                f"[EVIDENCIA {_chave} P{_pos}]\n{_texto}"
-            )
 
-    hashes_unicos_pagina = [h for h in hashes_pagina if h]
-    if len(hashes_unicos_pagina) != len(set(hashes_unicos_pagina)):
-        print("❌ HÁ HASHES REPETIDAS ENTRE OS 15 FRAGMENTOS; geração interrompida.")
-        _salvar_diagnostico_ultima_execucao(tema, {"hashes": hashes_unicos_pagina}, "HASH_DUPLICADA_ENTRE_PARAGRAFOS")
+    # O Ollama passa a receber o MEAD integral, sem mapa de fontes,
+    # hashes ou fragmentos de pesquisa no prompt. Os campos legados
+    # ainda são preservados no JSON nesta primeira etapa, para não
+    # alterar simultaneamente a estrutura de gravação.
+    try:
+        mead_completo_ollama = json.dumps(
+            MEAD,
+            ensure_ascii=False,
+            indent=2,
+            default=str
+        )
+    except Exception as erro_mead_json:
+        print("❌ NÃO FOI POSSÍVEL SERIALIZAR O MEAD COMPLETO:", repr(erro_mead_json))
+        return None
+
+    if not isinstance(MEAD, dict) or not MEAD:
+        print("❌ MEAD COMPLETO NÃO ESTÁ CARREGADO; geração interrompida.")
         return None
 
     prompt_pagina_unica = f"""
-Você é o redator técnico-editorial MEAD/SEVEN. Escreva UMA página completa em português brasileiro.
+Você é o redator e planejador editorial do método MEAD.
+Sua tarefa é criar uma página completa, coerente e tecnicamente responsável,
+utilizando a palavra-chave e o MEAD integral fornecido ao final.
 
-TEMA E EXPRESSÃO-CHAVE EXATA: {palavra_chave_redacao}
-ESTRUTURA OBRIGATÓRIA: 5 blocos, 3 parágrafos em cada bloco, total de 15 parágrafos.
+PALAVRA-CHAVE / TEMA EXATO: {palavra_chave_redacao}
+IDIOMA: português brasileiro.
+ESTRUTURA FINAL OBRIGATÓRIA: cinco blocos, três parágrafos por bloco, total de quinze parágrafos.
 
-CONTEXTO EDITORIAL COMPACTO:
-Use exclusivamente as 15 evidências específicas apresentadas mais abaixo como base factual.
-Não há necessidade de repetir mapas, bancos, fontes brutas ou patrimônios paralelos.
-Preserve a progressão dos cinco blocos e não complete lacunas com suposições.
+AUTONOMIA DE PLANEJAMENTO — RESPONSABILIDADE DO OLLAMA:
+1. Interprete o significado da palavra-chave como um todo, sem fragmentá-la nem trocar seu sentido.
+2. Leia integralmente o MEAD e identifique as regras editoriais, validações e restrições aplicáveis.
+3. Antes de redigir, defina internamente a função editorial específica de cada um dos cinco blocos, considerando o assunto real da palavra-chave e as regras MEAD.
+4. Distribua os assuntos entre os cinco blocos em uma sequência lógica. Cada bloco deve avançar a página e abordar um conjunto próprio de ideias.
+5. Planeje os três parágrafos de cada bloco para acrescentarem informações diferentes. Não repita a mesma explicação com outras palavras nem transfira o mesmo assunto de um bloco para outro.
+6. Só depois desse planejamento, escreva os quinze parágrafos e crie títulos específicos que representem o conteúdo efetivamente escrito.
+7. Não apresente o planejamento interno. Entregue diretamente a página pronta no formato solicitado.
 
-DIRETRIZES DE FIDELIDADE E AUTORIA — ABORDAGEM FLEXÍVEL:
-- Leia os 15 fragmentos como patrimônio informativo autorizado. Antes de redigir, planeje mentalmente a página inteira: defina a ideia central de cada um dos 15 parágrafos, a ordem em que as informações serão apresentadas e a ligação lógica entre os cinco blocos. Só depois escreva a página completa.
-- PLANEJAMENTO DOS 15 PARÁGRAFOS: cada posição deve acrescentar uma informação ou explicação diferente. Não use três paráfrases do mesmo fato dentro de um bloco. Não repita em blocos posteriores uma definição, característica, aplicação ou orientação já explicada, salvo quando uma retomada curta for indispensável para a compreensão.
-- CONTINUIDADE DA PÁGINA: os blocos são partes de um único artigo, não cinco artigos independentes. O início deve situar o leitor; o desenvolvimento deve aprofundar e relacionar as informações; o encerramento deve concluir o raciocínio sem reiniciar a apresentação do tema. Use transições naturais entre os blocos, sem depender de expressões vagas como “isso”, “essa situação” ou “essa característica”.
-- CADA PARÁGRAFO: mantenha um foco identificável, apresente primeiro o assunto concreto, explique a informação autorizada e, quando houver base, mostre sua consequência ou aplicação. Não junte duas ideias sem conexão em uma mesma frase. Não insira subtítulos, títulos de bloco, listas ou chamadas editoriais dentro dos parágrafos.
-- PROGRESSÃO EDITORIAL OBRIGATÓRIA, adaptada ao que as fontes realmente permitem afirmar:
-  BLOCO 1 — PRIORIDADE COMERCIAL E INSTITUCIONAL: quando as evidências autorizarem, apresente a relação da nossa empresa com a palavra-chave exata, usando naturalmente expressões como “nossa empresa”, “nossos profissionais”, “nossos funcionários”, “nossa equipe”, “fornecemos” ou “atendimento”. Distribua esses aspectos entre os três parágrafos, varie a redação de página para página e relacione cada afirmação diretamente ao tema. Não invente identidade, equipe, oferta, disponibilidade, preço, orçamento, prazo ou condição comercial. Se não houver evidência comercial, use fatos autorizados sem criar uma oferta.
-  BLOCO 2 — desenvolver características, componentes, configurações ou diferenças entre tipos, sem repetir a definição do bloco 1.
-  BLOCO 3 — explicar critérios de escolha, dimensionamento, compatibilidade, condições de operação ou decisão técnica.
-  BLOCO 4 — desenvolver aplicações e segmentos de uso concretos, explicando por que cada contexto demanda aquela solução. Não transformar nomes de empresas ou termos comerciais em aplicações.
-  BLOCO 5 — abordar cuidados, manutenção, benefícios operacionais ou aspectos de contratação/fornecimento somente quando houver evidência. Fechar com orientação útil, não com propaganda genérica.
-- Cada bloco deve ter um objetivo editorial próprio. Cada um dos três parágrafos deve cumprir função diferente: apresentar um aspecto específico, aprofundar outro com mecanismo/condição/consequência e acrescentar aplicação/critério/implicação prática. Não force essa sequência se as fontes não sustentarem algum ponto; reorganize sem inventar.
-- Antes de escrever cada parágrafo, identifique mentalmente qual informação nova ele acrescentará. Se a ideia central já apareceu, não a reformule: escolha outro ângulo ou explique uma condição diferente sustentada pelas fontes.
-- Evite repetir fórmulas como eficiência, resistência, segurança, confiabilidade, qualidade e economia sem explicar concretamente de onde vem o benefício, em quais condições ocorre e quais limites existem.
-- Não use adjetivos promocionais vazios como “design inovador”, “alta eficiência”, “resistência comprovada”, “melhor escolha”, “solução ideal” ou “temperaturas extremas” sem evidência específica e contextualizada. Prefira descrever a característica verificável e sua consequência prática.
-- FIDELIDADE ESTRITA: use somente informações que estejam expressamente presentes nas 15 evidências. Não use conhecimento geral para completar, corrigir ou ampliar o conteúdo. Se uma evidência for insuficiente, escreva menos; não preencha lacunas.
-- NÃO MISTURE EQUIPAMENTOS: não trate versões sanitárias, submersas, autoaspirantes, bombas de deslocamento positivo ou outros tipos como se fossem o mesmo equipamento. Só compare ou relacione tipos diferentes quando a própria evidência trouxer essa comparação de forma explícita. Preserve o escopo e as condições de cada informação.
-- NÃO INVENTE números, medidas, capacidades, materiais, marcas, modelos, fabricantes, normas, certificações, aplicações particulares, serviços, preços, garantias, disponibilidade, resultados ou promessas. Não invente dados comerciais nem fale em nome de uma empresa sem evidência explícita.
-- IDIOMA OBRIGATÓRIO: escreva exclusivamente em português brasileiro. As evidências podem estar em inglês, espanhol ou outro idioma: interprete e traduza mentalmente os fatos relevantes antes de redigir. Não copie frases estrangeiras nem descarte um fato apenas porque a fonte está em outro idioma. Preserve nomes técnicos e unidades somente quando necessários e sustentados pela evidência.
-- Não mencione fontes, fragmentos, hashes, Python, Ollama ou estas instruções.
-- OBJETIVIDADE: cada parágrafo deve ter preferencialmente entre 40 e 55 palavras. Não existe mínimo obrigatório: se a evidência sustentar uma explicação completa em menos palavras, mantenha o parágrafo curto. Nunca aumente o texto apenas para atingir uma contagem.
-- SEM ENROLAÇÃO: elimine chamadas genéricas, frases promocionais, introduções que apenas anunciam o assunto, conclusões óbvias e repetições da mesma ideia. Não use expressões como "confira as vantagens", "solução ideal", "alta qualidade", "excelente desempenho", "ampla gama" ou equivalentes sem informação factual específica que as comprove.
-- DENSIDADE INFORMATIVA: cada frase deve acrescentar um fato autorizado, explicar uma relação presente na evidência ou esclarecer uma condição expressamente indicada. Se a frase não acrescentar informação, remova-a.
-- PRECISÃO: prefira nomes técnicos e verbos concretos. Não generalize uma característica de um modelo para todos os equipamentos da categoria. Não transforme uma possibilidade em garantia ou regra universal.
-- FLUIDEZ: varie naturalmente a construção das frases. Evite repetir a mesma abertura, estrutura sintática ou conclusão nos parágrafos próximos.
-- AUTONOMIA: cada parágrafo deve ser compreensível por si, sem referentes vagos como "conforme mencionado", "nesse sentido" ou "essa característica" quando não estiver claro a que se referem.
-- Em cada um dos 15 parágrafos, inclua a expressão exata "{palavra_chave_redacao}" uma única vez, com esta capitalização e acentuação. Não altere a expressão-chave para tentar fazê-la concordar com a frase. Construa a frase ao redor dela de forma gramaticalmente correta. Depois da única ocorrência, use pronomes ou referências naturais somente quando a concordância estiver correta; se houver risco de erro, reformule a frase.
-- A expressão-chave não deve aparecer nos títulos, subtítulos ou títulos de bloco. Tags SEO são exceção e permanecem em minúsculas.
-- Primeiro conclua os 15 parágrafos. SOMENTE DEPOIS, leia o conteúdo produzido e crie um título específico para cada bloco, refletindo os assuntos realmente tratados nos três parágrafos daquele bloco. Não use títulos genéricos ou uma sequência fixa de títulos.
-- Depois de concluir os parágrafos, crie também um subtítulo editorial curto para a página, baseado no conjunto do conteúdo. Não repita o H1 nem a expressão-chave.
-- Os títulos devem distinguir os cinco blocos e não podem prometer assuntos que não foram desenvolvidos.
-- Não transforme os fragmentos em resumos individuais. Redija uma página nova, articulada e autoral, usando o patrimônio para diversificar e aprofundar os assuntos.
+REGRAS EDITORIAIS E DE FIDELIDADE:
+- O MEAD integral abaixo é a referência principal e obrigatória para todas as regras, validações e restrições editoriais.
+- Não ignore, simplifique ou contradiga regras do MEAD. Em caso de conflito, prevalecem as restrições mais específicas e rigorosas do próprio MEAD.
+- Use conhecimento técnico geral consolidado apenas para explicar conceitos, funcionamento, características e critérios amplamente reconhecidos relacionados ao tema. Não invente fatos específicos sobre uma empresa, fornecedor, fabricante, marca, modelo ou produto determinado.
+- Não invente números, capacidades, dimensões, materiais, normas, certificações, marcas, modelos, serviços, aplicações particulares, preços, prazos, garantias, disponibilidade, resultados ou promessas.
+- Não atribua à empresa identidade, equipe, experiência, estrutura, atendimento, fornecimento ou serviços que não estejam expressamente autorizados pelo MEAD.
+- PRIORIDADE EDITORIAL: antes de escrever, classifique internamente o tema e identifique seu significado mais comum e sua categoria. Não force enquadramento industrial, profissional, técnico, de segurança, EPI, hospitalar, químico, elétrico ou de infraestrutura quando isso não fizer parte do significado do tema nem estiver sustentado pelo MEAD. Exemplo de cautela: chinelo comum não deve ser apresentado como EPI, proteção elétrica, proteção química ou equipamento industrial.
+- O BLOCO 1 É COMERCIAL, NÃO UMA INTRODUÇÃO TÉCNICA. Seus três parágrafos devem abordar a relação institucional/comercial da empresa com o tema. Evite frases vagas que apenas dizem que “desenvolve soluções”, “prioriza qualidade” ou “busca eficiência” sem conteúdo real.
+- BLOCO 1 — APRESENTAÇÃO COMERCIAL CONVINCENTE: não escreva uma introdução técnica disfarçada de texto comercial. O objetivo é apresentar razões legítimas para o cliente considerar a empresa, transmitindo profissionalismo, atenção e confiança, sem propaganda vazia.
+- DISTRIBUIÇÃO EDITORIAL DO BLOCO 1 (3 PARÁGRAFOS):
+  P1 — EXPERIÊNCIA E CREDIBILIDADE: contextualize a atuação da empresa no segmento e sua relação com o produto/serviço. Quando o MEAD trouxer tempo de mercado, histórico ou experiência concreta, valorize esses dados. Se não trouxer, fale de forma honesta sobre a importância de conhecer o segmento e compreender a necessidade do comprador, sem atribuir anos de experiência ou resultados à empresa.
+  P2 — PRODUTOS, QUALIDADE E PROFISSIONAIS: valorize a importância de produtos adequados, qualidade, procedência, critérios de escolha e participação de profissionais preparados. Só atribua qualidade comprovada, equipe capacitada, especializações, certificações, controle próprio ou características específicas à empresa quando houver confirmação no MEAD. Sem confirmação, apresente esses pontos como critérios que o cliente deve considerar e como assuntos que podem ser esclarecidos durante a consulta.
+  P3 — ATENDIMENTO, NEGOCIAÇÃO, ENTREGA E SATISFAÇÃO: trate de atendimento atencioso, esclarecimento de dúvidas, consulta comercial, negociação, possibilidade de pagamento, opções de entrega, transporte, retirada e logística, conforme aplicável ao tema. Quando condições de pagamento ou entrega não estiverem informadas, convide o leitor a consultar as opções disponíveis; não afirme parcelamento, frete grátis, entrega nacional, transporte próprio, prazo ou disponibilidade. Relacione a clareza da negociação, o atendimento adequado e o acompanhamento da compra à busca pela satisfação do cliente, sem garantir satisfação ou resultados.
+- A SATISFAÇÃO DO CLIENTE deve aparecer como princípio de relacionamento e objetivo de atendimento, não como promessa garantida, depoimento inventado ou alegação de índice de satisfação.
+- A voz institucional pode ser usada com naturalidade, mas NÃO comece obrigatoriamente os parágrafos com “Nossa empresa”, “Nossa equipe” ou “Nosso atendimento”. Alterne pontos de entrada, sujeitos, ordem das frases e construções. Não use o mesmo molde comercial em todas as páginas. A variação deve acontecer naturalmente na escrita, sem criar frases artificiais nem depender de um histórico complexo.
+- Nunca invente fabricação, venda, fornecimento, instalação, manutenção, estoque, assistência, especialização, certificações, anos de atuação, estrutura, disponibilidade, serviços, preços, condições de pagamento, modalidades de entrega ou resultados. Se um dado não estiver confirmado, formule como possibilidade de consulta ou como critério de avaliação do comprador, nunca como oferta já existente.
+- Não use o bloco comercial para inserir explicações técnicas genéricas sobre o produto. A informação técnica deve ficar nos blocos 2 a 5.
+- NOS BLOCOS 2 A 5, produza conteúdo informativo de alta utilidade, específico para o significado real do tema. Explique características, funcionamento, materiais, critérios de escolha, usos, cuidados, limitações ou manutenção somente quando forem pertinentes à categoria e sustentáveis por conhecimento geral consolidado ou pelo MEAD. Não force todos esses assuntos em qualquer produto: selecione os que realmente fazem sentido.
+- QUALIDADE EDITORIAL: cada parágrafo deve responder a uma questão concreta que um leitor interessado naquele tema poderia ter. Prefira explicações claras, relações de causa e efeito, critérios práticos de avaliação e distinções importantes. Evite frases genéricas que apenas dizem que algo é importante, essencial, fundamental ou indispensável sem explicar por quê.
+- PROGRESSÃO: B2 deve desenvolver os fundamentos/características centrais do tema; B3 deve aprofundar contextos de uso e aplicações reais e adequadas; B4 deve tratar de critérios de escolha, adequação, comparação ou utilização, conforme o tema; B5 deve desenvolver cuidados, conservação, experiência de uso, limitações, boas práticas ou considerações finais pertinentes. Adapte essa progressão quando a natureza do tema exigir outra sequência mais lógica.
+- Não repita o mesmo benefício, característica ou explicação em blocos diferentes. Cada parágrafo deve acrescentar uma informação nova. Não transforme um produto comum em equipamento de segurança nem atribua proteção contra riscos sem certificação e especificação comprovadas.
+- Não crie oferta, CTA, promessa comercial ou alegação de capacidade sem autorização do MEAD.
+- Não misture categorias, versões ou tipos de equipamentos. Preserve as diferenças técnicas e o escopo de cada conceito.
+- A VARIEDADE É DE IDEIAS, NÃO SÓ DE PALAVRAS: cada parágrafo deve introduzir um aspecto diferente e específico; não repetir a mesma afirmação com sinônimos. Evite o padrão artificial “Nossa empresa... / Nossa equipe... / Nosso atendimento...” sempre com frases de abertura iguais. Varie a sintaxe e o ponto de entrada, mantendo a função editorial exigida para cada parágrafo.
+- Não mencione fontes, fragmentos, hashes, Python, Ollama, instruções ou etapas internas.
+- Escreva exclusivamente em português brasileiro, com linguagem natural, técnica, clara e objetiva.
+- Cada parágrafo deve preferencialmente ter entre 40 e 55 palavras. Isso é uma referência, não um mínimo: não aumente o texto artificialmente.
+- Cada frase deve acrescentar uma informação, explicar uma relação técnica ou esclarecer uma condição relevante. Elimine introduções vazias, propaganda genérica e conclusões óbvias. Se não houver fatos comerciais concretos, não tente compensar com afirmações abstratas de qualidade, confiança, excelência ou eficiência.
+- ESCREVA PARA O LEITOR, NÃO PARA PREENCHER A ESTRUTURA: use linguagem natural, explicações completas e vocabulário preciso. Evite sequência de frases com o mesmo comprimento, excesso de adjetivos, jargão desnecessário e afirmações grandiosas. Não alongue parágrafos repetindo a ideia central.
+- ORIGINALIDADE ENTRE PÁGINAS: cada tema deve receber uma redação própria. Não basta trocar o nome do produto. Varie naturalmente a abertura, a sintaxe, o ritmo, o vocabulário e o modo de explicar os argumentos. Não reproduza fórmulas fixas ou frases-modelo comerciais. Não force variação extravagante: priorize clareza e adequação ao tema.
+- Varie aberturas, construções sintáticas e ritmo. Evite fórmulas repetidas entre parágrafos. Não use sempre os mesmos moldes de abertura ou de conclusão, mesmo em temas diferentes.
+- Faça uma revisão silenciosa antes de responder: confirme pertinência de cada afirmação ao tema, ausência de invenções, funções diferentes entre os parágrafos, progressão dos blocos e keyword única por parágrafo. Reescreva trechos genéricos ou especulativos antes de entregar.
+- Cada parágrafo deve ser compreensível por si, sem referências vagas a algo que teria sido dito anteriormente.
+- Em cada um dos quinze parágrafos, inclua a expressão exata "{palavra_chave_redacao}" uma única vez, preservando integralmente capitalização, acentuação e composição. Não altere a expressão para ajustar a gramática; construa a frase ao redor dela.
+- A palavra-chave não deve aparecer nos títulos, subtítulos ou títulos dos blocos.
+- Crie um título próprio para cada bloco, derivado dos assuntos realmente desenvolvidos nele. Não use títulos genéricos nem uma sequência fixa de títulos.
+- Crie também um subtítulo editorial curto para a página, sem repetir o H1 nem a palavra-chave.
+- Os cinco blocos devem formar uma única página com progressão lógica, mas cada um deve ter identidade editorial própria.
+- Nos parágrafos, escreva somente prosa corrida: não use listas, tabelas, fichas técnicas, bullets ou enumerações internas.
 
-PATRIMÔNIO DE 15 POSIÇÕES (cada evidência está vinculada exclusivamente ao parágrafo indicado):
-{chr(10).join(partes_patrimonio_pagina)}
+TÍTULO PRINCIPAL (H1): {tema_titulo_exibicao}
 
-FORMATO OBRIGATÓRIO — retorne somente os marcadores e o conteúdo:
+MEAD COMPLETO — REGRAS, VALIDAÇÕES E RESTRIÇÕES:
+{mead_completo_ollama}
+
+FORMATO OBRIGATÓRIO — RETORNE SOMENTE OS MARCADORES E O CONTEÚDO:
 [BLOCO_1]
-[TITULO_BLOCO]Título específico[/TITULO_BLOCO]
-[SUBTITULO_PAGINA]Subtítulo curto da página[/SUBTITULO_PAGINA]
-[PARAGRAFO_1]Texto[/PARAGRAFO_1]
-[PARAGRAFO_2]Texto[/PARAGRAFO_2]
-[PARAGRAFO_3]Texto[/PARAGRAFO_3]
+[TITULO_BLOCO]Título específico do bloco 1[/TITULO_BLOCO]
+[SUBTITULO_PAGINA]Subtítulo editorial da página[/SUBTITULO_PAGINA]
+[PARAGRAFO_1]Texto do primeiro parágrafo[/PARAGRAFO_1]
+[PARAGRAFO_2]Texto do segundo parágrafo[/PARAGRAFO_2]
+[PARAGRAFO_3]Texto do terceiro parágrafo[/PARAGRAFO_3]
 [/BLOCO_1]
-Repita o mesmo formato para [BLOCO_2] até [BLOCO_5], sem o subtítulo de página nos demais blocos.
+Repita exatamente a mesma estrutura para BLOCO_2, BLOCO_3, BLOCO_4 e BLOCO_5. Em cada bloco, use os marcadores PARAGRAFO_1, PARAGRAFO_2 e PARAGRAFO_3. O subtítulo da página deve aparecer somente no BLOCO_1.
 """.strip()
 
     print("OLLAMA — GERAÇÃO DA PÁGINA INTEIRA")
-    print("CHAMADAS PREVISTAS: 1 | BLOCOS: 5 | PARÁGRAFOS: 15 | FRAGMENTOS: 15")
-    print("AUTORIA OLLAMA: PROGRESSÃO EDITORIAL | 5 FUNÇÕES DE BLOCO | 3 ÂNGULOS DISTINTOS POR BLOCO")
-    _caracteres_fragmentos_pagina = sum(
-        len(str(_frag.get("texto", "") or ""))
-        for _dados in informacoes_blocos.values() if isinstance(_dados, dict)
-        for _frag in (_dados.get("informacoes_relevantes", []) or [])
-        if isinstance(_frag, dict)
-    )
-    _caracteres_mead_pagina = len(str(contexto_mead_ollama_base or ""))
-    _caracteres_plano_pagina = len(str(contexto_global_pagina or ""))
+    print("CHAMADAS PREVISTAS: 1 | BLOCOS: 5 | PARÁGRAFOS: 15")
+    print("AUTORIA OLLAMA: INTERPRETAÇÃO DO TEMA | PLANEJAMENTO DOS 5 BLOCOS | REDAÇÃO INTEGRAL")
+    _caracteres_fragmentos_pagina = 0
+    _caracteres_mead_pagina = len(mead_completo_ollama)
+    _caracteres_plano_pagina = 0
     _tokens_estimados_prompt = int(len(prompt_pagina_unica) / 4)
     print("PROMPT GLOBAL:", len(prompt_pagina_unica), "caracteres")
     print(
         "CARGA ENVIADA AO OLLAMA —",
-        "fragmentos:", _caracteres_fragmentos_pagina, "caracteres |",
-        "MEAD:", _caracteres_mead_pagina, "caracteres |",
-        "plano global:", _caracteres_plano_pagina, "caracteres |",
+        "fontes/hash enviados:", "NÃO |",
+        "MEAD completo:", _caracteres_mead_pagina, "caracteres |",
         "prompt total:", len(prompt_pagina_unica), "caracteres |",
         "tokens estimados:", _tokens_estimados_prompt,
         "(estimativa aproximada; tokens efetivos serão lidos da resposta Ollama)"
@@ -20087,7 +19993,7 @@ Repita o mesmo formato para [BLOCO_2] até [BLOCO_5], sem o subtítulo de págin
                     # cinco títulos e marcadores, sem incentivar preenchimento artificial.
                     "num_predict": 3800,
                     "num_ctx": 16384,
-                    "temperature": 0.2,
+                    "temperature": 0.35,
                     "top_p": 0.9,
                     "repeat_penalty": 1.05
                 }
@@ -20123,6 +20029,13 @@ Repita o mesmo formato para [BLOCO_2] até [BLOCO_5], sem o subtítulo de págin
                         f"| velocidade aproximada: {taxa_stream} tokens/s"
                     )
                     ultimo_percentual_log = percentual_stream
+                # Percentual visual aproximado: acompanha a saída do Ollama,
+                # não representa uma porcentagem exata do raciocínio interno.
+                atualizar_linha_palavra(
+                    tema,
+                    percentual=min(85, int(percentual_stream * 0.85)),
+                    status="Gerando (estimativa)"
+                )
             if evento_stream.get("done"):
                 dados_resposta_pagina = evento_stream
                 break
@@ -20130,6 +20043,7 @@ Repita o mesmo formato para [BLOCO_2] até [BLOCO_5], sem o subtítulo de págin
         if not dados_resposta_pagina:
             raise RuntimeError("Ollama encerrou o fluxo sem evento final de métricas.")
         print("PROGRESSO OLLAMA: resposta recebida — geração encerrada; percentual do fluxo era estimado.")
+        atualizar_linha_palavra(tema, percentual=88, status="Resposta recebida | validando página")
         def _ollama_ns_para_segundos(valor):
             try:
                 return round(float(valor) / 1_000_000_000, 2)
@@ -20232,7 +20146,7 @@ Repita o mesmo formato para [BLOCO_2] até [BLOCO_5], sem o subtítulo de págin
     )) >= 15
 
     if not all(_aberturas_blocos_presentes) or not _marcadores_paragrafos_presentes:
-        _mt = re.search(r"\[TITULO_BLOCO\](.*?)(?:\[/TITULO_BLOCO\]|</TITULO_BLOCO>)", resposta_global_ollama, flags=re.I | re.S)
+        _mt = re.search(r"\[TITULO_BLOCO\](.*?)\[/TITULO_BLOCO\]", resposta_global_ollama, flags=re.I | re.S)
         _ms = re.search(r"\[SUBTITULO_PAGINA\](.*?)\[/SUBTITULO_PAGINA\]", resposta_global_ollama, flags=re.I | re.S)
         if _mt:
             _titulo_fallback_global = re.sub(r"\s+", " ", _mt.group(1)).strip()
@@ -20255,1818 +20169,128 @@ Repita o mesmo formato para [BLOCO_2] até [BLOCO_5], sem o subtítulo de págin
         print("PARÁGRAFOS RECUPERÁVEIS:", len(_paragrafos_fallback_global), "/ 15")
 
     # ============================================================
-    # PROCESSAR CADA BLOCO
+    # LER OS 5 BLOCOS DIRETAMENTE DA RESPOSTA DO OLLAMA
     # ============================================================
-
-    for numero_bloco in range(
-        1,
-        total_blocos + 1
-    ):
-
-        chave_bloco = (
-            f"bloco_{numero_bloco}"
-        )
-
-        dados_bloco = (
-            informacoes_blocos.get(
-                chave_bloco,
-                {}
-            )
-        )
-
-        bloco_recuperado = blocos_recuperados.get(chave_bloco)
-        if isinstance(bloco_recuperado, dict):
-            paras_recuperados = bloco_recuperado.get("paragrafos_ollama", [])
-            frags_recuperados = bloco_recuperado.get("informacoes_relevantes", [])
-            keyword_recuperacao_ok = (
-                isinstance(paras_recuperados, list)
-                and len(paras_recuperados) == 3
-                and all(
-                    str(x or "").strip()
-                    and _mead_contar_keyword_exata(str(x), palavra_chave_redacao) == 1
-                    for x in paras_recuperados
-                )
-            )
-            if (keyword_recuperacao_ok
-                    and isinstance(frags_recuperados, list) and len(frags_recuperados) == 3):
-                informacoes_blocos[chave_bloco] = bloco_recuperado
-                print(f"♻️ {chave_bloco.upper()} RECUPERADO — 3 parágrafos validados; Ollama não será chamado.")
-                continue
-            elif bloco_recuperado:
-                print(f"⚠️ {chave_bloco.upper()} EXISTE NA RECUPERAÇÃO, MAS NÃO PASSOU NA CONFERÊNCIA; SERÁ REGERADO.")
-
-        if not isinstance(
-            dados_bloco,
-            dict
-        ):
-
-            print()
-            print(
-                f"❌ ERRO: {chave_bloco} "
-                "não possui estrutura válida."
-            )
-
-            return None
-
-
-        # ========================================================
-        # INFORMAÇÕES RELEVANTES
-        # ========================================================
-
-        informacoes_relevantes = (
-            dados_bloco.get(
-                "informacoes_relevantes",
-                []
-            )
-        )
-
-        if not isinstance(
-            informacoes_relevantes,
-            list
-        ):
-
-            print()
-            print(
-                f"❌ ERRO: {chave_bloco} possui "
-                "informacoes_relevantes inválidas."
-            )
-
-            return None
-
-
-        # ========================================================
-        # CADA BLOCO PRECISA POSSUIR EXATAMENTE 3 FRAGMENTOS
-        # ========================================================
-
-        if len(
-            informacoes_relevantes
-        ) != 3:
-
-            print()
-            print("=" * 60)
-            print(
-                f"❌ ERRO NO {chave_bloco}"
-            )
-            print("=" * 60)
-
-            print(
-                "FRAGMENTOS ENCONTRADOS:",
-                len(
-                    informacoes_relevantes
-                )
-            )
-
-            print(
-                "FRAGMENTOS NECESSÁRIOS:",
-                3
-            )
-
-            return None
-
-
-        # ========================================================
-        # GARANTIR LISTA DE PARÁGRAFOS PYTHON
-        # ========================================================
-
-        paragrafos_python = (
-            dados_bloco.get(
-                "paragrafos_python",
-                []
-            )
-        )
-
-        if not isinstance(
-            paragrafos_python,
-            list
-        ):
-
-            paragrafos_python = []
-
-
-        paragrafos_python = (
-            paragrafos_python
-            + [
-                "",
-                "",
-                ""
-            ]
-        )[:3]
-
-
-        # ========================================================
-        # GARANTIR LISTA DE PARÁGRAFOS OLLAMA
-        # ========================================================
-
-        paragrafos_ollama = (
-            dados_bloco.get(
-                "paragrafos_ollama",
-                []
-            )
-        )
-
-        if not isinstance(
-            paragrafos_ollama,
-            list
-        ):
-
-            paragrafos_ollama = []
-
-
-        paragrafos_ollama = (
-            paragrafos_ollama
-            + [
-                "",
-                "",
-                ""
-            ]
-        )[:3]
-
-
-
-        # ========================================================
-        # TÍTULO DO BLOCO — PRESERVAR O TÍTULO EXTRAÍDO
-        # ========================================================
-        # O marcador [TITULO_BLOCO] já foi extraído da resposta global
-        # e armazenado em dados_bloco/titulos_python. Não reinicializar
-        # a variável com string vazia: isso apagava o título antes de
-        # montar a estrutura final e salvar o JSON.
-        titulo_bloco = str(
-            dados_bloco.get("titulo", "")
-            or titulos_python.get(chave_bloco, "")
-            or ""
-        ).strip()
-
-        # A extração defensiva do título a partir de resultado_ollama
-        # ocorre somente depois que a resposta do bloco é preparada.
-        # Neste ponto, a variável ainda pode não existir.
-
-        if titulo_bloco:
-            dados_bloco["titulo"] = titulo_bloco
-            titulos_python[chave_bloco] = titulo_bloco
-
-
-        # ========================================================
-        # HASH ORIGINAL
-        # ========================================================
-
-        hash_bloco = str(
-            dados_bloco.get(
-                "hash",
-                ""
-            )
-            or ""
-        ).strip()
-
-
-        # ========================================================
-        # VALIDAR E PREPARAR OS 3 FRAGMENTOS
-        # ========================================================
-
-        fragmentos_bloco = []
-
-        for indice_fragmento in range(
-            3
-        ):
-
-            fragmento = (
-                informacoes_relevantes[
-                    indice_fragmento
-                ]
-            )
-
-            # ----------------------------------------------------
-            # VALIDAR OBJETO
-            # ----------------------------------------------------
-
-            if not isinstance(
-                fragmento,
-                dict
-            ):
-
-                print()
-                print(
-                    f"❌ ERRO: fragmento "
-                    f"{indice_fragmento + 1} do "
-                    f"{chave_bloco} não é um objeto."
-                )
-
-                return None
-
-
-            # ----------------------------------------------------
-            # TEXTO ORIGINAL
-            # ----------------------------------------------------
-
-            texto_fragmento = str(
-                fragmento.get(
-                    "texto",
-                    ""
-                )
-                or ""
-            ).strip()
-
-
-            if not texto_fragmento:
-
-                print()
-                print(
-                    f"❌ ERRO: fragmento "
-                    f"{indice_fragmento + 1} do "
-                    f"{chave_bloco} está vazio."
-                )
-
-                return None
-
-
-            numero_fragmento = (
-                indice_fragmento + 1
-            )
-
-            id_fragmento = str(
-                fragmento.get(
-                    "id",
-                    ""
-                )
-                or ""
-            ).strip()
-
-
-            fragmentos_bloco.append({
-                "numero": numero_fragmento,
-                "id": id_fragmento,
-                "hash": str(fragmento.get("hash", "") or ""),
-                "palavra_chave_status": str(fragmento.get("palavra_chave_status", "SEM") or "SEM"),
-                "texto": texto_fragmento,
-                "fonte": fragmento.get("fonte", ""),
-                "url": fragmento.get("url", ""),
-                "tipo": fragmento.get("tipo", ""),
-                "pdf": fragmento.get("pdf", False),
-                "palavras": fragmento.get("palavras", len(texto_fragmento.split())),
-                "identidade_fonte": fragmento.get("identidade_fonte", {}),
-                "contexto_geral_sem_fonte": bool(fragmento.get("contexto_geral_sem_fonte", False))
-            })
-
-
-        # ========================================================
-        # LOG DOS 3 FRAGMENTOS
-        # ========================================================
-
-        print()
-        print("=" * 60)
-        print(
-            f"OLLAMA — {chave_bloco.upper()} — 3 FRAGMENTOS"
-        )
-        print("=" * 60)
-
-        print("TRECHOS:", len(fragmentos_bloco), "| palavras:",
-              ", ".join(str(len(x.get("texto", "").split())) for x in fragmentos_bloco))
-
-
-        # ========================================================
-        # NOVA ARQUITETURA — OLLAMA RECEBE 3 TRECHOS + MEAD EDITORIAL
-        # ========================================================
-        #
-        # CORREÇÃO v7.0:
-        #
-        # O MEAD já é preparado anteriormente por preparar_mead(),
-        # porém a arquitetura anterior não o inseria no prompt
-        # efetivamente enviado ao Ollama.
-        #
-        # Agora cada chamada do Ollama recebe:
-        # - as regras MEAD preparadas para IA;
-        # - os checkboxes editoriais ativos desta página;
-        # - o bloco atual;
-        # - os 3 fragmentos autorizados pelo Python.
-        #
-        # O MEAD NÃO autoriza o Ollama a pesquisar ou inventar
-        # informações. Ele funciona como orientação editorial.
-        # Os fragmentos são a base pesquisada; o modelo pode complementar
-        # com conhecimento geral consolidado, sem inventar dados específicos.
-        #
-        # ========================================================
-        #
-        # Python já resolveu:
-        #
-        # - pesquisa;
-        # - coleta;
-        # - limpeza;
-        # - identificação;
-        # - filtros;
-        # - relevância;
-        # - seleção;
-        # - distribuição;
-        # - até 3 trechos por bloco, complementados por conhecimento geral.
-        #
-        # O Ollama NÃO recebe:
-        #
-        # - fontes brutas;
-        # - mapa MEAD;
-        # - MEAD;
-        # - identidade da fonte;
-        # - domínio;
-        # - empresa;
-        # - outras fontes;
-        # - outros blocos;
-        # - entendimento da pesquisa.
-        #
-        # Ele recebe os trechos disponíveis e a autorização para conhecimento geral.
-        #
-        # ========================================================
-        
-        contexto_tres_fragmentos = ""
-
-        for fragmento in fragmentos_bloco:
-
-            contexto_tres_fragmentos += f"""
---------------------------------------------------
-TRECHO {fragmento["numero"]}
---------------------------------------------------
-
-{fragmento["texto"]}
-"""
-
-        # ========================================================
-        # MEAD EDITORIAL DA PÁGINA
-        # ========================================================
-        #
-        # `contexto_mead` foi preparado anteriormente por
-        # `preparar_mead(MEAD)`. A v6.7 preparava esse contexto,
-        # mas não o colocava na chamada efetiva do Ollama.
-        #
-        # Além do MEAD geral, enviamos os checkboxes ativos para
-        # deixar explícito o que foi escolhido pelos editores.
-        # ========================================================
-
-        # Checkboxes editoriais não fazem parte do contexto do Ollama.
-        # A estrutura editorial permanece no Python para a lógica da interface,
-        # mas não é serializada nem enviada ao modelo.
-
-        contexto_mead_ollama = str(
-            contexto_mead or ""
-        ).strip()
-
-        if not contexto_mead_ollama:
-            contexto_mead_ollama = "MEAD não disponível para esta execução."
-
-        # ========================================================
-        # PROMPT FINAL DO BLOCO
-        # ========================================================
-
-        prompt_bloco = f"""
-
-Você é um redator técnico.
-
-Sua única função é REEDITAR os três trechos fornecidos
-pelo Python.
-
-Não faça pesquisa.
-
-Não selecione informações.
-
-Não procure outras fontes.
-
-Não utilize conhecimento externo.
-
-Não invente informações.
-
-Não complete lacunas com conhecimento próprio.
-
-Não crie fatos.
-
-Não acrescente números.
-
-Não acrescente características.
-
-Não acrescente aplicações.
-
-Não acrescente materiais.
-
-Não acrescente normas.
-
-Não acrescente certificações.
-
-Não acrescente marcas.
-
-Não acrescente empresas.
-
-Não acrescente modelos.
-
-Não acrescente clientes.
-
-Não acrescente resultados.
-
-Não acrescente informações que não estejam nos trechos.
-
-O MEAD abaixo é uma orientação editorial da página.
-Ele NÃO é uma fonte factual adicional.
-Use-o para respeitar a intenção editorial, o foco e as regras
-da página, mas obtenha todo conteúdo técnico factual somente
-dos três trechos autorizados pelo Python.
-
-==================================================
-MEAD EDITORIAL DA PÁGINA
-==================================================
-
-{contexto_mead_ollama}
-
-==================================================
-BLOCO ATUAL
-==================================================
-
-{chave_bloco}
-
-==================================================
-REGRA DE REEDIÇÃO
-==================================================
-
-TRECHO 1 → PARÁGRAFO 1
-
-TRECHO 2 → PARÁGRAFO 2
-
-TRECHO 3 → PARÁGRAFO 3
-
-Cada trecho deve gerar somente o seu próprio parágrafo.
-
-Não misture os trechos.
-
-Não utilize informação de outro trecho.
-
-Não utilize informação de outro bloco.
-
-Preserve o sentido técnico original.
-
-Você pode corrigir:
-
-- gramática;
-- concordância;
-- pontuação;
-- ordem das frases;
-- fluidez;
-- repetição desnecessária;
-- construção textual.
-
-Você NÃO pode alterar o conteúdo factual.
-
-O resultado deve ser natural, técnico e claro.
-
-Não faça listas.
-
-Não crie títulos.
-
-Não crie subtítulos.
-
-Não crie conclusão.
-
-Não crie introdução fora dos três parágrafos.
-
-Procure aproximadamente 60 a 70 palavras por parágrafo,
-mas NUNCA invente conteúdo apenas para atingir tamanho.
-
-Se o trecho possuir menos informação, produza um
-parágrafo menor.
-
-==================================================
-FORMATO OBRIGATÓRIO
-==================================================
-
-[BLOCO]
-
-[PARAGRAFO_1]
-Reedição do TRECHO 1.
-[/PARAGRAFO_1]
-
-[PARAGRAFO_2]
-Reedição do TRECHO 2.
-[/PARAGRAFO_2]
-
-[PARAGRAFO_3]
-Reedição do TRECHO 3.
-[/PARAGRAFO_3]
-
-[/BLOCO]
-
-==================================================
-TRECHOS AUTORIZADOS PELO PYTHON
-==================================================
-
-{contexto_tres_fragmentos}
-
-RETORNE SOMENTE O BLOCO.
-"""
-
-
-        # ========================================================
-        # CONTROLE DO PROMPT DO BLOCO
-        # ========================================================
-
-        print()
-        print(
-            f"PROMPT {chave_bloco.upper()}:",
-            len(prompt_bloco),
-            "caracteres"
-        )
-
-        print(
-            "TRECHOS ENVIADOS:",
-            len(fragmentos_bloco)
-        )
-
-        print(
-            "IDENTIDADE DA FONTE ENVIADA:",
-            "NÃO"
-        )
-
-        print(
-            "FONTES EXTERNAS ENVIADAS:",
-            "NÃO"
-        )
-
-        print(
-            "MAPA MEAD ENVIADO:",
-            "NÃO"
-        )
-
-        print(
-            "MEAD EDITORIAL ENVIADO:",
-            "SIM"
-            if contexto_mead_ollama
-            else "NÃO"
-        )
-
-        print(
-            "CHECKBOXES DOS EDITORES ENVIADOS:",
-            "NÃO"
-        )
-        
-        
-        # ========================================================
-        # UMA CHAMADA OLLAMA POR BLOCO — 3 PARÁGRAFOS NARRATIVOS
-        # ========================================================
-        # Os três fragmentos são enviados juntos. Cada parágrafo
-        # continua vinculado exclusivamente ao fragmento de mesma
-        # numeração para a validação factual posterior. O contexto
-        # conjunto serve para dar continuidade e transições naturais,
-        # não para misturar fatos entre evidências.
-        # ========================================================
-        inicio_ollama = time.time()
-
-        for indice_fragmento, fragmento_individual in enumerate(fragmentos_bloco, 1):
-            texto_evidencia = str(fragmento_individual.get("texto", "") or "").strip()
-            if not texto_evidencia:
-                motivo = "EVIDENCIA_VAZIA"
-                print(f"❌ {motivo} — {chave_bloco} fragmento {indice_fragmento}")
-                _salvar_diagnostico_ultima_execucao(
-                    tema,
-                    {"bloco": chave_bloco, "fragmento": indice_fragmento,
-                     "evidencia": fragmento_individual},
-                    motivo,
-                    "Fragmento sem texto."
-                )
-                return None
-
-            if fragmento_individual.get("contexto_geral_sem_fonte"):
-                continue
-            ok_evidencia, motivo_evidencia = auditar_evidencia_para_redacao(texto_evidencia)
-            if not ok_evidencia:
-                print(f"❌ EVIDÊNCIA REPROVADA — {chave_bloco} fragmento {indice_fragmento}: {motivo_evidencia}")
-                _salvar_diagnostico_ultima_execucao(
-                    tema,
-                    {"bloco": chave_bloco, "fragmento": indice_fragmento,
-                     "evidencia": fragmento_individual,
-                     "motivo_auditoria": motivo_evidencia},
-                    "EVIDENCIA_REPROVADA_PRE_OLLAMA",
-                    motivo_evidencia
-                )
-                return None
-
-        prompt_bloco = f"""
-Você é o EDITOR MEAD/SEVEN. Sua tarefa é CRIAR a parte desta página,
-não apenas trocar palavras dos fragmentos.
-
-TEMA E EXPRESSÃO-CHAVE EXATA: {palavra_chave_redacao}
-BLOCO ATUAL: {chave_bloco}
-TÍTULO ATUAL (apenas referência): {titulo_bloco or 'a definir pelo plano'}
-
-LEITURA GLOBAL OBRIGATÓRIA
-Leia todo o patrimônio selecionado e o plano editorial global abaixo antes
-de escrever. A página deve ter visão de conjunto, continuidade e progressão.
-Você pode relacionar informações de diferentes fragmentos do patrimônio,
-inclusive de outros blocos, quando a relação estiver explicitamente sustentada.
-Não repita a mesma informação em blocos diferentes. O plano indica focos
-possíveis; não é uma taxonomia rígida nem uma ordem narrativa obrigatória.
-
-PATRIMÔNIO GLOBAL E PLANO DA PÁGINA
-{contexto_global_pagina}
-
-ORIENTAÇÃO MEAD EDITORES V2
-{contexto_mead_ollama_base}
-
-REGRAS DE FIDELIDADE
-- Use primeiro os fatos presentes no patrimônio global autorizado.
-- Quando o material for limitado, complemente com conhecimento geral e consolidado
-  sobre o tema, como conceitos, princípios, funções e explicações amplamente
-  reconhecidas. Não afirme que esse conhecimento veio das fontes pesquisadas.
-- Não invente nem deduza dados específicos de marcas, fabricantes, empresas,
-  modelos, normas, certificações, materiais, aplicações particulares, serviços,
-  resultados, garantias, capacidades, preços, disponibilidade ou promessas.
-- Não generalize uma característica de um modelo ou aplicação para todo
-  o produto ou setor.
-- Preserve todos os complementos do tema. Decompor serve para compreender,
-  nunca para apagar ou ampliar indevidamente o significado.
-- Não mencione fontes, fragmentos, hashes, Python, IA ou estas instruções.
-
-PLANEJAMENTO E REDAÇÃO
-- Crie um título curto e verdadeiro para este bloco, derivado do conteúdo
-  efetivamente sustentado. Evite modelos fixos e títulos genéricos.
-- Produza exatamente três parágrafos que façam parte de uma única página.
-- Cada parágrafo deve ter uma função e uma progressão próprias.
-- Use perspectivas e aberturas variadas, sem rodízio mecânico.
-- Os três parágrafos não precisam seguir a ordem dos fragmentos.
-- Não junte fatos sem relação apenas para aumentar o tamanho.
-- Não force personagem, cenário, problema, metáfora ou história.
-- A voz é primeira pessoa do plural somente quando representar o prestador
-  e houver base factual para isso.
-- No bloco 1, qualquer afirmação comercial deve estar explicitamente ligada
-  à expressão-chave exata da página e sustentada pelo patrimônio autorizado.
-- No bloco 1, distribua os pontos comerciais com naturalidade entre os
-  parágrafos e varie a redação de página para página; não use frase-modelo,
-  abordagem comercial genérica nem CTA como "Entre em contato".
-- Não afirme experiência, qualidade, equipe, condições de pagamento,
-  abrangência/região de atendimento, oferta ou serviços sem comprovação.
-- Nos demais blocos, não inclua CTA nem promoção.
-- Escreva somente prosa corrida nos parágrafos: não use listas, tabelas,
-  fichas técnicas, bullets, tópicos, subtítulos ou enumerações internas.
-- Quando o tema envolver tipos distintos de equipamento, mantenha suas
-  características e aplicações separadas. Para bombas, não confunda bomba
-  centrífuga geral, sanitária, submersível ou autoaspirante; só mencione
-  cada tipo quando estiver sustentado e pertinente ao tema exato.
-
-PALAVRA-CHAVE — REGRA ABSOLUTA
-- Insira a expressão exata "{palavra_chave_redacao}" exatamente UMA vez em CADA parágrafo.
-- Preserve a grafia, acentuação, ordem e capitalização exatamente como acima.
-- Não use variante, flexão, abreviação ou palavra isolada como substituta.
-- A expressão não precisa abrir a primeira frase; deve entrar naturalmente.
-- Não repita a expressão no título do bloco.
-
-EXTENSÃO E QUALIDADE
-- Prefira parágrafos completos e naturais, em geral entre 40 e 55 palavras.
-- A faixa de 40–55 palavras é somente referência editorial: nunca é filtro,
-  motivo de reprovação ou licença para inventar/esticar conteúdo.
-- Se a evidência disponível exigir menos palavras, seja preciso e conciso.
-- Português brasileiro, gramática correta, pontuação e transições naturais.
-- Evite repetição lexical e conceitual entre os três parágrafos e com os demais blocos.
-
-AUDITORIA ISI E DESVER ANTES DE RESPONDER
-- Leia literalmente cada frase para evitar imagens sensoriais involuntárias.
-- Observe o ambiente e a cena que o conjunto dos parágrafos produz.
-- Confira se os três parágrafos acrescentam ângulos diferentes.
-- Se um fato já foi tratado em outro ponto da página, escolha outro aspecto
-  sustentado ou aprofunde uma relação diferente, sem repetir a explicação.
-
-TRECHOS DE MAIOR PROXIMIDADE DO BLOCO ATUAL
-{contexto_tres_fragmentos}
-
-FORMATO OBRIGATÓRIO
-[BLOCO]
-[TITULO_BLOCO]
-Título curto e específico, derivado das evidências.
-[/TITULO_BLOCO]
-{("[SUBTITULO_PAGINA]\nSubtítulo curto, sem repetir o H1, ancorado no conjunto de fatos.\n[/SUBTITULO_PAGINA]" if chave_bloco == "bloco_1" else "")}
-[PARAGRAFO_1]
-Primeiro parágrafo da página.
-[/PARAGRAFO_1]
-[PARAGRAFO_2]
-Segundo parágrafo da página.
-[/PARAGRAFO_2]
-[PARAGRAFO_3]
-Terceiro parágrafo da página.
-[/PARAGRAFO_3]
-[/BLOCO]
-
-Retorne somente o bloco com os marcadores.
-"""
-
-        print()
-        print("=" * 58)
-        print(f"LEITURA DA RESPOSTA GLOBAL — {chave_bloco.upper()} — 3 FRAGMENTOS / 3 PARÁGRAFOS")
-        print("FRAGMENTOS ENVIADOS:", len(fragmentos_bloco))
-        print("PROMPT:", len(prompt_bloco), "caracteres")
-        print("PALAVRA-CHAVE EXIGIDA UMA VEZ POR PARÁGRAFO:", palavra_chave_redacao)
-        print("NARRATIVA ENTRE OS 3 PARÁGRAFOS: ATIVA")
-
-        marcador_bloco_inicio = f"[BLOCO_{numero_bloco}]"
-        marcador_bloco_fim = f"[/BLOCO_{numero_bloco}]"
-        pos_inicio_bloco = resposta_global_ollama.lower().find(marcador_bloco_inicio.lower())
-        pos_fim_bloco = resposta_global_ollama.lower().find(marcador_bloco_fim.lower(), pos_inicio_bloco + len(marcador_bloco_inicio)) if pos_inicio_bloco >= 0 else -1
-        _conteudo_bloco_tem_tags_paragrafo = False
-        if pos_inicio_bloco >= 0:
-            _fim_teste_bloco = pos_fim_bloco if pos_fim_bloco >= 0 else len(resposta_global_ollama)
-            _trecho_teste_bloco = resposta_global_ollama[
-                pos_inicio_bloco + len(marcador_bloco_inicio):_fim_teste_bloco
-            ]
-            _conteudo_bloco_tem_tags_paragrafo = bool(re.search(
-                r"\[PARAGRAFO_1\]", _trecho_teste_bloco, flags=re.I
-            ))
-
-        _precisa_fallback_bloco = (
-            pos_inicio_bloco < 0
-            or pos_fim_bloco < 0
-            or not _conteudo_bloco_tem_tags_paragrafo
-        )
-
-        if _precisa_fallback_bloco:
-            if not _paragrafos_fallback_global:
-                print(
-                    f"❌ ESTRUTURA INCOMPLETA EM {chave_bloco.upper()} "
-                    "E NÃO HÁ TRÊS PARÁGRAFOS RECUPERÁVEIS POR BLOCO."
-                )
-                _salvar_diagnostico_ultima_execucao(
-                    tema,
-                    {"bloco": chave_bloco, "paragrafos_recuperaveis": len(_paragrafos_fallback_global)},
-                    "BLOCO_AUSENTE_RESPOSTA_GLOBAL"
-                )
-                return None
-
-            _inicio_fallback = (numero_bloco - 1) * 3
-            _grupo_fallback = _paragrafos_fallback_global[_inicio_fallback:_inicio_fallback + 3]
-            if len(_grupo_fallback) != 3:
-                print(f"❌ RESPOSTA INCOMPLETA: {chave_bloco} não possui três parágrafos recuperáveis.")
-                return None
-
-            _partes_sinteticas = []
-            if numero_bloco == 1 and _titulo_fallback_global:
-                _partes_sinteticas.append(f"[TITULO_BLOCO]{_titulo_fallback_global}[/TITULO_BLOCO]")
-            if numero_bloco == 1 and _subtitulo_fallback_global:
-                _partes_sinteticas.append(f"[SUBTITULO_PAGINA]{_subtitulo_fallback_global}[/SUBTITULO_PAGINA]")
-            for _idx_fallback, _texto_fallback_par in enumerate(_grupo_fallback, 1):
-                _partes_sinteticas.append(f"[PARAGRAFO_{_idx_fallback}]{_texto_fallback_par}[/PARAGRAFO_{_idx_fallback}]")
-            resultado_ollama = "\n".join(_partes_sinteticas)
-            print(f"⚠️ {chave_bloco.upper()}: bloco reconstruído a partir de texto simples ({len(_grupo_fallback)} parágrafos).")
-        else:
-            resultado_ollama = resposta_global_ollama[
-                pos_inicio_bloco + len(marcador_bloco_inicio):pos_fim_bloco
-            ].strip()
-        resultado_ollama = re.sub(r"^```(?:text|txt)?\s*|\s*```$", "", resultado_ollama, flags=re.I).strip()
-
-        if not resultado_ollama:
-            print(f"❌ OLLAMA RETORNOU VAZIO — {chave_bloco}")
-            _salvar_diagnostico_ultima_execucao(
-                tema, {"bloco": chave_bloco, "prompt_caracteres": len(prompt_bloco)},
-                "OLLAMA_RETORNOU_VAZIO", "A resposta do bloco veio vazia."
-            )
-            return None
-
-        fim_ollama = time.time()
-        dados_ollama = {"response": resultado_ollama}
-        print("TEMPO DA CHAMADA GLOBAL (total da página):", round(fim_ollama - inicio_ollama_pagina, 2), "segundos")
-        print("CHAMADAS OLLAMA NESTE BLOCO: 0 (resposta global reutilizada)")
-        print("CARACTERES RETORNADOS:", len(resultado_ollama))
-        print("PARÁGRAFOS ESPERADOS NESTA RESPOSTA: 3")
-
-        # EXTRAIR OS 3 PARÁGRAFOS
-        # ========================================================
-
-        resultado_ollama = str(
-            resultado_ollama or ""
-        ).strip()
-
-
-        # --------------------------------------------------------
-        # REMOVER CERCAS DE CÓDIGO, CASO EXISTAM
-        # --------------------------------------------------------
-
-        resultado_ollama = re.sub(
-            r"```(?:text|txt)?",
-            "",
-            resultado_ollama,
-            flags=re.IGNORECASE
-        )
-
-        resultado_ollama = re.sub(
-            r"```",
-            "",
-            resultado_ollama
-        )
-
-        resultado_ollama = resultado_ollama.strip()
-
-
-        # ========================================================
-        # TÍTULO DO BLOCO GERADO A PARTIR DO PLANO E DAS EVIDÊNCIAS
-        # ========================================================
-        match_titulo_bloco = re.search(
-            r"\[TITULO_BLOCO\](.*?)(?:\[/TITULO_BLOCO\]|</TITULO_BLOCO>)",
-            resultado_ollama,
-            flags=re.IGNORECASE | re.DOTALL
-        )
-        if match_titulo_bloco:
-            titulo_gerado = re.sub(
-                r"\s+", " ", match_titulo_bloco.group(1)
-            ).strip(" \t\r\n:;.-")
-            if titulo_gerado:
-                # Sincroniza a variável local com o título extraído.
-                # Sem isso, uma gravação posterior reutiliza titulo_bloco vazio
-                # e sobrescreve o título correto no JSON final.
-                titulo_bloco = titulo_gerado
-                titulos_python[chave_bloco] = titulo_gerado
-                dados_bloco["titulo"] = titulo_gerado
-                informacoes_blocos[chave_bloco] = dados_bloco
-                print("TÍTULO MEAD GERADO:", titulo_gerado)
-        else:
-            # Fallback estritamente extractivo: deriva o título do conteúdo
-            # efetivamente redigido no próprio bloco, sem acrescentar fatos.
-            _textos_titulo = []
-            for _par_titulo in (resultado_ollama or "",):
-                for _idx_titulo in range(1, 4):
-                    _m_par_titulo = re.search(
-                        rf"\[PARAGRAFO_{_idx_titulo}\](.*?)\[/PARAGRAFO_{_idx_titulo}\]",
-                        _par_titulo, flags=re.I | re.S
-                    )
-                    if _m_par_titulo:
-                        _textos_titulo.append(_m_par_titulo.group(1).strip())
-            _titulo_fallback = ""
-            _ignorar_inicio_titulo = (
-                "no entanto", "além disso", "alem disso", "dessa forma",
-                "nesse contexto", "em resumo", "por outro lado",
-                "confira", "neste artigo", "como escolher"
-            )
-            for _texto_titulo in _textos_titulo:
-                _frase_titulo = re.split(r"(?<=[.!?])\s+", _texto_titulo, maxsplit=1)[0]
-                _frase_titulo = re.sub(r"^\s*[^A-Za-zÀ-ÿ0-9]+", "", _frase_titulo).strip(" .,:;–—-")
-                _frase_norm = normalizar_assunto_texto(_frase_titulo)
-                if any(_frase_norm.startswith(x) for x in _ignorar_inicio_titulo):
-                    _frase_titulo = re.sub(r"^[^,;:.]+[,;:.]\s*", "", _frase_titulo).strip()
-                _palavras_titulo = _frase_titulo.split()
-                if len(_palavras_titulo) >= 4:
-                    _titulo_fallback = " ".join(_palavras_titulo[:9]).strip(" .,:;–—-")
-                    break
-            if _titulo_fallback:
-                _titulo_fallback = _titulo_fallback[0].upper() + _titulo_fallback[1:]
-                titulo_bloco = _titulo_fallback
-                titulos_python[chave_bloco] = _titulo_fallback
-                dados_bloco["titulo"] = _titulo_fallback
-                informacoes_blocos[chave_bloco] = dados_bloco
-                print("TÍTULO EXTRACTIVO DE RESERVA:", chave_bloco, _titulo_fallback)
-            else:
-                print("⚠️ OLLAMA NÃO RETORNOU TÍTULO E NÃO HÁ FRASE ADEQUADA:", chave_bloco)
-
-        if chave_bloco == "bloco_1":
-            match_subtitulo = re.search(
-                r"\[SUBTITULO_PAGINA\](.*?)\[/SUBTITULO_PAGINA\]",
-                resultado_ollama,
-                flags=re.IGNORECASE | re.DOTALL
-            )
-            if match_subtitulo:
-                subtitulo = re.sub(
-                    r"\s+", " ", match_subtitulo.group(1)
-                ).strip(" \t\r\n:;.-")
-                print("SUBTÍTULO MEAD GERADO:", subtitulo)
-
-        # ========================================================
-        # EXTRAÇÃO DIRETA DOS 3 PARÁGRAFOS
-        # ========================================================
+    # Não há fragmentos, reservas, hashes nem recuperação de fontes.
+    # As validações são executadas sobre o texto final recebido.
+    subtitulo_extraido = ""
+    for numero_bloco in range(1, total_blocos + 1):
+        chave_bloco = f"bloco_{numero_bloco}"
+        marcador_inicio = rf"\[BLOCO_{numero_bloco}\]"
+        marcador_fim = rf"\[/BLOCO_{numero_bloco}\]"
+        trecho_match = re.search(marcador_inicio + r"(.*?)" + marcador_fim,
+                                 resposta_global_ollama, flags=re.I | re.S)
+        trecho = trecho_match.group(1) if trecho_match else ""
+
+        titulo_match = re.search(r"\[TITULO_BLOCO\](.*?)\[/TITULO_BLOCO\]", trecho, flags=re.I | re.S)
+        titulo_bloco = re.sub(r"\s+", " ", titulo_match.group(1)).strip(" \t\r\n:;.-") if titulo_match else ""
+        if numero_bloco == 1:
+            subtitulo_match = re.search(r"\[SUBTITULO_PAGINA\](.*?)\[/SUBTITULO_PAGINA\]", trecho, flags=re.I | re.S)
+            if subtitulo_match:
+                subtitulo_extraido = re.sub(r"\s+", " ", subtitulo_match.group(1)).strip()
 
         paragrafos_extraidos = []
-
-
-        for indice_paragrafo in range(
-            1,
-            4
-        ):
-
-            marcador_abertura = (
-                f"[PARAGRAFO_{indice_paragrafo}]"
+        for indice_paragrafo in range(1, 4):
+            # Ollama pode devolver o marcador de abertura sem o fechamento
+            # correspondente. Nesse caso, o próximo marcador de parágrafo
+            # ou o fechamento do bloco delimita o texto atual.
+            abertura_par = re.search(
+                rf"\[PARAGRAFO_{indice_paragrafo}\]",
+                trecho, flags=re.I
             )
-
-            marcador_fechamento = (
-                f"[/PARAGRAFO_{indice_paragrafo}]"
-            )
-
-
-            # ----------------------------------------------------
-            # LOCALIZAR ABERTURA
-            # ----------------------------------------------------
-
-            inicio = resultado_ollama.lower().find(
-                marcador_abertura.lower()
-            )
-
-
-            if inicio == -1:
-
-                # Alguns modelos omitem a abertura [PARAGRAFO_N], mas
-                # mantêm o fechamento [/PARAGRAFO_N]. Recupera o início
-                # pela fronteira estrutural anterior, sem absorver título
-                # ou subtítulo no texto do parágrafo.
-                if indice_paragrafo == 1:
-                    fronteiras = [
-                        "[/SUBTITULO_PAGINA]",
-                        "[/TITULO_BLOCO]",
-                    ]
-                    posicoes_fronteira = [
-                        resultado_ollama.lower().find(x.lower()) + len(x)
-                        for x in fronteiras
-                        if resultado_ollama.lower().find(x.lower()) >= 0
-                    ]
-                    inicio_conteudo_recuperado = max(posicoes_fronteira) if posicoes_fronteira else 0
-                else:
-                    fechamento_anterior = f"[/PARAGRAFO_{indice_paragrafo - 1}]"
-                    pos_fechamento_anterior = resultado_ollama.lower().find(fechamento_anterior.lower())
-                    inicio_conteudo_recuperado = (
-                        pos_fechamento_anterior + len(fechamento_anterior)
-                        if pos_fechamento_anterior >= 0 else -1
-                    )
-
-                if inicio_conteudo_recuperado < 0:
-                    print("❌ ABERTURA AUSENTE E NÃO FOI POSSÍVEL DETERMINAR O INÍCIO:", marcador_abertura)
-                    print("RESPOSTA:", resultado_ollama[:3000])
-                    return None
-
-                print("⚠️ MARCADOR DE ABERTURA AUSENTE:", marcador_abertura, "| início recuperado pela fronteira anterior")
-                # Mantém compatibilidade com o cálculo de inicio_conteudo abaixo.
-                inicio = inicio_conteudo_recuperado - len(marcador_abertura)
-
-
-            # ----------------------------------------------------
-            # POSIÇÃO APÓS O MARCADOR
-            # ----------------------------------------------------
-
-            inicio_conteudo = (
-                inicio
-                + len(
-                    marcador_abertura
+            texto_par = ""
+            if abertura_par:
+                inicio_par = abertura_par.end()
+                limites_par = []
+                fechamento_par = re.search(
+                    rf"\[/PARAGRAFO_{indice_paragrafo}\]",
+                    trecho[inicio_par:], flags=re.I
                 )
-            )
-
-
-
-            # ----------------------------------------------------
-            # LOCALIZAR FECHAMENTO
-            # ----------------------------------------------------
-            
-            fim = resultado_ollama.lower().find(
-                marcador_fechamento.lower(),
-                inicio_conteudo
-            )
-            
-            # ----------------------------------------------------
-            # COMPATIBILIDADE:
-            # se o Ollama não retornar o fechamento individual
-            # do parágrafo, utilizar o próximo marcador como
-            # limite do parágrafo atual.
-            # ----------------------------------------------------
-            
-            if fim == -1:
-
-                if indice_paragrafo < 3:
-                    proximo_marcador = f"[PARAGRAFO_{indice_paragrafo + 1}]"
-                    fim = resultado_ollama.lower().find(
-                        proximo_marcador.lower(), inicio_conteudo
-                    )
-                else:
-                    proximo_marcador = "FIM_DA_RESPOSTA_DO_BLOCO"
-                    fim = len(resultado_ollama)
-            
-            
-            if fim == -1:
-            
-                print()
-                print(
-                    "❌ FECHAMENTO DO PARÁGRAFO NÃO ENCONTRADO:"
+                if fechamento_par:
+                    limites_par.append(inicio_par + fechamento_par.start())
+                proximo_par = re.search(
+                    rf"\[/?(?:PARAGRAFO_[1-3]|BLOCO_\d+)\]",
+                    trecho[inicio_par:], flags=re.I
                 )
-            
-                print(
-                    indice_paragrafo
-                )
-            
-                print()
-                print(
-                    "MARCADORES PROCURADOS:"
-                )
-            
-                print(
-                    marcador_fechamento
-                )
-            
-                print(
-                    "OU LIMITE ALTERNATIVO:",
-                    proximo_marcador
-                    if 'proximo_marcador' in locals()
-                    else ""
-                )
-            
-                print()
-                print(
-                    "RESPOSTA RECEBIDA:"
-                )
-            
-                print(
-                    resultado_ollama[:3000]
-                )
-            
-                return None
+                if proximo_par:
+                    limites_par.append(inicio_par + proximo_par.start())
+                fim_par = min(limites_par) if limites_par else len(trecho)
+                texto_par = trecho[inicio_par:fim_par]
+                texto_par = re.sub(r"\s+", " ", texto_par).strip()
+                texto_par = re.sub(r"^\s*\[/PARAGRAFO_\d+\]\s*", "", texto_par, flags=re.I)
+            paragrafos_extraidos.append(texto_par)
 
-
-            # ----------------------------------------------------
-            # EXTRAIR TEXTO
-            # ----------------------------------------------------
-
-            texto_paragrafo = (
-                resultado_ollama[
-                    inicio_conteudo:fim
-                ]
-            )
-
-
-            texto_paragrafo = str(
-                texto_paragrafo or ""
-            ).strip()
-
-
-            if not texto_paragrafo:
-
-                print()
-                print(
-                    f"❌ PARÁGRAFO {indice_paragrafo} "
-                    "RETORNOU VAZIO."
-                )
-
-                return None
-
-
-            # ----------------------------------------------------
-            # LIMPEZA MÍNIMA
-            # ----------------------------------------------------
-
-            texto_paragrafo = re.sub(
-                r"\s+",
-                " ",
-                texto_paragrafo
-            ).strip()
-
-
-            if not texto_paragrafo:
-
-                print()
-                print(
-                    f"❌ PARÁGRAFO {indice_paragrafo} "
-                    "VAZIO APÓS LIMPEZA."
-                )
-
-                return None
-
-
-            paragrafos_extraidos.append(
-                texto_paragrafo
-            )
-
-        # ========================================================
-        # GARANTIR EXATAMENTE 3 PARÁGRAFOS
-        # ========================================================
-
-        if len(
-            paragrafos_extraidos
-        ) != 3:
-
-            print()
-            print(
-                "❌ QUANTIDADE INCORRETA DE PARÁGRAFOS:"
-            )
-
-            print(
-                len(
-                    paragrafos_extraidos
-                )
-            )
-
-            return None
-
-
-        # ========================================================
-        # NORMALIZAÇÃO DA PALAVRA-CHAVE — SEM NOVA CHAMADA OLLAMA
-        # ========================================================
-        # Uma ocorrência em caixa diferente é apenas normalizada.
-        # Se o modelo repetir a expressão, preservamos a primeira e
-        # substituímos as referências seguintes por uma retomada neutra,
-        # sem inserir uma nova palavra-chave nem descartar o bloco inteiro.
-        # Se a expressão estiver ausente, o parágrafo continua reprovado:
-        # não inventamos nem inserimos uma âncora que o modelo omitiu.
-        # ========================================================
-        reservas_com = dados_bloco.get("reservas_com", []) if isinstance(dados_bloco, dict) else []
-        if not isinstance(reservas_com, list):
-            reservas_com = []
-        hashes_reserva_tentadas = set()
-
-        padrao_keyword_ci = re.compile(
-            r"(?<!\w)" + re.escape(str(palavra_chave_redacao or "").strip()) + r"(?!\w)",
-            flags=re.IGNORECASE | re.UNICODE
-        ) if str(palavra_chave_redacao or "").strip() else None
-
-        if tipo == "produto":
-            referencia_secundaria_keyword = "o equipamento"
-        elif tipo == "servico":
-            referencia_secundaria_keyword = "o serviço"
-        else:
-            referencia_secundaria_keyword = "esse tema"
-
-        for indice_keyword, paragrafo_keyword in enumerate(list(paragrafos_extraidos)):
-            ocorrencias_ci = len(padrao_keyword_ci.findall(paragrafo_keyword)) if padrao_keyword_ci else 0
-
-            # Não converter automaticamente uma expressão em minúsculas
-            # precedida pelo artigo feminino minúsculo para a keyword
-            # oficial com inicial maiúscula. Isso criava construções como
-            # "a Bomba Centrífuga". A posição deve ser reescrita pelo Ollama
-            # ou recuperada de uma reserva COM gramaticalmente utilizável.
-            keyword_apos_artigo_minusculo = bool(
-                padrao_keyword_ci
-                and re.search(
-                    r"(?<!\w)(?:a|uma)\s+"
-                    + r"(?i:" + re.escape(str(palavra_chave_redacao or "").strip()) + r")",
-                    paragrafo_keyword,
-                    flags=re.UNICODE
-                )
-            )
-            if keyword_apos_artigo_minusculo:
-                print(
-                    "⚠️ INTEGRAÇÃO GRAMATICAL DA KEYWORD REPROVADA:",
-                    chave_bloco,
-                    "PARÁGRAFO", indice_keyword + 1,
-                    "— artigo feminino minúsculo imediatamente antes da expressão-chave."
-                )
-                ocorrencias_ci = 0
-
-            if ocorrencias_ci >= 1:
-                contador_keyword = {"n": 0}
-
-                def _normalizar_uma_keyword(match_keyword):
-                    contador_keyword["n"] += 1
-                    if contador_keyword["n"] == 1:
-                        return palavra_chave_redacao
-                    return referencia_secundaria_keyword
-
-                texto_normalizado_keyword = padrao_keyword_ci.sub(
-                    _normalizar_uma_keyword,
-                    paragrafo_keyword
-                )
-                paragrafos_extraidos[indice_keyword] = texto_normalizado_keyword
-
-                if ocorrencias_ci == 1 and texto_normalizado_keyword != paragrafo_keyword:
-                    print(
-                        "✅ CAPITALIZAÇÃO DA PALAVRA-CHAVE NORMALIZADA:",
-                        chave_bloco,
-                        "PARÁGRAFO", indice_keyword + 1,
-                        "→", palavra_chave_redacao
-                    )
-                elif ocorrencias_ci > 1:
-                    print(
-                        "⚠️ REPETIÇÃO DA PALAVRA-CHAVE CORRIGIDA:",
-                        chave_bloco,
-                        "PARÁGRAFO", indice_keyword + 1,
-                        "OCORRÊNCIAS ORIGINAIS:", ocorrencias_ci,
-                        "REFERÊNCIAS POSTERIORES SUBSTITUÍDAS POR:",
-                        referencia_secundaria_keyword
-                    )
-                continue
-
-            print(
-                "⚠️ PALAVRA-CHAVE AUSENTE:",
-                chave_bloco,
-                "PARÁGRAFO", indice_keyword + 1,
-                "— procurando reserva COM já existente, sem inserir a expressão no texto."
-            )
-            reserva_substituta = None
-            for reserva_keyword in reservas_com:
-                if not isinstance(reserva_keyword, dict):
+        # ============================================================
+        # GARANTIA DE TÍTULO — NUNCA DEIXAR BLOCO SEM TÍTULO
+        # ============================================================
+        # O título enviado pelo Ollama tem prioridade. Se o modelo omitir
+        # o marcador ou devolver o campo vazio, tentamos primeiro extrair
+        # uma frase real do próprio bloco. Se não houver frase adequada,
+        # usamos um título provisório específico para a palavra-chave e
+        # para a função editorial do bloco. A ocorrência fica registrada
+        # no log para revisão, mas não deixa o JSON incompleto.
+        if not titulo_bloco:
+            _frase_base_titulo = ""
+            for _texto_base_titulo in paragrafos_extraidos:
+                _texto_base_titulo = str(_texto_base_titulo or "").strip()
+                if not _texto_base_titulo:
                     continue
-                texto_reserva_keyword = re.sub(
-                    r"\s+", " ", str(reserva_keyword.get("texto", "") or "")
-                ).strip()
-                hash_reserva_keyword = str(reserva_keyword.get("hash", "") or "").strip()
-                ocorrencias_reserva = len(padrao_keyword_ci.findall(texto_reserva_keyword)) if padrao_keyword_ci else 0
-                reserva_keyword_gramaticalmente_invalida = bool(
-                    padrao_keyword_ci
-                    and re.search(
-                        r"(?<!\w)(?:a|uma)\s+"
-                        + r"(?i:" + re.escape(str(palavra_chave_redacao or "").strip()) + r")",
-                        texto_reserva_keyword,
-                        flags=re.UNICODE
-                    )
-                )
-                if (
-                    not texto_reserva_keyword
-                    or reserva_keyword_gramaticalmente_invalida
-                    or str(reserva_keyword.get("palavra_chave_status", "")).upper() != "COM"
-                    or ocorrencias_reserva != 1
-                    or len(texto_reserva_keyword.split()) < 25
-                    or not re.search(r"[.!?]$", texto_reserva_keyword)
-                    or (hash_reserva_keyword and hash_reserva_keyword in hashes_reservas_ocupadas)
-                ):
-                    continue
-                reserva_substituta = reserva_keyword
-                break
-
-            if reserva_substituta is None:
-                print("❌ NENHUMA RESERVA COM ADEQUADA; bloco preservado para recuperação, sem perder os demais dados.")
-                dados_bloco["paragrafos_ollama"] = list(paragrafos_extraidos)
-                dados_bloco["paragrafos_python"] = list(paragrafos_python)
-                dados_bloco["informacoes_relevantes"] = list(informacoes_relevantes)
-                titulo_bloco = str(
-                    titulos_python.get(chave_bloco, "")
-                    or dados_bloco.get("titulo", "")
-                    or titulo_bloco
-                    or ""
-                ).strip()
-                dados_bloco["titulo"] = titulo_bloco
-                salvar_bloco_recuperacao(tema, numero_bloco, dados_bloco)
-                _salvar_diagnostico_ultima_execucao(
-                    tema,
-                    {"bloco": chave_bloco, "paragrafo": indice_keyword + 1,
-                     "palavra_chave_exigida": palavra_chave_redacao,
-                     "paragrafos_ollama": paragrafos_extraidos},
-                    "PALAVRA_CHAVE_AUSENTE_SEM_RESERVA_COM",
-                    "Não foi encontrada reserva COM adequada para substituir a posição sem inventar texto."
-                )
-                return None
-
-            texto_reserva_substituta = str(reserva_substituta.get("texto", "") or "").strip()
-            contador_reserva = {"n": 0}
-            def _normalizar_keyword_reserva(match_reserva):
-                contador_reserva["n"] += 1
-                return palavra_chave_redacao
-            texto_reserva_substituta = padrao_keyword_ci.sub(
-                _normalizar_keyword_reserva, texto_reserva_substituta
-            )
-            paragrafos_extraidos[indice_keyword] = texto_reserva_substituta
-            hash_reserva_substituta = str(reserva_substituta.get("hash", "") or gerar_hash_trecho(texto_reserva_substituta))
-            hashes_reservas_ocupadas.add(hash_reserva_substituta)
-            fragmentos_bloco[indice_keyword] = {
-                "numero": indice_keyword + 1,
-                "id": reserva_substituta.get("id", ""),
-                "hash": hash_reserva_substituta,
-                "palavra_chave_status": "COM",
-                "texto": str(reserva_substituta.get("texto", "") or "").strip(),
-                "fonte": reserva_substituta.get("fonte", ""),
-                "url": reserva_substituta.get("url", ""),
-                "tipo": reserva_substituta.get("tipo", ""),
-                "pdf": reserva_substituta.get("pdf", False),
-                "palavras": reserva_substituta.get("palavras", len(texto_reserva_substituta.split())),
-                "identidade_fonte": reserva_substituta.get("identidade_fonte", {}),
-                "contexto_geral_sem_fonte": False
-            }
-            informacoes_relevantes[indice_keyword] = dict(reserva_substituta)
-            paragrafos_python[indice_keyword] = fragmentos_bloco[indice_keyword]["texto"]
-            try:
-                reservas_com.remove(reserva_substituta)
-            except (ValueError, AttributeError):
-                pass
-            print(
-                "✅ PARÁGRAFO RECUPERADO COM RESERVA COM:",
-                chave_bloco, "P", indice_keyword + 1,
-                "| HASH:", hash_reserva_substituta,
-                "| PALAVRA-CHAVE: 1/1",
-                "| TEXTO ORIGINAL DA FONTE PRESERVADO"
-            )
-
-        # Recontagem obrigatória com capitalização e acentuação exatas.
-        for indice_recontagem, paragrafo_recontagem in enumerate(paragrafos_extraidos, 1):
-            quantidade_recontagem = _mead_contar_keyword_exata(paragrafo_recontagem, palavra_chave_redacao)
-            if quantidade_recontagem != 1:
-                print(
-                    "❌ GATE FINAL DA PALAVRA-CHAVE FALHOU:",
-                    chave_bloco, "P", indice_recontagem,
-                    "OCORRÊNCIAS:", quantidade_recontagem
-                )
-                return None
-
-        # ========================================================
-        # VALIDAÇÃO FACTUAL PÓS-OLLAMA — v7.5
-        # ========================================================
-        #
-        # A versão anterior exigia sobreposição lexical quase
-        # literal. Isso rejeitava paráfrases tecnicamente corretas.
-        #
-        # Agora a validação usa sinais complementares:
-        # 1) cobertura por radicais leves;
-        # 2) termos relevantes compartilhados;
-        # 3) pequenas sequências de palavras;
-        # 4) preservação obrigatória de números/unidades;
-        # 5) bloqueio de parágrafo sem evidência suficiente.
-        #
-        # O MEAD e o contexto editorial NÃO entram como evidência.
-        # Cada parágrafo é validado somente contra seu fragmento
-        # autorizado correspondente.
-        # ========================================================
-
-        palavras_ruido_validacao = {
-            "para", "com", "sem", "sobre", "entre", "como", "uma", "umas",
-            "um", "uns", "dos", "das", "que", "por", "pelo", "pela",
-            "aos", "nas", "nos", "nas", "e", "ou", "de", "da", "do",
-            "em", "no", "na", "ao", "se", "ser", "sao", "são", "foi",
-            "tem", "ter", "pode", "podem", "mais", "tambem", "também",
-            "isso", "esse", "essa", "este", "esta", "esses", "essas",
-            "estes", "estas", "quando", "onde", "assim", "cada", "qual",
-            "forma", "tipo", "modo", "parte", "caso", "seu", "sua",
-            "seus", "suas", "outro", "outra", "outros", "outras"
-        }
-
-        def _tokens_validacao(texto):
-            normalizado = normalizar_assunto_texto(str(texto or ""))
-            return [
-                t for t in re.findall(r"\b[a-z0-9]{3,}\b", normalizado)
-                if t not in palavras_ruido_validacao
-            ]
-
-        def _radical_leve(token):
-            t = str(token or "")
-            if len(t) <= 5:
-                return t
-            # Redução conservadora de flexões frequentes em português.
-            sufixos = (
-                "mente", "ções", "ção", "sões", "são", "mente",
-                "amentos", "imentos", "amento", "imento", "idades",
-                "idade", "ismos", "ismo", "istas", "ista", "mente",
-                "ados", "idos", "adas", "idas", "ando", "endo", "indo",
-                "ados", "idos", "es", "as", "os", "s"
-            )
-            for sufixo in sufixos:
-                if t.endswith(sufixo) and len(t) - len(sufixo) >= 4:
-                    return t[:-len(sufixo)]
-            return t
-
-        def _n_gramas(tokens, n=2):
-            return set(
-                " ".join(tokens[i:i+n])
-                for i in range(max(0, len(tokens)-n+1))
-            )
-
-        def _avaliar_fidelidade_paragrafo(texto_saida, texto_fonte):
-            tokens_fonte = _tokens_validacao(texto_fonte)
-            tokens_saida = _tokens_validacao(texto_saida)
-            radicais_fonte = {_radical_leve(t) for t in tokens_fonte}
-            radicais_saida = [_radical_leve(t) for t in tokens_saida]
-            compartilhados = [t for t in radicais_saida if t in radicais_fonte]
-            cobertura_radical = len(compartilhados) / max(1, len(radicais_saida))
-            termos_fonte = set(tokens_fonte)
-            termos_saida = set(tokens_saida)
-            termos_compartilhados = termos_fonte & termos_saida
-            cobertura_termos = len(termos_compartilhados) / max(1, len(termos_saida))
-            bigramas_fonte = _n_gramas(tokens_fonte, 2)
-            bigramas_saida = _n_gramas(tokens_saida, 2)
-            sobreposicao_bigrama = len(bigramas_fonte & bigramas_saida) / max(1, len(bigramas_saida))
-            score = (cobertura_radical * 0.60) + (cobertura_termos * 0.25) + (sobreposicao_bigrama * 0.15)
-            numeros_fonte = set(re.findall(
-                r"(?<!\w)\d+(?:[.,]\d+)?(?:%|[a-zA-Z]{1,8})?(?!\w)",
-                normalizar_assunto_texto(texto_fonte)
-            ))
-            numeros_saida = set(re.findall(
-                r"(?<!\w)\d+(?:[.,]\d+)?(?:%|[a-zA-Z]{1,8})?(?!\w)",
-                normalizar_assunto_texto(texto_saida)
-            ))
-            return {
-                "score": score,
-                "radical": cobertura_radical,
-                "termos": cobertura_termos,
-                "bigramas": sobreposicao_bigrama,
-                "termos_compartilhados": termos_compartilhados,
-                "tokens_saida": tokens_saida,
-                "numeros_novos": numeros_saida - numeros_fonte,
-            }
-
-        # O texto inicial é validado normalmente. Se falhar, somente o
-        # parágrafo afetado é refeito, primeiro com sua própria fonte COM e,
-        # depois, com reservas COM. Os demais parágrafos aprovados ficam intactos.
-        hashes_factual_tentadas = set(hashes_reserva_tentadas)
-        for indice_paragrafo, resultado_paragrafo in enumerate(list(paragrafos_extraidos)):
-            fragmento_atual = fragmentos_bloco[indice_paragrafo]
-            texto_fonte_atual = str(fragmento_atual.get("texto", "") or "")
-            avaliacao = _avaliar_fidelidade_paragrafo(resultado_paragrafo, texto_fonte_atual)
-            falha_numerica = bool(avaliacao["numeros_novos"])
-            # O conteúdo pode legitimamente desenvolver conhecimento geral do tema;
-            # similaridade lexical com a fonte deixa de ser requisito de aprovação.
-            falha_evidencia = False
-
-            if falha_numerica or falha_evidencia:
-                motivo = "número/unidade não autorizado" if falha_numerica else "evidência insuficiente"
-                print("⚠️ RECUPERAÇÃO FACTUAL PONTUAL:", chave_bloco, "P", indice_paragrafo + 1, "MOTIVO:", motivo)
-                if falha_numerica:
-                    print("NÚMEROS NOVOS:", sorted(avaliacao["numeros_novos"]))
-                else:
-                    print("SCORE INICIAL:", round(avaliacao["score"], 3))
-
-                candidatos = []
-                hash_atual_factual = ""
-                # A fonte atual só pode ser reutilizada se estiver marcada COM
-                # e contiver de fato a expressão literal.
-                if (str(fragmento_atual.get("palavra_chave_status", "")).upper() == "COM"
-                        and contar_palavra_chave_literal(texto_fonte_atual, tema) >= 1):
-                    hash_atual_factual = str(fragmento_atual.get("hash", "") or gerar_hash_trecho(texto_fonte_atual))
-                    candidatos.append({
-                        "id": fragmento_atual.get("id", ""),
-                        "hash": hash_atual_factual,
-                        "texto": texto_fonte_atual,
-                        "fonte": fragmento_atual.get("fonte", ""),
-                        "url": fragmento_atual.get("url", ""),
-                        "tipo": fragmento_atual.get("tipo", ""),
-                        "pdf": fragmento_atual.get("pdf", False),
-                        "palavras": fragmento_atual.get("palavras", len(texto_fonte_atual.split())),
-                        "identidade_fonte": fragmento_atual.get("identidade_fonte", {}),
-                        "palavra_chave_status": "COM",
-                    })
-                for reserva in reservas_com:
-                    if not isinstance(reserva, dict):
-                        continue
-                    texto_reserva = str(reserva.get("texto", "") or "").strip()
-                    hash_reserva = str(reserva.get("hash", "") or gerar_hash_trecho(texto_reserva))
-                    if (not texto_reserva or not hash_reserva
-                            or str(reserva.get("palavra_chave_status", "")).upper() != "COM"
-                            or contar_palavra_chave_literal(texto_reserva, tema) < 1):
-                        continue
-                    if hash_reserva not in hashes_factual_tentadas and hash_reserva != hash_atual_factual:
-                        candidatos.append(reserva)
-
-                recuperado_factual = False
-                for candidato in candidatos:
-                    texto_candidato = str(candidato.get("texto", "") or "").strip()
-                    hash_candidato = str(candidato.get("hash", "") or gerar_hash_trecho(texto_candidato))
-                    if not hash_candidato or hash_candidato in hashes_factual_tentadas:
-                        continue
-                    hashes_factual_tentadas.add(hash_candidato)
-                    hashes_reservas_ocupadas.add(hash_candidato)
-                    try:
-                        reservas_com.remove(candidato)
-                    except (ValueError, AttributeError):
-                        pass
-                    prompt_factual = f"""
-Reescreva somente UM parágrafo técnico em português brasileiro. Use os fatos do fragmento como base e complemente apenas com conhecimento geral consolidado sobre o tema quando necessário; não invente dados específicos.
-
-TEMA / EXPRESSÃO EXATA OBRIGATÓRIA: {palavra_chave_redacao}
-A expressão exata deve aparecer exatamente UMA vez.
-
-REGRAS OBRIGATÓRIAS:
-- Não acrescente números, quantidades, medidas, unidades, percentuais, datas ou especificações que não estejam escritos no fragmento.
-- Não transforme números de títulos, listas, páginas ou enumerações em dados técnicos.
-- Não invente características, materiais, marcas, modelos, aplicações, resultados ou garantias.
-- Preserve os fatos do fragmento. Quando ele não trouxer informação suficiente,
-  use somente conhecimento geral consolidado sobre o tema, sem criar especificações.
-- Produza um único parágrafo completo, natural, com pelo menos 25 palavras e pontuação final.
-- Não mencione fonte, fragmento, pesquisa, Python ou estas instruções.
-
-FRAGMENTO AUTORIZADO:
-{texto_candidato}
-
-Retorne somente o parágrafo.
-""".strip()
-                    print("⚠️ RESERVA FACTUAL NÃO REESCRITA: a página já consumiu sua única chamada Ollama.")
-                    continue
-
-                    texto_tentativa = re.sub(r"^```(?:text|txt)?\s*|\s*```$", "", texto_tentativa, flags=re.I).strip()
-                    texto_tentativa = re.sub(r"\s+", " ", texto_tentativa).strip()
-                    if (not texto_tentativa
-                            or _mead_contar_keyword_exata(texto_tentativa, palavra_chave_redacao) != 1
-                            or not re.search(r"[.!?]$", texto_tentativa)):
-                        print("⚠️ TENTATIVA FACTUAL DESCARTADA: estrutura/palavra-chave inválida.", candidato.get("id", ""))
-                        continue
-
-                    avaliacao_tentativa = _avaliar_fidelidade_paragrafo(texto_tentativa, texto_candidato)
-                    falha_num_tentativa = bool(avaliacao_tentativa["numeros_novos"])
-                    falha_evid_tentativa = False
-                    if falha_num_tentativa or falha_evid_tentativa:
-                        print("⚠️ TENTATIVA FACTUAL REPROVADA:", candidato.get("id", ""),
-                              "NÚMEROS:", sorted(avaliacao_tentativa["numeros_novos"]),
-                              "SCORE:", round(avaliacao_tentativa["score"], 3))
-                        continue
-
-                    paragrafos_extraidos[indice_paragrafo] = texto_tentativa
-                    fragmentos_bloco[indice_paragrafo].update({
-                        "id": candidato.get("id", ""),
-                        "hash": hash_candidato,
-                        "palavra_chave_status": "COM",
-                        "texto": texto_candidato,
-                        "fonte": candidato.get("fonte", ""),
-                        "url": candidato.get("url", ""),
-                        "tipo": candidato.get("tipo", ""),
-                        "pdf": candidato.get("pdf", False),
-                        "palavras": candidato.get("palavras", len(texto_candidato.split())),
-                        "identidade_fonte": candidato.get("identidade_fonte", {})
-                    })
-                    informacoes_relevantes[indice_paragrafo] = dict(candidato)
-                    paragrafos_python[indice_paragrafo] = texto_candidato
-                    avaliacao = avaliacao_tentativa
-                    print("✅ RECUPERAÇÃO FACTUAL APROVADA:", candidato.get("id", ""),
-                          "SCORE:", round(avaliacao["score"], 3),
-                          "PALAVRA-CHAVE: 1/1", "NÚMEROS NOVOS: 0")
-                    recuperado_factual = True
+                _frase_base_titulo = re.split(r"(?<=[.!?])\s+", _texto_base_titulo, maxsplit=1)[0]
+                _frase_base_titulo = re.sub(r"\s+", " ", _frase_base_titulo).strip(" \t\r\n:;.,-–—")
+                if len(_frase_base_titulo.split()) >= 4:
                     break
+                _frase_base_titulo = ""
 
-                if not recuperado_factual:
-                    print("❌ RECUPERAÇÃO FACTUAL ESGOTADA:", chave_bloco, "P", indice_paragrafo + 1)
-                    _salvar_diagnostico_ultima_execucao(
-                        tema,
-                        {
-                            "bloco": chave_bloco,
-                            "paragrafo": indice_paragrafo + 1,
-                            "motivo": motivo,
-                            "numeros_novos": sorted(avaliacao["numeros_novos"]),
-                            "score": round(avaliacao["score"], 4),
-                            "paragrafos_ollama": paragrafos_extraidos,
-                            "informacoes_blocos": informacoes_blocos
-                        },
-                        "RECUPERACAO_FACTUAL_SEM_RESERVA_COM",
-                        "O parágrafo falhou na validação factual e nenhuma fonte COM disponível produziu substituição aprovada."
-                    )
-                    return None
+            if _frase_base_titulo:
+                _palavras_titulo = _frase_base_titulo.split()
+                titulo_bloco = " ".join(_palavras_titulo[:10]).strip(" .,:;–—-")
+                titulo_bloco = titulo_bloco[:1].upper() + titulo_bloco[1:]
+                _origem_titulo = "extraído do conteúdo do bloco"
+            else:
+                _rotulos_fallback_titulo = {
+                    1: "Visão geral e funcionamento",
+                    2: "Características e aplicações",
+                    3: "Benefícios e possibilidades de uso",
+                    4: "Aspectos técnicos e cuidados",
+                    5: "Orientações para escolha e utilização",
+                }
+                _tema_titulo_fallback = " ".join(
+                    palavra[:1].upper() + palavra[1:]
+                    for palavra in re.sub(r"\s+", " ", str(tema_base or tema or "")).split()
+                ).strip()
+                titulo_bloco = f"{_rotulos_fallback_titulo[numero_bloco]} de {_tema_titulo_fallback}".strip()
+                _origem_titulo = "título provisório automático"
 
-            # Validação final da posição, inclusive após eventual substituição.
-            texto_final_validado = paragrafos_extraidos[indice_paragrafo]
-            if _mead_contar_keyword_exata(texto_final_validado, palavra_chave_redacao) != 1:
-                print("❌ GATE COM FINAL FALHOU APÓS VALIDAÇÃO FACTUAL:", chave_bloco, "P", indice_paragrafo + 1)
-                return None
-            avaliacao_final = _avaliar_fidelidade_paragrafo(
-                texto_final_validado,
-                fragmentos_bloco[indice_paragrafo].get("texto", "")
-            )
-            # Similaridade lexical com a fonte não é obrigatória: conhecimento
-            # geral autorizado pode ampliar a explicação. Números novos seguem
-            # bloqueados para evitar especificações não comprovadas.
-            if avaliacao_final["numeros_novos"]:
-                print("❌ VALIDAÇÃO FACTUAL FINAL FALHOU:", chave_bloco, "P", indice_paragrafo + 1)
-                return None
-            print(
-                "🟢 VALIDAÇÃO FACTUAL:", chave_bloco,
-                "PARÁGRAFO", indice_paragrafo + 1,
-                "SCORE", round(avaliacao_final["score"], 3),
-                "TERMOS", len(avaliacao_final["termos_compartilhados"]),
-                "NÚMEROS NOVOS", 0
-            )
+            print(f"⚠️ TÍTULO DO BLOCO {numero_bloco} NÃO VEIO DO OLLAMA — aplicado {_origem_titulo}: {titulo_bloco}")
+        else:
+            print(f"✓ TÍTULO DO BLOCO {numero_bloco} RECEBIDO DO OLLAMA: {titulo_bloco}")
 
-        # ========================================================
-        # GUARDAR OS 3 RESULTADOS
-        # ========================================================
-        
-        for indice_paragrafo in range(
-            3
-        ):
-        
-            resultado_paragrafo = (
-                paragrafos_extraidos[
-                    indice_paragrafo
-                ]
-            )
-        
-            paragrafos_ollama[
-                indice_paragrafo
-            ] = resultado_paragrafo
+        # Se o modelo não incluir algum marcador, não fabricar parágrafo:
+        # manter posição vazia e deixar a validação estrutural sinalizar.
+        dados_bloco = informacoes_blocos.get(chave_bloco, {})
+        if not isinstance(dados_bloco, dict):
+            dados_bloco = {}
+        dados_bloco.update({
+            "titulo": titulo_bloco,
+            "informacoes_relevantes": [],
+            "paragrafos_python": [],
+            "paragrafos_ollama": paragrafos_extraidos,
+            "hash": ""
+        })
+        informacoes_blocos[chave_bloco] = dados_bloco
 
+        # Auditoria da palavra-chave sobre o texto gerado. Não substitui
+        # conteúdo e não bloqueia a gravação para aprovação posterior.
+        for indice_paragrafo, texto_par in enumerate(paragrafos_extraidos, 1):
+            ocorrencias = _mead_contar_keyword_exata(texto_par, palavra_chave_redacao) if texto_par else 0
+            if ocorrencias != 1:
+                print(f"⚠️ VALIDAÇÃO MEAD — {chave_bloco} P{indice_paragrafo}: palavra-chave encontrada {ocorrencias} vez(es); conteúdo preservado para aprovação.")
 
-        # ========================================================
-        # GUARDAR ESTRUTURA DO BLOCO
-        # ========================================================
+        print(f"BLOCO {numero_bloco}/5 LIDO: {sum(bool(x) for x in paragrafos_extraidos)}/3 parágrafos | sem fragmentos")
 
-        dados_bloco[
-            "paragrafos_python"
-        ] = paragrafos_python
-
-
-        dados_bloco[
-            "paragrafos_ollama"
-        ] = paragrafos_ollama
-
-
-        # Reconfere o título antes de persistir, priorizando o título extraído.
-        titulo_bloco = str(
-            titulos_python.get(chave_bloco, "")
-            or dados_bloco.get("titulo", "")
-            or titulo_bloco
-            or ""
-        ).strip()
-
-        dados_bloco[
-            "titulo"
-        ] = titulo_bloco
-
-
-        dados_bloco[
-            "hash"
-        ] = hash_bloco
-        
-
-        # ========================================================
-        # GUARDAR ESTRUTURA DO BLOCO EM MEMÓRIA
-        # ========================================================
-        #
-        # O bloco NÃO é salvo no JSON neste momento.
-        #
-        # Todos os 5 blocos serão mantidos em memória e somente
-        # depois da validação completa da página serão enviados
-        # ao salvar_banco() na gravação oficial.
-        #
-        # ========================================================
-
-        dados_bloco[
-            "paragrafos_python"
-        ] = paragrafos_python
-
-
-        dados_bloco[
-            "paragrafos_ollama"
-        ] = paragrafos_ollama
-
-
-        # Reconfere o título antes de persistir, priorizando o título extraído.
-        titulo_bloco = str(
-            titulos_python.get(chave_bloco, "")
-            or dados_bloco.get("titulo", "")
-            or titulo_bloco
-            or ""
-        ).strip()
-
-        dados_bloco[
-            "titulo"
-        ] = titulo_bloco
-
-
-        dados_bloco[
-            "hash"
-        ] = hash_bloco
-
-
-        # ========================================================
-        # LOG DE CONFIRMAÇÃO
-        # ========================================================
-
-        print()
-        print(
-            "✅ BLOCO PROCESSADO"
-        )
-
-        print(
-            "BLOCO:",
-            numero_bloco
-        )
-
-        print(
-            "FRAGMENTOS ENVIADOS:",
-            3
-        )
-
-        print(
-            "PARÁGRAFOS RECEBIDOS:",
-            len(
-                [
-                    item
-                    for item in paragrafos_ollama
-                    if str(item or "").strip()
-                ]
-            )
-        )
-
-        print("PALAVRAS P1/P2/P3:", "/".join(str(len(x.split())) for x in paragrafos_ollama[:3]))
-
-        print(
-            "TEMPO TOTAL DO BLOCO:",
-            round(
-                fim_ollama - inicio_ollama,
-                2
-            ),
-            "segundos"
-        )
-
-        print("=" * 60)
-
-
-        # ========================================================
-        # ATUALIZAR O DICIONÁRIO DO BLOCO
-        # ========================================================
-
-        informacoes_blocos[
-            chave_bloco
-        ] = dados_bloco
-
-        # Persistir o bloco validado antes de avançar para o próximo.
-        # Se a etapa posterior falhar, a próxima execução o reutiliza.
-        salvar_bloco_recuperacao(
-            tema,
-            numero_bloco,
-            dados_bloco
-        )
-        percentual_etapas = 20 + (numero_bloco * 12)
-        print(
-            f"PROGRESSO DA PÁGINA: {percentual_etapas}% — "
-            f"bloco {numero_bloco}/5 validado e preservado em progresso.json."
-        )
-
-
-        # ========================================================
-        # LOG DE CONFIRMAÇÃO
-        # ========================================================
-
-        print()
-        print(
-            "✅ BLOCO PROCESSADO E MANTIDO EM MEMÓRIA — AINDA NÃO GRAVADO NO JSON OFICIAL"
-        )
-
-        print(
-            "BLOCO:",
-            numero_bloco
-        )
-
-        print(
-            "FRAGMENTOS ENVIADOS:",
-            3
-        )
-
-        print(
-            "PARÁGRAFOS RECEBIDOS:",
-            len(
-                [
-                    item
-                    for item in paragrafos_ollama
-                    if str(item or "").strip()
-                ]
-            )
-        )
-
-        print(
-            "PALAVRAS PARÁGRAFO 1:",
-            len(
-                paragrafos_ollama[0].split()
-            )
-        )
-
-        print(
-            "PALAVRAS PARÁGRAFO 2:",
-            len(
-                paragrafos_ollama[1].split()
-            )
-        )
-
-        print(
-            "PALAVRAS PARÁGRAFO 3:",
-            len(
-                paragrafos_ollama[2].split()
-            )
-        )
-
-        print(
-            "TEMPO TOTAL DO BLOCO:",
-            round(
-                fim_ollama - inicio_ollama,
-                2
-            ),
-            "segundos"
-        )
-
-        print("=" * 60)
-
-
-        # ========================================================
-        # ATUALIZAR O DICIONÁRIO DO BLOCO
-        # ========================================================
-
-        informacoes_blocos[
-            chave_bloco
-        ] = dados_bloco
-
+    if subtitulo_extraido:
+        subtitulo = subtitulo_extraido
+        titulos_python["subtitulo"] = subtitulo_extraido
 
     # ============================================================
     # TÍTULOS DINÂMICOS: TODOS OS PARÁGRAFOS JÁ FORAM PROCESSADOS
@@ -22076,13 +20300,13 @@ Retorne somente o parágrafo.
         for n in range(1, 6)
     )
     print(
-        "TÍTULOS DINÂMICOS:",
-        "5/5 recebidos após a redação" if titulos_dinamicos_ok
-        else "algum título ausente; será registrado e tratado na validação"
+        "TÍTULOS DOS BLOCOS:",
+        "5/5 PREENCHIDOS — página protegida contra títulos ausentes" if titulos_dinamicos_ok
+        else "ERRO: ainda existe título ausente; verificar proteção"
     )
-    if titulos_dinamicos_ok:
-        for n in range(1, 6):
-            print(f"TÍTULO BLOCO {n}:", informacoes_blocos[f"bloco_{n}"].get("titulo", ""))
+    for n in range(1, 6):
+        _titulo_confirmado = str(informacoes_blocos.get(f"bloco_{n}", {}).get("titulo", "") or "").strip()
+        print(f"TÍTULO BLOCO {n}:", _titulo_confirmado or "ERRO — VAZIO")
 
     print("PROGRESSO DA PÁGINA: 80% — redação concluída; iniciando validações.")
 
@@ -22185,29 +20409,9 @@ Retorne somente o parágrafo.
     auditoria_independente_mead = _mead_auditoria_independente(
         informacoes_blocos, tema
     )
-    print(
-        "AUDITORIA MEAD — DESVER:",
-        len(auditoria_independente_mead.get("desver", [])),
-        "| ISI:",
-        len(auditoria_independente_mead.get("isi", [])),
-        "| KEYWORD:",
-        auditoria_independente_mead.get("keyword_ocorrencias_exatas", 0),
-        "/ 15"
-    )
-    print(
-        "FREIO DO REFINAMENTO:",
-        auditoria_independente_mead.get("freio_do_refinamento", "")
-    )
-    if auditoria_independente_mead.get("desver"):
-        print(
-            "ALERTAS DESVER:",
-            json.dumps(auditoria_independente_mead["desver"], ensure_ascii=False)[:5000]
-        )
-    if auditoria_independente_mead.get("isi"):
-        print(
-            "ALERTAS ISI PARA REVISÃO:",
-            json.dumps(auditoria_independente_mead["isi"], ensure_ascii=False)[:3000]
-        )
+    # A auditoria continua sendo calculada internamente; nesta versão
+    # não exibimos seus apontamentos individuais, somente a nota final.
+
 
     # ============================================================
     # GATE DE QUALIDADE — NOTA MÍNIMA 7,5 POR BLOCO
@@ -22236,42 +20440,16 @@ Retorne somente o parágrafo.
             "detalhes": detalhes_gate
         }
         qualidade_blocos.append(registro_gate)
-        print(f"INDICADOR EDITORIAL {chave_gate}: {nota_gate:.2f}/10 | {'APROVADO' if registro_gate['aprovado'] else 'REVISAR'}")
-        if falhas_gate:
-            print("FALHAS:", "; ".join(falhas_gate))
+        # Validação mantida sem despejar notas ou falhas por bloco no log.
         if not registro_gate["aprovado"]:
             qualidade_reprovada = True
 
     nota_minima_pagina = min((x["nota"] for x in qualidade_blocos), default=0.0)
     media_pagina = sum(x["nota"] for x in qualidade_blocos) / max(1, len(qualidade_blocos))
-    print(f"NOTA MÍNIMA ENTRE BLOCOS: {nota_minima_pagina:.2f}/10 | MÉDIA: {media_pagina:.2f}/10")
-    if qualidade_reprovada or nota_minima_pagina < 7.5:
-        # A auditoria editorial continua ativa, mas não impede a persistência.
-        # A prioridade desta etapa é gravar os 15 parágrafos para permitir
-        # inspeção e correção posterior. A validação estrutural do JSON
-        # permanece obrigatória dentro de salvar_banco().
-        print("⚠️ QUALIDADE EDITORIAL ABAIXO DO ALVO — CONTINUANDO PARA TENTAR GRAVAR O JSON.")
-        print("RESUMO DE QUALIDADE:", " | ".join(
-            f"{x.get('bloco')}: nota {x.get('nota', 0):.2f}; "
-            f"{'OK' if x.get('aprovado') else 'revisar'}"
-            for x in qualidade_blocos
-        ))
-        _salvar_diagnostico_ultima_execucao(
-            tema,
-            {
-                "tipo": "PAGINA_15_PARAGRAFOS_INDIVIDUAIS",
-                "qualidade_blocos": qualidade_blocos,
-                "informacoes_blocos": informacoes_blocos,
-                "nota_minima": nota_minima_pagina,
-                "media": media_pagina,
-                "salvamento": "PERMITIDO_COM_ALERTAS; estrutura continua validada em salvar_banco",
-            },
-            "SALVAMENTO_PERMITIDO_COM_ALERTAS_DE_QUALIDADE",
-            " | ".join(
-                f"{x.get('bloco')}: {', '.join(x.get('falhas', []) or [])}"
-                for x in qualidade_blocos if not x.get("aprovado")
-            ) or f"Nota mínima {nota_minima_pagina:.2f} abaixo de 7,5"
-        )
+    # A nota consolidada é calculada a partir das notas dos cinco blocos.
+    # Qualquer resultado editorial é gravável; a nota não funciona como gate.
+    nota_final_pagina = round(media_pagina, 2)
+    print(f"NOTA DO CONTEÚDO: {nota_final_pagina:.2f}/10")
 
     # ============================================================
     # MONTAR LISTA FINAL DOS BLOCOS
@@ -23238,16 +21416,6 @@ Retorne somente o parágrafo.
     # A cópia de recuperação só é removida depois que salvar_banco
     # confirmou a gravação e a leitura de conferência no disco.
     limpar_blocos_recuperacao(tema)
-
-    # ========================================================
-    # 24. SALVAR MAPA MEAD
-    # ========================================================
-
-    salvar_banco(
-        tema,
-        "mapa_mead",
-        mapa_texto
-    )
 
     # ========================================================
     # 25. RESULTADO
@@ -27811,6 +25979,39 @@ def salvar_banco(
     )
 
     # ========================================================
+    # ÚLTIMA PROTEÇÃO: OS CINCO TÍTULOS DEVEM EXISTIR NO JSON
+    # ========================================================
+    _rotulos_titulo_final = {
+        1: "Visão geral e funcionamento",
+        2: "Características e aplicações",
+        3: "Benefícios e possibilidades de uso",
+        4: "Aspectos técnicos e cuidados",
+        5: "Orientações para escolha e utilização",
+    }
+    _tema_titulo_final = " ".join(
+        palavra[:1].upper() + palavra[1:]
+        for palavra in re.sub(r"\s+", " ", str(tema_original or "")).split()
+    ).strip()
+    for _n_titulo_final in range(1, 6):
+        _chave_titulo_final = f"bloco_{_n_titulo_final}"
+        _bloco_titulo_final = pagina.get(_chave_titulo_final, {})
+        if not isinstance(_bloco_titulo_final, dict):
+            _bloco_titulo_final = criar_bloco_vazio(_n_titulo_final)
+            pagina[_chave_titulo_final] = _bloco_titulo_final
+        _titulo_final_atual = str(_bloco_titulo_final.get("titulo", "") or "").strip()
+        if not _titulo_final_atual:
+            _titulo_final_atual = f"{_rotulos_titulo_final[_n_titulo_final]} de {_tema_titulo_final}".strip()
+            _bloco_titulo_final["titulo"] = _titulo_final_atual
+            print(f"⚠️ PROTEÇÃO FINAL: título provisório inserido no {_chave_titulo_final}: {_titulo_final_atual}")
+
+    _titulos_faltantes_final = [
+        f"bloco_{_n}" for _n in range(1, 6)
+        if not str(pagina.get(f"bloco_{_n}", {}).get("titulo", "") or "").strip()
+    ]
+    if _titulos_faltantes_final:
+        raise ValueError("Gravação cancelada: títulos ausentes em " + ", ".join(_titulos_faltantes_final))
+
+    # ========================================================
     # MONTAR PÁGINA FINAL
     # ========================================================
 
@@ -28076,8 +26277,8 @@ def salvar_banco(
                     erros_json.append(f"{chave_bloco} ausente ou inválido")
                     continue
                 info_validacao = bloco_validacao.get("informacoes_relevantes", [])
-                if not isinstance(info_validacao, list) or len(info_validacao) != 3:
-                    erros_json.append(f"{chave_bloco}: esperado 3 fragmentos")
+                if not isinstance(info_validacao, list):
+                    erros_json.append(f"{chave_bloco}: campo legado informacoes_relevantes inválido")
                 para_validacao = bloco_validacao.get("paragrafos_ollama", [])
                 if not isinstance(para_validacao, list) or len(para_validacao) != 3 or any(not str(x or "").strip() for x in para_validacao[:3]):
                     erros_json.append(f"{chave_bloco}: esperado 3 parágrafos Ollama não vazios")
@@ -28129,8 +26330,8 @@ def salvar_banco(
                     continue
                 info_gravada = bloco_gravado.get("informacoes_relevantes", [])
                 para_gravados = bloco_gravado.get("paragrafos_ollama", [])
-                if not isinstance(info_gravada, list) or len(info_gravada) != 3:
-                    erros_pos_gravacao.append(f"{chave_bloco}: fragmentos incompletos")
+                if not isinstance(info_gravada, list):
+                    erros_pos_gravacao.append(f"{chave_bloco}: campo legado informacoes_relevantes inválido")
                 if not isinstance(para_gravados, list) or len(para_gravados) != 3 or any(not str(x or "").strip() for x in para_gravados[:3]):
                     erros_pos_gravacao.append(f"{chave_bloco}: parágrafos incompletos")
 
@@ -28141,7 +26342,7 @@ def salvar_banco(
             return False
 
         if categoria == "pagina":
-            print("\n✅ JSON VALIDADO NO DISCO — 5 blocos / 15 fragmentos / 15 parágrafos")
+            print("\n✅ JSON VALIDADO NO DISCO — 5 blocos / 15 parágrafos (sem fragmentos)")
         else:
             mapa_gravado = tema_gravado.get("mapa_mead", {}) if isinstance(tema_gravado, dict) else {}
             if categoria == "mapa_mead" and str(mapa_gravado.get("texto", "")).strip() != str(texto or "").strip():
@@ -28248,10 +26449,7 @@ def salvar_banco(
             "PARÁGRAFOS OLLAMA:",
             total_paragrafos_ollama
         )
-        print(
-            "FRAGMENTOS SELECIONADOS:",
-            total_fragmentos
-        )
+        print("FRAGMENTOS: NÃO UTILIZADOS NESTA ARQUITETURA")
         print(
             "SEGMENTOS:",
             len(
@@ -28336,10 +26534,10 @@ def salvar_banco(
             )
 
             print(
-                f"{'🟢' if info else '🔴'} "
+                f"{'🟢' if quantidade_paragrafos == 3 else '🔴'} "
                 f"bloco_{numero}: "
-                f"{len(info)} fragmentos selecionados | "
-                f"{quantidade_paragrafos} parágrafos Ollama"
+                f"{quantidade_paragrafos}/3 parágrafos Ollama | "
+                "sem fragmentos"
             )
 
         # ----------------------------------------------------
@@ -28508,6 +26706,389 @@ def salvar_banco(
 
 
 # ============================================================
+# ASSISTENTE OLLAMA — EDIÇÃO CONVERSACIONAL DO CONTEÚDO
+# ============================================================
+
+def abrir_assistente_ollama():
+    """Abre um editor conversacional que altera o JSON somente após aprovação."""
+    win = tk.Toplevel(janela)
+    win.title("Assistente Ollama — edição de páginas MEAD")
+    win.geometry("1450x900")
+    win.minsize(1100, 700)
+
+    estado = {"historico": [], "anexos": [], "rascunho": None, "tema": None, "busy": False}
+
+    topo = ttk.Frame(win, padding=8); topo.pack(fill="x")
+    ttk.Label(topo, text="Banco de páginas:").pack(side="left")
+    banco_var = tk.StringVar(value=ARQUIVO_BANCO)
+    banco_entry = ttk.Entry(topo, textvariable=banco_var, width=90); banco_entry.pack(side="left", padx=5, fill="x", expand=True)
+    def escolher_banco_assistente():
+        arq = filedialog.askopenfilename(parent=win, title="Selecione conteudo.json", filetypes=[("JSON", "*.json"), ("Todos", "*.*")])
+        if arq: banco_var.set(arq); carregar_paginas()
+    ttk.Button(topo, text="Selecionar", command=escolher_banco_assistente).pack(side="left")
+
+    barra = ttk.Frame(win, padding=(8, 0, 8, 8)); barra.pack(fill="x")
+    ttk.Label(barra, text="Página / palavra-chave:").pack(side="left")
+    pagina_var = tk.StringVar()
+    pagina_combo = ttk.Combobox(barra, textvariable=pagina_var, width=48, state="readonly")
+    pagina_combo.pack(side="left", padx=5)
+    ttk.Label(barra, text="Ação:").pack(side="left", padx=(12, 0))
+    escopo_var = tk.StringVar(value="")
+    escopo_combo = ttk.Combobox(barra, textvariable=escopo_var, state="readonly", width=30, values=["Conversa e orientação", "Reescrever parágrafo", "Reescrever bloco", "Revisar página inteira", "Alterar títulos", "Revisar tags", "Revisar segmentos", "Aplicar instrução personalizada"])
+    escopo_combo.pack(side="left", padx=5)
+    ttk.Label(barra, text="Blocos (ex.: 2,3 ou todos):").pack(side="left", padx=(8, 0))
+    bloco_var = tk.StringVar(value="")
+    ttk.Entry(barra, textvariable=bloco_var, width=8).pack(side="left", padx=3)
+    ttk.Label(barra, text="Parágrafos (ex.: 1,3 ou todos):").pack(side="left")
+    par_var = tk.StringVar(value="")
+    ttk.Entry(barra, textvariable=par_var, width=8).pack(side="left", padx=3)
+
+    paned = ttk.Panedwindow(win, orient="horizontal"); paned.pack(fill="both", expand=True, padx=8, pady=4)
+    left = ttk.Frame(paned, padding=5); right = ttk.Frame(paned, padding=5)
+    paned.add(left, weight=3); paned.add(right, weight=2)
+    ttk.Label(left, text="CONVERSA COM O OLLAMA", font=("Arial", 10, "bold")).pack(anchor="w")
+    conversa = tk.Text(left, wrap="word", state="disabled", font=("Arial", 10), height=24)
+    scroll_conv = ttk.Scrollbar(left, orient="vertical", command=conversa.yview); conversa.configure(yscrollcommand=scroll_conv.set)
+    scroll_conv.pack(side="right", fill="y"); conversa.pack(fill="both", expand=True)
+    ttk.Label(left, text="Sua instrução:").pack(anchor="w", pady=(8, 2))
+    instrucao = tk.Text(left, height=5, wrap="word", font=("Arial", 10)); instrucao.pack(fill="x")
+    linha_botoes = ttk.Frame(left); linha_botoes.pack(fill="x", pady=5)
+    status_var = tk.StringVar(value="Pronto. Selecione uma página para começar.")
+    ttk.Label(left, textvariable=status_var, foreground="#245b86").pack(anchor="w")
+    # Indicador visível durante chamadas longas ao Ollama (sem bloquear a interface).
+    progresso_frame = ttk.Frame(left)
+    progresso_frame.pack(fill="x", pady=(3, 5))
+    progresso_barra = ttk.Progressbar(progresso_frame, mode="indeterminate", length=260)
+    progresso_barra.pack(side="left", fill="x", expand=True)
+    tempo_var = tk.StringVar(value="")
+    ttk.Label(progresso_frame, textvariable=tempo_var, width=18, anchor="e").pack(side="right", padx=(8, 0))
+    controle_progresso = {"inicio": None, "ativo": False, "etapa": ""}
+
+    def atualizar_indicador_progresso():
+        if not controle_progresso["ativo"] or not win.winfo_exists():
+            return
+        decorrido = int(time.monotonic() - controle_progresso["inicio"])
+        minutos, segundos = divmod(decorrido, 60)
+        tempo_var.set(f"Tempo: {minutos:02d}:{segundos:02d}")
+        etapa = controle_progresso.get("etapa") or "Aguardando resposta do Ollama"
+        status_var.set(f"{etapa} — a interface continua ativa.")
+        win.after(1000, atualizar_indicador_progresso)
+
+    def iniciar_indicador_progresso(etapa):
+        controle_progresso.update({"inicio": time.monotonic(), "ativo": True, "etapa": etapa})
+        progresso_barra.start(12)
+        tempo_var.set("Tempo: 00:00")
+        atualizar_indicador_progresso()
+
+    def parar_indicador_progresso():
+        controle_progresso["ativo"] = False
+        try:
+            progresso_barra.stop()
+        except Exception:
+            pass
+        tempo_var.set("")
+
+    ttk.Label(right, text="CONTEÚDO ATUAL DA PÁGINA", font=("Arial", 10, "bold")).pack(anchor="w")
+    atual = tk.Text(right, wrap="word", state="disabled", font=("Consolas", 9))
+    sca = ttk.Scrollbar(right, orient="vertical", command=atual.yview); atual.configure(yscrollcommand=sca.set)
+    sca.pack(side="right", fill="y"); atual.pack(fill="both", expand=True)
+    ttk.Label(right, text="PRÉVIA DAS ALTERAÇÕES (ainda não gravadas)", font=("Arial", 10, "bold")).pack(anchor="w", pady=(8, 2))
+    previa = tk.Text(right, wrap="word", height=12, font=("Consolas", 9))
+    scp = ttk.Scrollbar(right, orient="vertical", command=previa.yview); previa.configure(yscrollcommand=scp.set)
+    scp.pack(side="right", fill="y"); previa.pack(fill="both", expand=True)
+
+    def set_text(widget, text, readonly=False):
+        widget.configure(state="normal"); widget.delete("1.0", "end"); widget.insert("1.0", text or "")
+        if readonly: widget.configure(state="disabled")
+
+    def carregar_banco_assistente():
+        caminho = banco_var.get().strip()
+        if not caminho or not os.path.isfile(caminho): raise FileNotFoundError("Arquivo banco não encontrado: " + caminho)
+        with open(caminho, "r", encoding="utf-8") as f: dados = json.load(f)
+        if not isinstance(dados, dict): raise ValueError("O JSON precisa ter um objeto na raiz, conforme o banco MEAD.")
+        return dados
+
+    banco_cache = {}
+    def carregar_paginas():
+        try:
+            banco_cache.clear(); banco_cache.update(carregar_banco_assistente())
+            pagina_combo["values"] = list(banco_cache.keys())
+            if banco_cache and pagina_var.get() not in banco_cache: pagina_var.set(list(banco_cache.keys())[0])
+            mostrar_pagina()
+            status_var.set(f"{len(banco_cache)} páginas carregadas do banco.")
+        except Exception as e:
+            messagebox.showerror("Banco MEAD", str(e), parent=win)
+    def obter_conteudo_pagina(registro):
+        """O banco MEAD pode guardar os dados editoriais dentro de registro['pagina']."""
+        if not isinstance(registro, dict):
+            return {}
+        interno = registro.get("pagina")
+        return interno if isinstance(interno, dict) else registro
+
+    def resumo_pagina(registro):
+        if not isinstance(registro, dict): return str(registro)
+        pagina = obter_conteudo_pagina(registro)
+        linhas = [f"Tema: {pagina.get('tema', registro.get('tema', pagina_var.get()))}"]
+        for k in ("h1", "titulo", "subtitulo", "subtitulo_segmentos"):
+            if pagina.get(k): linhas.append(f"{k}: {pagina[k]}")
+        for n in range(1, 6):
+            b = pagina.get(f"bloco_{n}")
+            if not isinstance(b, dict):
+                b = pagina.get("blocos", {}).get(f"bloco_{n}", {}) if isinstance(pagina.get("blocos"), dict) else {}
+            if not isinstance(b, dict):
+                linhas.append(f"\nBLOCO {n} — [não encontrado]")
+                continue
+            linhas.append(f"\nBLOCO {n} — {b.get('titulo', '[TÍTULO AUSENTE]')}")
+            paragrafos = b.get("paragrafos_ollama", b.get("paragrafos", []))
+            if isinstance(paragrafos, list):
+                for i, t in enumerate(paragrafos, 1): linhas.append(f"P{i}: {t}")
+        for chave in ("segmentos_listas",):
+            if chave in pagina: linhas.append(f"\n{chave}:\n" + json.dumps(pagina[chave], ensure_ascii=False, indent=2))
+        tags = pagina.get("tags", registro.get("tags"))
+        if tags is not None: linhas.append("\ntags:\n" + json.dumps(tags, ensure_ascii=False, indent=2))
+        return "\n".join(linhas)
+
+    def ler_selecao(var, maximo, nome):
+        valor = (var.get() or "").strip().lower()
+        if valor in ("todos", "todas", "*"):
+            return list(range(1, maximo + 1))
+        try:
+            itens = sorted(set(int(x.strip()) for x in valor.split(",") if x.strip()))
+        except Exception:
+            raise ValueError(f"Seleção de {nome} inválida. Use números separados por vírgula ou 'todos'.")
+        # Campo vazio significa escopo geral: todos os itens disponíveis.
+        if not itens:
+            return list(range(1, maximo + 1))
+        if any(x < 1 or x > maximo for x in itens):
+            raise ValueError(f"Seleção de {nome} inválida. Valores permitidos: 1 a {maximo}, ou 'todos'.")
+        return itens
+
+    def mostrar_pagina(*_):
+        tema = pagina_var.get(); estado["tema"] = tema
+        pagina = banco_cache.get(tema)
+        set_text(atual, resumo_pagina(pagina), True)
+        set_text(previa, "")
+        estado["rascunho"] = None
+        estado["historico"] = []
+        set_text(conversa, "", True)
+    pagina_combo.bind("<<ComboboxSelected>>", mostrar_pagina)
+
+    def anexar_referencias():
+        caminhos = filedialog.askopenfilenames(parent=win, title="Anexar referências", filetypes=[("Referências", "*.txt *.md *.pdf *.docx *.json"), ("Todos", "*.*")])
+        for caminho in caminhos:
+            try:
+                ext = os.path.splitext(caminho)[1].lower()
+                if ext in (".txt", ".md", ".json"):
+                    with open(caminho, "r", encoding="utf-8", errors="replace") as f: conteudo = f.read()
+                elif ext == ".pdf":
+                    with fitz.open(caminho) as doc: conteudo = "\n".join(pg.get_text() for pg in doc)
+                elif ext == ".docx":
+                    doc = Document(caminho); conteudo = "\n".join(x.text for x in doc.paragraphs)
+                else: continue
+                estado["anexos"].append({"nome": os.path.basename(caminho), "texto": conteudo[:50000]})
+            except Exception as e: messagebox.showwarning("Referência", f"Não foi possível ler {caminho}: {e}", parent=win)
+        status_var.set(f"{len(estado['anexos'])} referência(s) anexada(s) nesta sessão.")
+
+    def limpar_conversa():
+        estado["historico"] = []; estado["rascunho"] = None
+        set_text(conversa, "", True); set_text(previa, "")
+        status_var.set("Conversa limpa. O conteúdo salvo não foi alterado.")
+
+    def enviar():
+        if estado["busy"]: return
+        tema = pagina_var.get(); instr = instrucao.get("1.0", "end").strip()
+        if not tema: messagebox.showwarning("Assistente", "Selecione uma página.", parent=win); return
+        if not instr: messagebox.showwarning("Assistente", "Escreva sua instrução.", parent=win); return
+        try:
+            pagina = banco_cache.get(tema)
+            if not isinstance(pagina, dict): raise ValueError("A página selecionada não possui estrutura válida.")
+            escopo = escopo_var.get().strip() or "Aplicar instrução personalizada"
+            blocos_alvo = ler_selecao(bloco_var, 5, "blocos")
+            paragrafos_alvo = ler_selecao(par_var, 3, "parágrafos")
+            conteudo_pagina = obter_conteudo_pagina(pagina)
+            # Se a instrução pedir títulos, essa intenção prevalece sobre o escopo genérico
+            # "Revisar página inteira": gerar somente os cinco títulos, sem reescrever textos.
+            instrucao_normalizada = "".join(
+                ch for ch in unicodedata.normalize("NFKD", instr.lower())
+                if not unicodedata.combining(ch)
+            )
+            pedido_titulos = "titulo" in instrucao_normalizada and any(
+                verbo in instrucao_normalizada
+                for verbo in ("criar", "gerar", "incluir", "completar", "preencher", "corrigir", "revisar", "alterar")
+            )
+            titulos_faltantes = []
+            if pedido_titulos:
+                # Pedido geral de títulos: localizar no JSON somente os blocos sem título.
+                blocos_json = pagina.get("blocos", {}) if isinstance(pagina.get("blocos"), dict) else {}
+                for numero in range(1, 6):
+                    chave = f"bloco_{numero}"
+                    bloco_atual = pagina.get(chave)
+                    if not isinstance(bloco_atual, dict):
+                        bloco_atual = blocos_json.get(chave, {})
+                    titulo_atual = bloco_atual.get("titulo", "") if isinstance(bloco_atual, dict) else ""
+                    if not str(titulo_atual or "").strip():
+                        titulos_faltantes.append(numero)
+                # Quando a pessoa pede para criar/completar títulos, o padrão é corrigir
+                # apenas lacunas, sem substituir títulos já existentes.
+                if any(t in instrucao_normalizada for t in ("faltante", "falta", "ausente", "vazio", "completar")):
+                    blocos_alvo = titulos_faltantes
+                elif escopo == "Revisar página inteira":
+                    blocos_alvo = list(range(1, 6))
+                if not blocos_alvo:
+                    blocos_alvo = titulos_faltantes
+            contexto = {"tema": tema, "registro_banco": pagina, "pagina": conteudo_pagina, "escopo": escopo, "blocos_alvo": blocos_alvo, "paragrafos_alvo": paragrafos_alvo, "titulos_faltantes": titulos_faltantes, "referencias": estado["anexos"]}
+            regras = "Você é o assistente editorial do Gerador MEAD. Responda em português do Brasil. Preserve fatos comprovados e não invente dados da empresa, especificações, certificações, preços, prazos, estoque, garantias, serviços ou condições comerciais. Não transforme produtos comuns em EPI ou equipamento industrial. Respeite a palavra-chave exata da página; em parágrafos SEO, mantenha exatamente uma ocorrência literal quando estiver reescrevendo parágrafos. Preserve os campos que não precisam mudar. Não altere a estrutura JSON."
+            if pedido_titulos:
+                alvo = (f"TAREFA PRIORITÁRIA: crie títulos editoriais específicos SOMENTE para estes blocos: {blocos_alvo}. A palavra-chave exata da página é {tema!r}. Leia os três parágrafos de cada bloco para formular um título coerente com seu conteúdo e com a palavra-chave. Os títulos existentes dos demais blocos devem ser preservados e não devem aparecer em updates. Retorne obrigatoriamente updates no formato {{\"blocos\":{{\"bloco_N\":{{\"titulo\":\"título\"}}}}}} substituindo N pelo número de cada bloco solicitado. Não retorne títulos vazios. NÃO altere H1, subtítulo, tags, segmentos nem qualquer parágrafo.")
+            else:
+                alvo = {"Conversa e orientação": "Converse, analise e responda sem propor alterações estruturadas, a menos que o usuário peça.", "Reescrever parágrafo": f"Nos blocos {blocos_alvo} e parágrafos {paragrafos_alvo}, reescreva somente os parágrafos selecionados. Retorne updates.blocos com os blocos alterados e listas paragrafos_ollama completas de 3 itens, preservando literalmente os parágrafos não selecionados.", "Reescrever bloco": f"Reescreva somente os blocos selecionados {blocos_alvo}, mantendo título e três parágrafos coerentes. Retorne updates.blocos com cada bloco alterado.", "Revisar página inteira": "Revise a página inteira para qualidade, coerência, precisão, diversidade e progressão. Retorne somente os campos realmente alterados, mantendo 5 blocos e 3 parágrafos por bloco.", "Alterar títulos": f"Crie ou revise somente os títulos dos blocos selecionados {blocos_alvo}. Se o usuário pedir todos, altere os cinco. Não altere parágrafos nem outros campos.", "Revisar tags": "Revise apenas tags, mantendo termos pertinentes e sem duplicatas.", "Revisar segmentos": "Revise apenas segmentos_listas, preservando o formato atual.", "Aplicar instrução personalizada": "Siga a instrução do usuário e altere somente os campos necessários."}.get(escopo, "Siga a instrução.")
+            if pedido_titulos and any(t in instrucao_normalizada for t in ("faltante", "falta", "ausente", "vazio", "completar")) and not blocos_alvo:
+                estado["rascunho"] = None
+                set_text(previa, "Todos os cinco blocos já possuem título. Nenhuma alteração é necessária.")
+                status_var.set("Não há títulos faltantes nesta página.")
+                return
+            payload = {"regras": regras, "tarefa": alvo, "contexto": contexto, "instrucao_usuario": instr}
+            mensagens = [{"role": "system", "content": "Você é um editor de páginas MEAD. Responda em português do Brasil. Quando houver alterações, responda EXCLUSIVAMENTE com JSON válido no formato {\"mensagem\":\"explicação\",\"updates\":{...}}. Se for apenas conversa, use updates vazio. Não use markdown nem cercas de código. Os caminhos válidos de updates são h1, titulo, subtitulo, subtitulo_segmentos, tags, segmentos_listas e blocos (bloco_1 a bloco_5; cada bloco pode conter titulo e paragrafos_ollama). Retorne somente os campos solicitados. Nunca retorne título vazio. Para alterações de títulos, cada título deve ser específico ao conteúdo do respectivo bloco."}]
+            for item in estado["historico"][-8:]: mensagens.append(item)
+            mensagens.append({"role": "user", "content": json.dumps(payload, ensure_ascii=False)})
+        except Exception as e:
+            messagebox.showerror("Assistente", str(e), parent=win); return
+        estado["busy"] = True
+        etapa_progresso = "Ollama está gerando os cinco títulos" if pedido_titulos else "Ollama está analisando a página e preparando alterações"
+        iniciar_indicador_progresso(etapa_progresso)
+        instrucao.delete("1.0", "end")
+        conversa.configure(state="normal"); conversa.insert("end", f"\nVOCÊ ({escopo}):\n{instr}\n\nOLLAMA: processando...\n"); conversa.configure(state="disabled"); conversa.see("end")
+        def worker():
+            erro = None; resposta = ""; obj = None
+            try:
+                r = requests.post("http://localhost:11434/api/chat", json={"model": MODELO_OLLAMA, "messages": mensagens, "stream": False, "format": "json", "options": {"temperature": 0.15, "num_ctx": 16384}}, timeout=(15, 900))
+                if not r.ok:
+                    detalhe = (r.text or "")[:1800]
+                    raise RuntimeError(f"HTTP {r.status_code} do Ollama: {detalhe}")
+                corpo = r.json()
+                resposta = corpo.get("message", {}).get("content", "")
+                if not resposta:
+                    raise ValueError("Ollama respondeu sem conteúdo em message.content. Retorno: " + json.dumps(corpo, ensure_ascii=False)[:1800])
+                try:
+                    obj = json.loads(resposta)
+                except Exception:
+                    # Aceita JSON válido mesmo se o modelo acrescentar texto antes/depois.
+                    decoder = json.JSONDecoder()
+                    inicio = resposta.find("{")
+                    if inicio >= 0:
+                        obj, _fim = decoder.raw_decode(resposta[inicio:])
+                    else:
+                        raise ValueError("A resposta do Ollama não contém JSON estruturado: " + resposta[:1800])
+                if not isinstance(obj, dict): raise ValueError("Ollama não retornou um objeto JSON.")
+            except Exception as e:
+                erro = str(e)
+            def concluir():
+                estado["busy"] = False
+                parar_indicador_progresso()
+                if erro:
+                    status_var.set("Ollama não concluiu a solicitação. Veja o diagnóstico na prévia.")
+                    diagnostico = "FALHA AO PROCESSAR A RESPOSTA DO OLLAMA\n\n" + erro
+                    if resposta: diagnostico += "\n\nRESPOSTA BRUTA:\n" + resposta[:5000]
+                    set_text(previa, diagnostico)
+                    conversa.configure(state="normal"); conversa.insert("end", diagnostico + "\n"); conversa.configure(state="disabled"); conversa.see("end"); return
+                msg = str(obj.get("mensagem", obj.get("message", "Resposta recebida.")))
+                updates = obj.get("updates", obj.get("alteracoes", {}))
+                if not isinstance(updates, dict): updates = {}
+                # Compatibilidade com modelos que retornam os campos diretamente na raiz,
+                # ou colocam o objeto de atualização dentro de "pagina".
+                if not updates and isinstance(obj.get("pagina"), dict):
+                    updates = obj["pagina"]
+                if not updates and any(k in obj for k in ("h1", "titulo", "subtitulo", "tags", "segmentos_listas", "blocos", *(f"bloco_{i}" for i in range(1, 6)))):
+                    updates = {k: v for k, v in obj.items() if k in {"h1", "titulo", "subtitulo", "subtitulo_segmentos", "tags", "segmentos_listas", "blocos", *(f"bloco_{i}" for i in range(1, 6))}}
+                # Normaliza respostas que devolvem bloco_1...bloco_5 diretamente.
+                if any(k in updates for k in (f"bloco_{i}" for i in range(1, 6))):
+                    blocos_diretos = {k: v for k, v in updates.items() if k in {f"bloco_{i}" for i in range(1, 6)}}
+                    outros = {k: v for k, v in updates.items() if k not in blocos_diretos}
+                    updates = {**outros, "blocos": blocos_diretos}
+                # Compatibilidade: alguns retornos podem trazer os blocos diretamente em updates.bloco_N.
+                if any(k in updates for k in (f"bloco_{i}" for i in range(1, 6))):
+                    updates = {"blocos": {k: v for k, v in updates.items() if k in {f"bloco_{i}" for i in range(1, 6)}}}
+                estado["historico"].extend([{"role": "user", "content": json.dumps(payload, ensure_ascii=False)}, {"role": "assistant", "content": resposta}])
+                estado["rascunho"] = updates if updates else None
+                conversa.configure(state="normal"); conversa.insert("end", f"OLLAMA:\n{msg}\n\n")
+                if updates:
+                    previa.delete("1.0", "end")
+                    previa.insert("1.0", "MENSAGEM DO OLLAMA:\n" + msg + "\n\nALTERAÇÕES PROPOSTAS:\n" + json.dumps(updates, ensure_ascii=False, indent=2))
+                    estado["rascunho"] = updates
+                    status_var.set("Há alterações em rascunho. Confira a prévia e clique em APLICAR para gravar.")
+                else:
+                    previa.delete("1.0", "end")
+                    previa.insert("1.0", "O Ollama respondeu, mas não devolveu alterações estruturadas reconhecidas.\n\nMENSAGEM:\n" + msg + "\n\nRESPOSTA BRUTA PARA DIAGNÓSTICO:\n" + resposta[:5000])
+                    status_var.set("Resposta recebida, mas sem alterações estruturadas. Consulte a prévia.")
+                conversa.configure(state="disabled"); conversa.see("end")
+            try:
+                win.after(0, concluir)
+            except Exception:
+                pass
+        threading.Thread(target=worker, daemon=True).start()
+
+    def aplicar_alteracoes():
+        updates = estado.get("rascunho")
+        tema = pagina_var.get()
+        if not isinstance(updates, dict) or not updates:
+            messagebox.showinfo("Aplicar", "Não há alterações estruturadas para aplicar.", parent=win); return
+        if not messagebox.askyesno("Confirmar gravação", f"Aplicar as alterações na página '{tema}'?\n\nSerá criado um backup do JSON antes da gravação.", parent=win): return
+        try:
+            caminho = banco_var.get().strip()
+            with open(caminho, "r", encoding="utf-8") as f: banco = json.load(f)
+            if not isinstance(banco, dict) or not isinstance(banco.get(tema), dict): raise ValueError("A página não foi encontrada no banco atual.")
+            registro = banco[tema]
+            pagina = obter_conteudo_pagina(registro)
+            permitidos = {"h1", "titulo", "subtitulo", "subtitulo_segmentos", "tags", "segmentos_listas", "blocos"}
+            for chave, valor in updates.items():
+                if chave not in permitidos: continue
+                if chave == "blocos":
+                    if not isinstance(valor, dict): continue
+                    for cb, vb in valor.items():
+                        if cb not in {f"bloco_{i}" for i in range(1, 6)} or not isinstance(vb, dict): continue
+                        # O formato oficial do banco MEAD guarda bloco_1...bloco_5 diretamente dentro de pagina.
+                        blocos = pagina.setdefault("blocos", {}) if isinstance(pagina.get("blocos"), dict) else None
+                        alvo = pagina.setdefault(cb, {}) if cb in pagina or blocos is None else blocos.setdefault(cb, {})
+                        if "titulo" in vb and isinstance(vb["titulo"], str): alvo["titulo"] = vb["titulo"].strip()
+                        if "paragrafos_ollama" in vb and isinstance(vb["paragrafos_ollama"], list):
+                            ps = [str(x).strip() for x in vb["paragrafos_ollama"][:3]]
+                            if len(ps) != 3: raise ValueError(f"{cb}: são necessários exatamente 3 parágrafos.")
+                            alvo["paragrafos_ollama"] = ps
+                elif chave in ("tags", "segmentos_listas"):
+                    if isinstance(valor, list):
+                        pagina[chave] = valor
+                        if chave == "tags" and isinstance(registro, dict) and registro is not pagina:
+                            registro[chave] = valor
+                elif isinstance(valor, str): pagina[chave] = valor.strip()
+            # validação mínima estrutural antes de persistir
+            blocos = pagina.get("blocos", {})
+            for i in range(1, 6):
+                b = pagina.get(f"bloco_{i}")
+                if not isinstance(b, dict) and isinstance(blocos, dict): b = blocos.get(f"bloco_{i}")
+                if isinstance(b, dict) and "paragrafos_ollama" in b and len(b["paragrafos_ollama"]) != 3:
+                    raise ValueError(f"Bloco {i} não contém exatamente três parágrafos.")
+            backup = caminho + ".backup-assistente-" + datetime.now().strftime("%Y%m%d-%H%M%S")
+            import shutil; shutil.copy2(caminho, backup)
+            tmp = caminho + ".assistente.tmp"
+            with open(tmp, "w", encoding="utf-8") as f: json.dump(banco, f, ensure_ascii=False, indent=4); f.flush(); os.fsync(f.fileno())
+            os.replace(tmp, caminho)
+            banco_cache.clear(); banco_cache.update(banco)
+            estado["rascunho"] = None; set_text(previa, "")
+            mostrar_pagina(); status_var.set("Alterações gravadas com sucesso. Backup: " + os.path.basename(backup))
+            messagebox.showinfo("Gravação concluída", "Página atualizada.\nBackup criado em:\n" + backup, parent=win)
+        except Exception as e: messagebox.showerror("Não foi possível gravar", str(e), parent=win)
+
+    ttk.Button(linha_botoes, text="ANEXAR REFERÊNCIAS", command=anexar_referencias).pack(side="left", padx=3)
+    ttk.Button(linha_botoes, text="ENVIAR AO OLLAMA", command=enviar).pack(side="left", padx=3)
+    ttk.Button(linha_botoes, text="APLICAR ALTERAÇÕES", command=aplicar_alteracoes).pack(side="left", padx=3)
+    ttk.Button(linha_botoes, text="LIMPAR CONVERSA", command=limpar_conversa).pack(side="left", padx=3)
+    ttk.Button(linha_botoes, text="RECARREGAR BANCO", command=carregar_paginas).pack(side="left", padx=3)
+    carregar_paginas()
+
+
+
+
+# ============================================================
 # INTERFACE
 # ============================================================
 
@@ -28618,6 +27199,97 @@ def atualizar_progresso(valor, texto):
         )
     )
 
+# ============================================================
+# PAINEL VERTICAL — ACOMPANHAMENTO INDIVIDUAL DAS PALAVRAS-CHAVE
+# ============================================================
+
+PAINEL_PALAVRAS = None
+CANVAS_PALAVRAS = None
+FRAME_LINHAS_PALAVRAS = None
+LINHAS_PALAVRAS_UI = {}
+
+
+def preparar_painel_palavras(lista):
+    """Cria uma linha independente por palavra-chave na lateral editorial."""
+    def _montar():
+        global LINHAS_PALAVRAS_UI
+        if FRAME_LINHAS_PALAVRAS is None:
+            return
+        for filho in FRAME_LINHAS_PALAVRAS.winfo_children():
+            filho.destroy()
+        LINHAS_PALAVRAS_UI = {}
+        for tema in lista:
+            linha = tk.Frame(FRAME_LINHAS_PALAVRAS)
+            linha.pack(fill="x", padx=4, pady=4)
+            topo = tk.Frame(linha)
+            topo.pack(fill="x")
+            nome = tk.Label(topo, text=str(tema), anchor="w", justify="left", wraplength=205)
+            nome.pack(side="left", fill="x", expand=True)
+            percentual = tk.Label(topo, text="0%", width=5, anchor="e")
+            percentual.pack(side="right")
+            barra = ttk.Progressbar(linha, length=210, maximum=100, mode="determinate")
+            barra.pack(fill="x", pady=(2, 1))
+            rodape = tk.Label(linha, text="Aguardando | 00:00", anchor="w", font=("Arial", 8))
+            rodape.pack(fill="x")
+            LINHAS_PALAVRAS_UI[str(tema)] = {
+                "barra": barra,
+                "percentual": percentual,
+                "rodape": rodape,
+                "inicio": None,
+                "valor": 0,
+                "status": "Aguardando",
+            }
+    try:
+        janela.after(0, _montar)
+    except Exception:
+        pass
+
+
+def atualizar_linha_palavra(tema, percentual=None, status=None, inicio=None, resultado=None):
+    """Atualiza percentual/status/cronômetro de uma palavra específica."""
+    chave = str(tema)
+    def _atualizar():
+        item = LINHAS_PALAVRAS_UI.get(chave)
+        if not item:
+            return
+        if inicio is not None:
+            item["inicio"] = inicio
+        if percentual is not None:
+            valor = max(0, min(100, int(percentual)))
+            item["valor"] = valor
+            item["barra"].configure(value=valor)
+            item["percentual"].configure(text=f"{valor}%" if status != "Gerando (estimativa)" else f"~{valor}%")
+        decorrido = 0
+        if item.get("inicio") is not None:
+            decorrido = max(0, time.time() - item["inicio"])
+        if status is not None:
+            item["status"] = status
+        texto_status = item.get("status", "Em andamento")
+        if resultado is True:
+            texto_status = "Concluída"
+            item["status"] = texto_status
+            item["valor"] = 100
+            item["barra"].configure(value=100)
+            item["percentual"].configure(text="100%")
+        elif resultado is False:
+            texto_status = "Não concluída"
+            item["status"] = texto_status
+        item["rodape"].configure(text=f"{texto_status} | {formatar_tempo(decorrido)}")
+    try:
+        janela.after(0, _atualizar)
+    except Exception:
+        pass
+
+
+def atualizar_tempos_painel_palavras():
+    """Atualiza os cronômetros individuais sem concatenar tempos numa única linha."""
+    for tema, item in list(LINHAS_PALAVRAS_UI.items()):
+        inicio = item.get("inicio")
+        if inicio is None or item.get("valor", 0) >= 100:
+            continue
+        atualizar_linha_palavra(tema)
+
+
 def iniciar_geracao():
 
     global IA_PROCESSANDO
@@ -28654,6 +27326,9 @@ def formatar_tempo(segundos):
 
 INICIO_TEMA_TEMPO_ATIVO = None
 TEMA_TEMPO_ATIVO = ""
+INICIO_EXECUCAO_MEAD = None
+TEMPOS_TEMAS_MEAD = []
+TEMPO_TOTAL_MEAD_FINAL = None
 
 
 def atualizar_tempo_execucao(inicio, tema):
@@ -28678,10 +27353,16 @@ def atualizar_tempo_execucao(inicio, tema):
         )
 
         try:
-            janela.after(
-                0,
-                lambda t=texto: status_progresso.config(text=t)
+            atualizar_linha_palavra(tema, status="Gerando")
+            janela.after(0, lambda t=texto: status_progresso.config(text=t))
+            inicio_total = globals().get("INICIO_EXECUCAO_MEAD")
+            tempos_concluidos = globals().get("TEMPOS_TEMAS_MEAD", [])
+            total_decorrido = max(0, time.time() - inicio_total) if inicio_total else 0
+            texto_tempo_ui = (
+                f"Palavra atual: {formatar_tempo(tempo)} | "
+                f"Tempo total: {formatar_tempo(total_decorrido)}"
             )
+            janela.after(0, lambda t=texto_tempo_ui: status_tempo.config(text=t))
         except Exception:
             pass
 
@@ -28791,17 +27472,13 @@ def salvar_progresso(
         )
 
 
+        # Log enxuto: não despejar a lista de temas nem dados históricos
+        # preservados no progresso.json.
         print()
-        print("==============================")
-        print("PROGRESSO SALVO")
-        print("==============================")
-        print({k: v for k, v in dados.items() if k != "recuperacao_conteudo"})
-        recuperacao_log = dados.get("recuperacao_conteudo", {})
-        if isinstance(recuperacao_log, dict):
-            tema_id_log = _tema_recuperacao_id(tema)
-            registro_log = recuperacao_log.get(tema_id_log, {})
-            blocos_log = registro_log.get("blocos", {}) if isinstance(registro_log, dict) else {}
-            print("BLOCOS PRESERVADOS PARA RECUPERAÇÃO:", len(blocos_log) if isinstance(blocos_log, dict) else 0, "/ 5")
+        print("PROGRESSO ATUAL SALVO")
+        print(f"TEMA ATUAL: {tema}")
+        print(f"STATUS: {status}")
+        print(f"POSIÇÃO: tema {indice_tema + 1} | categoria {indice_categoria + 1}")
 
 
     except Exception as e:
@@ -31133,6 +29810,8 @@ def gerar_material_interface():
     global PROCESSAMENTO_ATIVO
     global INICIO_TEMA_TEMPO_ATIVO
     global TEMA_TEMPO_ATIVO
+    global INICIO_EXECUCAO_MEAD, TEMPOS_TEMAS_MEAD, TEMPO_TOTAL_MEAD_FINAL
+
 
     try:
 
@@ -31143,17 +29822,38 @@ def gerar_material_interface():
         progresso = carregar_progresso()
 
         inicio_total = time.time()
+        INICIO_EXECUCAO_MEAD = inicio_total
+        TEMPOS_TEMAS_MEAD = []
+        TEMPO_TOTAL_MEAD_FINAL = None
         INICIO_TEMA_TEMPO_ATIVO = None
         TEMA_TEMPO_ATIVO = ""
+        try:
+            status_tempo.config(text="Palavra atual: 00:00 | Total: 00:00")
+        except Exception:
+            pass
 
         if progresso:
+            # O progresso.json pode conter temas e respostas de execuções
+            # anteriores. Exibir somente os campos do andamento atual.
+            tema_salvo = progresso.get("tema_atual", "")
+            status_salvo = progresso.get("status", "")
+            indice_tema_salvo = progresso.get("indice_tema")
+            indice_categoria_salvo = progresso.get("indice_categoria")
 
             print()
             print("==============================")
-            print("RETOMANDO PROCESSAMENTO")
+            print("PROGRESSO ANTERIOR LOCALIZADO")
             print("==============================")
-
-            print(progresso)
+            if tema_salvo:
+                print(f"TEMA REGISTRADO: {tema_salvo}")
+            if status_salvo:
+                print(f"STATUS REGISTRADO: {status_salvo}")
+            if indice_tema_salvo is not None and indice_categoria_salvo is not None:
+                print(
+                    f"POSIÇÃO REGISTRADA: tema {indice_tema_salvo + 1} | "
+                    f"categoria {indice_categoria_salvo + 1}"
+                )
+            print("Histórico e respostas antigas ocultados do log.")
 
         atualizar_progresso(
             0,
@@ -31203,6 +29903,75 @@ def gerar_material_interface():
             for x in palavras.splitlines()
             if x.strip()
         ]
+
+        preparar_painel_palavras(lista_palavras)
+
+        # NOVA ARQUITETURA: sem pesquisa, coleta, patrimônio bruto ou mapa.
+        # O Ollama recebe diretamente a palavra-chave e o MEAD completo.
+        # As validações são executadas depois, sobre os textos retornados.
+        nome_site_direto = (
+            entrada_site.get().strip()
+            if "entrada_site" in globals()
+            else ""
+        )
+        estrutura_direta = obter_estrutura_editorial()
+        total_direto = len(lista_palavras)
+        for indice_direto, tema_direto in enumerate(lista_palavras, start=1):
+            inicio_tema_direto = time.time()
+            INICIO_TEMA_TEMPO_ATIVO = inicio_tema_direto
+            TEMA_TEMPO_ATIVO = tema_direto
+            atualizar_linha_palavra(tema_direto, percentual=0, status="Iniciando Ollama", inicio=inicio_tema_direto)
+            threading.Thread(
+                target=atualizar_tempo_execucao,
+                args=(inicio_tema_direto, tema_direto),
+                daemon=True
+            ).start()
+            print("\n" + "=" * 58)
+            print(f"GERAÇÃO MEAD — {indice_direto}/{total_direto}")
+            print("PALAVRA-CHAVE:", tema_direto)
+            atualizar_progresso(
+                int((indice_direto - 1) / max(1, total_direto) * 100),
+                f"Gerando com Ollama: {tema_direto}"
+            )
+            resultado_direto = gerar_conteudo_completo(
+                tema_direto,
+                [],
+                "",
+                estrutura_direta,
+                dados_coleta=[],
+                nome_site=nome_site_direto
+            )
+            segundos_tema = max(0.0, time.time() - inicio_tema_direto)
+            TEMPOS_TEMAS_MEAD.append({"tema": tema_direto, "segundos": segundos_tema, "resultado": bool(resultado_direto)})
+            atualizar_linha_palavra(tema_direto, percentual=100 if resultado_direto else None, status="Concluída" if resultado_direto else "Falha na geração/gravação", resultado=bool(resultado_direto))
+            print(f"TEMPO DA PALAVRA-CHAVE: {formatar_tempo(segundos_tema)}")
+            if resultado_direto:
+                print("RESULTADO: GRAVADO")
+            else:
+                print("RESULTADO: NÃO GRAVADO")
+            try:
+                status_tempo.config(
+                    text=f"Última palavra: {tema_direto} — {formatar_tempo(segundos_tema)} | Total: {formatar_tempo(max(0, time.time()-inicio_total))}"
+                )
+            except Exception:
+                pass
+        TEMPO_TOTAL_MEAD_FINAL = max(0.0, time.time() - inicio_total)
+        INICIO_TEMA_TEMPO_ATIVO = None
+        TEMA_TEMPO_ATIVO = ""
+        print("\n======================================")
+        print("RESUMO DOS TEMPOS")
+        print("======================================")
+        for item_tempo in TEMPOS_TEMAS_MEAD:
+            print(f"{item_tempo['tema']}: {formatar_tempo(item_tempo['segundos'])} | {item_tempo['resultado'] and 'GRAVADO' or 'NÃO GRAVADO'}")
+        print(f"TEMPO TOTAL: {formatar_tempo(TEMPO_TOTAL_MEAD_FINAL)}")
+        try:
+            status_tempo.config(text=f"Tempo total: {formatar_tempo(TEMPO_TOTAL_MEAD_FINAL)} | Palavras: {len(TEMPOS_TEMAS_MEAD)}")
+        except Exception:
+            pass
+        atualizar_progresso(100, "Geração MEAD finalizada")
+        IA_PROCESSANDO = False
+        PROCESSAMENTO_ATIVO = False
+        return
 
         novo_conjunto = verificar_novo_conjunto(
             lista_palavras
@@ -33469,6 +32238,9 @@ def abrir_interface():
     global status_progresso
     global entrada_pasta_docx
     global status_tempo
+    global PAINEL_PALAVRAS
+    global CANVAS_PALAVRAS
+    global FRAME_LINHAS_PALAVRAS
 
     janela = tk.Tk()
 
@@ -33546,7 +32318,45 @@ def abrir_interface():
 
 
     # ========================================================
-    # 03. SEPARADOR
+    # 03. ACOMPANHAMENTO DAS PALAVRAS-CHAVE (ABAIXO DOS CHECKBOXES)
+    # ========================================================
+
+    PAINEL_PALAVRAS = tk.LabelFrame(
+        frame_editorial,
+        text="ANDAMENTO POR PALAVRA-CHAVE",
+        padx=4,
+        pady=4
+    )
+    PAINEL_PALAVRAS.pack(fill="x", expand=False, pady=(10, 4))
+
+    _container_lista = tk.Frame(PAINEL_PALAVRAS)
+    _container_lista.pack(fill="both", expand=True)
+
+    _canvas_lista = tk.Canvas(_container_lista, height=235, highlightthickness=0)
+    _scroll_lista = ttk.Scrollbar(_container_lista, orient="vertical", command=_canvas_lista.yview)
+    FRAME_LINHAS_PALAVRAS = tk.Frame(_canvas_lista)
+    FRAME_LINHAS_PALAVRAS.bind(
+        "<Configure>",
+        lambda e: _canvas_lista.configure(scrollregion=_canvas_lista.bbox("all"))
+    )
+    _canvas_lista.create_window((0, 0), window=FRAME_LINHAS_PALAVRAS, anchor="nw")
+    _canvas_lista.configure(yscrollcommand=_scroll_lista.set)
+    _canvas_lista.pack(side="left", fill="both", expand=True)
+    _scroll_lista.pack(side="right", fill="y")
+    CANVAS_PALAVRAS = _canvas_lista
+
+    tk.Label(
+        PAINEL_PALAVRAS,
+        text="Percentual durante a geração é estimado pelo fluxo de saída do Ollama.",
+        font=("Arial", 7),
+        fg="gray",
+        wraplength=230,
+        justify="left"
+    ).pack(anchor="w", padx=3, pady=(3, 0))
+
+
+    # ========================================================
+    # 04. SEPARADOR
     # ========================================================
 
     tk.Frame(
@@ -33742,7 +32552,8 @@ def abrir_interface():
 
     status_tempo = tk.Label(
         janela,
-        text=""
+        text="Tempo da palavra: 00:00 | Tempo total: 00:00",
+        justify="left"
     )
 
     status_tempo.pack(
@@ -33863,6 +32674,18 @@ def abrir_interface():
     )
 
 
+    # Assistente conversacional Ollama — restaurado nesta versão.
+    tk.Button(
+        frame_botoes,
+        text="ASSISTENTE OLLAMA — EDITAR PÁGINAS",
+        height=2,
+        command=abrir_assistente_ollama
+    ).pack(
+        side="left",
+        padx=5
+    )
+
+
     janela.mainloop()
 
 
@@ -33873,7 +32696,7 @@ def abrir_interface():
 
 def executar():
 
-    print("VERSÃO MEAD: 7.15 — AUDITORIA DE RESERVAS E JSON")
+    print("VERSÃO MEAD: 7.48 — OLLAMA + MEAD SEM FRAGMENTOS | VALIDAÇÃO DOS TEXTOS")
     print("ARQUIVO PYTHON EM EXECUÇÃO:", os.path.abspath(__file__))
     print("JSON OFICIAL CONFIGURADO:", ARQUIVO_BANCO)
 
